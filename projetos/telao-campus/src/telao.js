@@ -4,7 +4,7 @@
  * navegador, exportar via MediaRecorder e renderizar quadro a quadro em MP4.
  */
 (function () {
-  const W = 1920, H = 1080, FPS = 24, DURATION = 50;
+  const W = 1920, H = 1080, FPS = 24, DURATION = 53;
   const C = {
     blue: '#0064f5', mid: '#0033b0', navy: '#000f44', yellow: '#ffd600',
     lime: '#C9FF90', white: '#ffffff', gray: '#f3f3f3',
@@ -113,8 +113,12 @@
     const pts = cacoPoints(shape, o.x, o.y, o.w, o.rot, o.s ?? 1, o.flip);
     roundedPoly(ctx, pts, o.r ?? RADIUS);
     ctx.globalAlpha = o.alpha ?? 1;
-    ctx.fillStyle = o.color;
-    ctx.fill();
+    if (o.outline) {
+      ctx.lineWidth = o.outline; ctx.lineJoin = 'round';
+      ctx.strokeStyle = o.color; ctx.stroke();
+    } else {
+      ctx.fillStyle = o.color; ctx.fill();
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -138,33 +142,57 @@
   }
 
   // ---------- tipografia ----------
+  const LIGHT = 300, BOLD = 700; // Light para o texto corrido, Bold para o destaque
   function font(weight, size) {
     return `${weight} ${size}px "${FONT}"`;
   }
 
-  // Quebra texto rico ([{text, color}]) em linhas de largura máxima.
-  function layoutRich(ctx, runs, size, weight, maxW) {
-    ctx.font = font(weight, size);
+  // Artigos/preposições curtas nunca terminam linha: descem junto com a palavra seguinte.
+  const GLUE = new Set(['a', 'à', 'ao', 'aos', 'as', 'o', 'os', 'e', 'é', 'de', 'da', 'do', 'das', 'dos',
+    'em', 'na', 'no', 'nas', 'nos', 'com', 'para', 'por', 'um', 'uma']);
+
+  // Quebra texto rico ([{text, color, weight}]) em linhas. Além de colar artigos à
+  // palavra seguinte, equilibra as linhas (menor largura com o mesmo nº de linhas)
+  // para não deixar viúvas.
+  function layoutRich(ctx, runs, size, maxW) {
     const words = [];
-    runs.forEach(r => r.text.split(' ').filter(Boolean).forEach(w => words.push({ w, color: r.color })));
+    runs.forEach(r => r.text.split(' ').filter(Boolean).forEach(w => {
+      ctx.font = font(r.weight, size);
+      words.push({ w, color: r.color, weight: r.weight, width: ctx.measureText(w).width });
+    }));
+    ctx.font = font(LIGHT, size);
     const space = ctx.measureText(' ').width;
-    const lines = [];
-    let line = [], lw = 0;
-    for (const word of words) {
-      const ww = ctx.measureText(word.w).width;
-      if (line.length && lw + space + ww > maxW) { lines.push(line); line = []; lw = 0; }
-      word.x = line.length ? lw + space : 0;
-      lw = word.x + ww;
-      line.push(word);
+    const groups = [];
+    for (let i = 0; i < words.length; i++) {
+      const g = [words[i]];
+      while (GLUE.has(g[g.length - 1].w.toLowerCase()) && i + 1 < words.length) g.push(words[++i]);
+      groups.push(g);
     }
-    if (line.length) lines.push(line);
-    return lines;
+    const wrap = maxWidth => {
+      const lines = [];
+      let line = [], lw = 0;
+      for (const g of groups) {
+        const gw = g.reduce((a, w) => a + w.width, 0) + space * (g.length - 1);
+        if (line.length && lw + space + gw > maxWidth) { lines.push(line); line = []; lw = 0; }
+        let x = line.length ? lw + space : 0;
+        g.forEach(w => { line.push({ ...w, x }); x += w.width + space; });
+        lw = x - space;
+      }
+      if (line.length) lines.push(line);
+      return lines;
+    };
+    const n = wrap(maxW).length;
+    let lo = maxW * 0.4, hi = maxW;
+    for (let k = 0; k < 24; k++) {
+      const mid = (lo + hi) / 2;
+      if (wrap(mid).length <= n) hi = mid; else lo = mid;
+    }
+    return wrap(hi);
   }
 
   // Revela as linhas uma a uma, subindo de dentro de uma máscara.
   function drawRichReveal(ctx, lines, o, t) {
     const lh = o.size * (o.lineHeight ?? 1.16);
-    ctx.font = font(o.weight, o.size);
     ctx.textBaseline = 'alphabetic';
     lines.forEach((line, i) => {
       const k = prog(t, o.start + i * o.stagger, o.start + i * o.stagger + o.dur, easeOutQuint);
@@ -178,6 +206,7 @@
       ctx.globalAlpha = k * (1 - out);
       const dy = (1 - k) * lh * 0.9 - out * 30;
       line.forEach(word => {
+        ctx.font = font(word.weight, o.size);
         ctx.fillStyle = word.color;
         ctx.fillText(word.w, o.x + word.x, baseY + dy);
       });
@@ -185,7 +214,10 @@
     });
   }
 
-  function drawText(ctx, text, x, y, { size, weight = 700, color, align = 'left', alpha = 1, spacing = 0 }) {
+  // primeira linha de base para centralizar verticalmente um bloco de texto
+  const blockTop = (lines, size, lh, cy) => cy - (lines.length * size * lh) / 2 + size * 0.86;
+
+  function drawText(ctx, text, x, y, { size, weight = BOLD, color, align = 'left', alpha = 1, spacing = 0 }) {
     ctx.font = font(weight, size);
     ctx.letterSpacing = spacing + 'px';
     ctx.textAlign = align;
@@ -239,76 +271,54 @@
   // ---------- estado ----------
   const A = {}; // assets carregados
   let S;        // cacos normalizados por nome ("Ativo 11" -> 11)
-  let confetti; // partículas da cena de números
 
   async function init(assets) {
-    const faces = [['Regular', 400], ['Medium', 500], ['Bold', 700]].map(([n, w]) =>
+    const faces = [['Light', LIGHT], ['Bold', BOLD]].map(([n, w]) =>
       new FontFace(FONT, `url(${assets.fonts[n]})`, { weight: String(w) }));
     await Promise.all(faces.map(f => f.load().then(ff => document.fonts.add(ff))));
 
-    const [p1, p2, lg, lgNeg, agibank] = await Promise.all([
+    const [p1, p2, lg, lgNeg] = await Promise.all([
       loadImage(assets.images.foto1), loadImage(assets.images.foto2),
       loadImage(assets.images.logoCampanha), loadImage(assets.images.logoCampanhaNeg),
-      loadImage(assets.images.agibank),
     ]);
     A.foto1 = p1; A.foto2 = p2;
     A.logo = trim(lg); A.logoNeg = trim(lgNeg);
-    // rasteriza o SVG do Agibank em alta para recortar sem perda
-    const big = document.createElement('canvas');
-    big.width = 1920 * 2; big.height = Math.round(1082.79 * 2);
-    big.getContext('2d').drawImage(agibank, 0, 0, big.width, big.height);
-    A.agibank = trim(big);
 
     S = {};
     for (const [name, s] of Object.entries(assets.shapes)) S[name] = polygonFromPath(s.d, s.w, s.h);
-    buildConfetti();
-  }
-
-  // ---------- CENA 03: confetes de cacos ----------
-  const CONF_SHAPES = [3, 5, 6, 8, 10, 11, 13, 15, 20, 22, 23, 24, 26, 31, 35, 36];
-  function buildConfetti() {
-    const r = rng(2026);
-    confetti = [];
-    // zonas de respiro ao redor do conteúdo (nunca sobre os números/textos)
-    const zones = [
-      [40, 190, 240, 1040], [1680, 190, 1880, 1040],  // laterais
-      [240, 905, 1680, 1050],                         // faixa inferior
-      [260, 175, 1660, 255],                          // faixa superior (abaixo do header)
-    ];
-    const weights = [0.3, 0.3, 0.25, 0.15];
-    for (let k = 0; k < 34; k++) {
-      let zi = 0, acc = r();
-      while (acc > weights[zi] && zi < 3) { acc -= weights[zi]; zi++; }
-      const z = zones[zi];
-      confetti.push({
-        shape: CONF_SHAPES[Math.floor(r() * CONF_SHAPES.length)],
-        x: lerp(z[0], z[2], r()), y: lerp(z[1], z[3], r()),
-        w: lerp(26, zi < 2 ? 70 : 52, r()),
-        rot: r() * 360, spin: lerp(-14, 14, r()),
-        amp: lerp(6, 16, r()), freq: lerp(0.35, 0.7, r()), phase: r() * Math.PI * 2,
-        color: r() < 0.55 ? C.yellow : C.white,
-        delay: 12.5 + r() * 2.2,
-        hop: Math.floor(r() * 4), // pulinho em um dos tópicos
-      });
-    }
   }
 
   // ---------- roteiro ----------
-  const T1 = { start: 0, end: 12 }, T3 = { start: 12, end: 38 }, T4 = { start: 38, end: 50 };
+  const LOGO_W = 944; // logo da campanha na abertura/fechamento (20% menor que a v1)
+  const WIPE1 = [11.45, 12.15], WIPE2 = [37.35, 38.15];
+  const CLOSE_T0 = 47.4; // tela de fechamento com o logo
   const ITEMS = [
     { pre: '+ de R$', num: 11, suf: 'milhões', label: 'em reconhecimentos', color: C.yellow },
     { num: 1413, label: 'Agilizados reconhecidos', color: C.lime },
     { num: 1360, label: 'méritos e bônus', color: C.yellow },
     { num: 80, label: 'promoções', color: C.lime },
   ];
-  const ITEM_T0 = 15.8, ITEM_DUR = 3.9; // cada tópico ganha ~4s de leitura
-  const SUMMARY_T0 = ITEM_T0 + ITEM_DUR * 4; // 31.4s
+  const ITEM_T0 = 15.0, ITEM_DUR = 4.0; // cada tópico ganha 4s de leitura
+  const SUMMARY_T0 = ITEM_T0 + ITEM_DUR * 4; // 31s
+
+  // Cacos da tela azul: poucos, maiores e nas extremidades (alguns vazados para fora),
+  // mais alguns pequenos e contornos brancos, como nos exemplos de aplicação da marca.
+  const CELEB = [
+    { s: 25, x: 150, y: 1035, w: 470, rot: 8, from: [-1, 1] },
+    { s: 22, x: 1830, y: 990, w: 380, rot: -10, from: [1, 1] },
+    { s: 8, x: 1965, y: 560, w: 230, rot: 0, from: [1, 0] },
+    { s: 10, x: -50, y: 560, w: 160, rot: 62, from: [-1, 0] },
+    { s: 36, x: 1490, y: 255, w: 80, rot: 18, from: [0, -1] },
+    { s: 13, x: 610, y: 945, w: 100, rot: -14, from: [0, 1] },
+    { s: 5, x: 330, y: 270, w: 96, rot: 12, from: [0, -1], outline: true },
+    { s: 3, x: 1300, y: 960, w: 104, rot: -22, from: [0, 1], outline: true },
+  ];
 
   function scene1(ctx, t) {
     // cacos amarelos de composição (respiram sutilmente)
     const b = Math.sin(t * 0.6);
     const yIn = k => prog(t, k, k + 1.4, easeOutQuint);
-    const out = prog(t, 11.0, 11.8, easeInOut);
+    const out = prog(t, 10.9, 11.5, easeInOut);
     const ys = [
       { s: S[32], x: 1830, y: 70, w: 420, rot: -8 + b * 1.2, d: 0.1, from: [140, -120] },
       { s: S[25], x: 130, y: 1010, w: 520, rot: 6 - b, d: 0.3, from: [-160, 120] },
@@ -327,81 +337,81 @@
     // logo "O jeito Agi | Crescer na jornada": entra no centro e assenta no topo
     const lIn = prog(t, 0.4, 2.0, easeOutQuint);
     const move = prog(t, 3.5, 4.8, easeInOut);
-    const wBig = 1180, wSmall = 400;
-    const lw = lerp(wBig, wSmall, move);
+    const wSmall = 320;
+    const lw = lerp(LOGO_W, wSmall, move);
     const lh = (lw * A.logo.height) / A.logo.width;
-    const lx = lerp((W - wBig) / 2, MARGIN, move);
-    const ly = lerp((H - (wBig * A.logo.height) / A.logo.width) / 2, 92, move) + (1 - lIn) * 40;
+    const lx = lerp((W - LOGO_W) / 2, MARGIN, move);
+    const ly = lerp((H - (LOGO_W * A.logo.height) / A.logo.width) / 2, 92, move) + (1 - lIn) * 40;
     const lScale = lerp(0.94, 1, lIn);
     ctx.save();
     ctx.translate(lx + lw / 2, ly + lh / 2);
     ctx.scale(lScale, lScale);
-    drawLogo(ctx, A.logo, -lw / 2, -lh / 2, lw, lIn * (1 - prog(t, 10.9, 11.5, easeInOut)));
+    drawLogo(ctx, A.logo, -lw / 2, -lh / 2, lw, lIn * (1 - out));
     ctx.restore();
 
     // foto 1 mascarada em caco (Ativo 37) + caco amarelo de apoio
     const pIn = prog(t, 4.3, 5.9, easeOutQuint);
     if (pIn > 0) {
       fillCaco(ctx, S[15], {
-        x: 1180 - (1 - pIn) * 60, y: 860 + (1 - pIn) * 60, w: 300, rot: -12 + b * 1.5,
+        x: 1200 - (1 - pIn) * 60, y: 840 + (1 - pIn) * 60, w: 300, rot: -12 + b * 1.5,
         color: C.yellow, alpha: pIn * (1 - out),
       });
       photoCaco(ctx, A.foto1, S[37], {
-        x: 1395, y: 520, w: 880, rot: lerp(-4, -1.5, pIn), s: lerp(0.86, 1, pIn),
+        x: 1445, y: 520, w: 800, rot: lerp(-4, -1.5, pIn), s: lerp(0.86, 1, pIn),
         zoom: lerp(1.22, 1.06, pIn) - (t - 6) * 0.004, focus: [0.5, 0.36],
-        alpha: pIn * (1 - prog(t, 11.1, 11.7, easeInOut)),
+        alpha: pIn * (1 - out),
       });
     }
 
-    // lettering
+    // lettering (fundo claro: azul Agibank, Light + Bold no destaque)
     const runs = [
-      { text: 'Quem contribui com o crescimento do Agi vive a', color: C.navy },
-      { text: 'meritocracia na prática', color: C.blue },
-      { text: 'e é', color: C.navy },
-      { text: 'reconhecido', color: C.blue },
-      { text: 'por isso.', color: C.navy },
+      { text: 'Quem contribui com o crescimento do Agi vive a', color: C.blue, weight: LIGHT },
+      { text: 'meritocracia na prática', color: C.blue, weight: BOLD },
+      { text: 'e é', color: C.blue, weight: LIGHT },
+      { text: 'reconhecido', color: C.blue, weight: BOLD },
+      { text: 'por isso.', color: C.blue, weight: LIGHT },
     ];
-    const lines = layoutRich(ctx, runs, 70, 700, 760);
+    const size = 66, lhK = 1.16;
+    const lines = layoutRich(ctx, runs, size, 860);
     drawRichReveal(ctx, lines, {
-      x: MARGIN, y: 370, size: 70, weight: 700, maxW: 760, lineHeight: 1.16,
-      start: 5.3, stagger: 0.32, dur: 1.1, end: 10.7,
+      x: MARGIN, y: blockTop(lines, size, lhK, 580), size, maxW: 860, lineHeight: lhK,
+      start: 5.3, stagger: 0.32, dur: 1.1, end: 10.6,
     }, t);
   }
 
   // Transição: um caco cresce a partir de um ponto até cobrir a tela.
-  function cacoWipe(ctx, t, a, b, color, cx, cy, shape, rot0) {
+  function cacoWipe(ctx, t, [a, b], color, cx, cy, shape, rot0) {
     const k = prog(t, a, b, easeInOut);
     if (k <= 0) return false;
     if (k >= 1) { ctx.fillStyle = color; ctx.fillRect(0, 0, W, H); return true; }
-    fillCaco(ctx, shape, { x: cx, y: cy, w: lerp(40, 5200, k), rot: rot0 + k * 35, color, r: RADIUS });
+    fillCaco(ctx, shape, { x: cx, y: cy, w: lerp(40, 5200, k), rot: rot0 + k * 30, color, r: RADIUS });
     return false;
   }
 
   function scene3(ctx, t) {
-    // confetes de celebração flutuando nas margens
-    const out = prog(t, 36.9, 37.5, easeInOut);
-    const sum = prog(t, SUMMARY_T0 - 0.4, SUMMARY_T0 + 0.4, easeInOut);
-    confetti.forEach(p => {
-      // abre espaço para os módulos do resumo
-      const inCards = p.x > MARGIN - 40 && p.x < W - MARGIN + 40 && p.y > 320 && p.y < 830;
-      const k = prog(t, p.delay, p.delay + 0.9, easeOutQuint);
+    const out = prog(t, 36.8, 37.4, easeInOut);
+    CELEB.forEach((c, i) => {
+      const k = prog(t, 12.2 + i * 0.12, 13.4 + i * 0.12, easeOutQuint);
       if (k <= 0) return;
-      // pulinho quando o tópico correspondente aparece
-      const ht = ITEM_T0 + p.hop * ITEM_DUR + 0.25;
-      const hk = clamp((t - ht) / 0.9);
-      const hop = hk > 0 && hk < 1 ? Math.sin(hk * Math.PI) * 26 : 0;
-      fillCaco(ctx, S[p.shape], {
-        x: p.x + Math.sin(t * p.freq * 0.7 + p.phase) * p.amp * 0.6,
-        y: p.y + Math.sin(t * p.freq + p.phase) * p.amp - hop - (1 - k) * 40,
-        w: p.w, rot: p.rot + t * p.spin, s: lerp(0.3, 1, k), r: p.w * 0.12,
-        color: p.color, alpha: k * (1 - out) * (inCards ? 1 - sum : 1) * (p.color === C.white ? 0.92 : 1),
+      // pulinho sutil quando cada tópico aparece
+      let hop = 0;
+      for (let j = 0; j < 4; j++) {
+        const hk = clamp((t - (ITEM_T0 + j * ITEM_DUR + 0.2 + i * 0.05)) / 0.8);
+        if (hk > 0 && hk < 1) hop = Math.sin(hk * Math.PI) * 14;
+      }
+      const f = Math.sin(t * 0.55 + i * 1.7);
+      fillCaco(ctx, S[c.s], {
+        x: c.x + c.from[0] * (1 - k) * 260 + Math.cos(t * 0.4 + i) * 8,
+        y: c.y + c.from[1] * (1 - k) * 260 + f * 10 - hop,
+        w: c.w, rot: c.rot + f * 3, s: lerp(0.85, 1, k), r: Math.min(RADIUS, c.w * 0.12),
+        color: c.outline ? C.white : C.yellow, outline: c.outline ? 4 : 0, alpha: k * (1 - out),
       });
     });
 
-    // abertura: lockup grande centralizado → assenta como header
-    const hIn = prog(t, 12.7, 14.1, easeOutQuint);
-    const dock = prog(t, 14.7, 15.7, easeInOut);
-    const hOut = 1 - prog(t, 36.8, 37.4, easeInOut);
+    // abertura: lockup centralizado → assenta como header (logo branco + título)
+    const hIn = prog(t, 12.1, 13.2, easeOutQuint);
+    const dock = prog(t, 14.0, 14.9, easeInOut);
+    const hOut = 1 - out;
     const lwBig = 760, lwSmall = 330;
     const lw = lerp(lwBig, lwSmall, dock);
     const lhBig = (lwBig * A.logoNeg.height) / A.logoNeg.width;
@@ -409,15 +419,17 @@
     const ly = lerp(300, 78, dock) + (1 - hIn) * 40;
     drawLogo(ctx, A.logoNeg, lx, ly, lw, hIn * hOut);
 
-    const tIn = prog(t, 13.1, 14.5, easeOutQuint);
+    const tIn = prog(t, 12.4, 13.5, easeOutQuint);
     const size = lerp(104, 46, dock);
     const tx = lerp(W / 2, W - MARGIN, dock);
     const ty = lerp(300 + lhBig + 175, 78 + (lwSmall * A.logoNeg.height) / A.logoNeg.width / 2 + 16, dock) + (1 - tIn) * 40;
-    ctx.font = font(700, size);
-    const wa = ctx.measureText('Reconhecimentos ').width, wb = ctx.measureText('2026.2').width;
+    ctx.font = font(LIGHT, size);
+    const wa = ctx.measureText('Reconhecimentos ').width;
+    ctx.font = font(BOLD, size);
+    const wb = ctx.measureText('2026.2').width;
     const startX = lerp(tx - (wa + wb) / 2, tx - wa - wb, dock);
-    drawText(ctx, 'Reconhecimentos', startX, ty, { size, weight: 500, color: C.white, alpha: tIn * hOut });
-    drawText(ctx, '2026.2', startX + wa, ty, { size, weight: 700, color: C.white, alpha: tIn * hOut });
+    drawText(ctx, 'Reconhecimentos', startX, ty, { size, weight: LIGHT, color: C.white, alpha: tIn * hOut });
+    drawText(ctx, '2026.2', startX + wa, ty, { size, weight: BOLD, color: C.white, alpha: tIn * hOut });
 
     // tópicos em destaque, um a um
     ITEMS.forEach((it, i) => drawHero(ctx, t, it, i));
@@ -437,24 +449,24 @@
     const baseY = 640 + rise;
 
     // mede a composição para centralizar pelo valor final (sem "pular")
-    ctx.font = font(700, NUM); const wn = ctx.measureText(fmt(it.num)).width;
-    ctx.font = font(500, PRE); const wp = it.pre ? ctx.measureText(it.pre).width + 26 : 0;
-    ctx.font = font(700, SUF); const ws = it.suf ? ctx.measureText(it.suf).width + 30 : 0;
+    ctx.font = font(BOLD, NUM); const wn = ctx.measureText(fmt(it.num)).width;
+    ctx.font = font(LIGHT, PRE); const wp = it.pre ? ctx.measureText(it.pre).width + 26 : 0;
+    ctx.font = font(BOLD, SUF); const ws = it.suf ? ctx.measureText(it.suf).width + 30 : 0;
     const x0 = (W - (wp + wn + ws)) / 2;
 
     // índice do tópico
-    drawText(ctx, `0${i + 1}`, W / 2, 330 + rise * 0.5, { size: 34, weight: 700, color: it.color, align: 'center', alpha, spacing: 4 });
+    drawText(ctx, `0${i + 1}`, W / 2, 330 + rise * 0.5, { size: 34, weight: BOLD, color: it.color, align: 'center', alpha, spacing: 4 });
     ctx.globalAlpha = alpha;
     ctx.fillStyle = it.color;
     roundRect(ctx, W / 2 - 28, 350 + rise * 0.5, 56, 5, 2.5); ctx.fill();
     ctx.globalAlpha = 1;
 
-    if (it.pre) drawText(ctx, it.pre, x0, baseY - NUM * 0.47, { size: PRE, weight: 500, color: C.white, alpha });
-    drawText(ctx, numStr, x0 + wp + wn, baseY, { size: NUM, weight: 700, color: it.color, align: 'right', alpha, spacing: -6 });
-    if (it.suf) drawText(ctx, it.suf, x0 + wp + wn + 30, baseY, { size: SUF, weight: 700, color: it.color, alpha });
+    if (it.pre) drawText(ctx, it.pre, x0, baseY - NUM * 0.47, { size: PRE, weight: LIGHT, color: C.white, alpha });
+    drawText(ctx, numStr, x0 + wp + wn, baseY, { size: NUM, weight: BOLD, color: it.color, align: 'right', alpha, spacing: -6 });
+    if (it.suf) drawText(ctx, it.suf, x0 + wp + wn + 30, baseY, { size: SUF, weight: BOLD, color: it.color, alpha });
 
     const lk = prog(t, a + 0.45, a + 1.25, easeOutQuint) * (1 - o);
-    drawText(ctx, it.label, W / 2, baseY + 130 + (1 - lk) * 30, { size: LABEL, weight: 500, color: C.white, align: 'center', alpha: lk });
+    drawText(ctx, it.label, W / 2, baseY + 130 + (1 - lk) * 30, { size: LABEL, weight: LIGHT, color: C.white, align: 'center', alpha: lk });
   }
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -467,76 +479,92 @@
     const a = SUMMARY_T0;
     const o = prog(t, 36.7, 37.3, easeInOut);
     if (t < a || o >= 1) return;
-    const gap = 36, cw = (W - MARGIN * 2 - gap * 3) / 4, ch = 430, cy = 360;
+    const m = 100, gap = 28, cw = (W - m * 2 - gap * 3) / 4, ch = 430, cy = 360;
     ITEMS.forEach((it, i) => {
       const k = prog(t, a + i * 0.18, a + i * 0.18 + 0.9, easeOutQuint);
       if (k <= 0) return;
       const alpha = k * (1 - o);
-      const cx = MARGIN + i * (cw + gap);
+      const cx = m + i * (cw + gap);
       const dy = (1 - k) * 70;
       ctx.globalAlpha = alpha;
       ctx.fillStyle = C.mid;
       roundRect(ctx, cx, cy + dy, cw, ch, RADIUS); ctx.fill();
       ctx.globalAlpha = 1;
-      const px = cx + 44;
+      const px = cx + 38;
       let y = cy + dy + 92;
-      drawText(ctx, it.pre || ' ', px, y, { size: 38, weight: 500, color: C.white, alpha });
+      if (it.pre) drawText(ctx, it.pre, px, y, { size: 38, weight: LIGHT, color: C.white, alpha });
       y += 128;
-      drawText(ctx, fmt(it.num), px - 4, y, { size: 118, weight: 700, color: it.color, alpha, spacing: -3 });
-      y += 76;
-      const label = it.suf ? `${it.suf} ${it.label}` : it.label;
-      const lines = layoutRich(ctx, [{ text: label, color: C.white }], 40, 500, cw - 88);
+      drawText(ctx, fmt(it.num), px - 4, y, { size: 118, weight: BOLD, color: it.color, alpha, spacing: -3 });
+      if (it.suf) {
+        ctx.font = font(BOLD, 118); ctx.letterSpacing = '-3px';
+        const nw = ctx.measureText(fmt(it.num)).width; ctx.letterSpacing = '0px';
+        drawText(ctx, it.suf, px + nw + 12, y, { size: 44, weight: BOLD, color: it.color, alpha });
+      }
+      y += 72;
+      const lines = layoutRich(ctx, [{ text: it.label, color: C.white, weight: LIGHT }], 36, cw - 76);
       lines.forEach((ln, j) => ln.forEach(w =>
-        drawText(ctx, w.w, px + w.x, y + j * 48, { size: 40, weight: 500, color: C.white, alpha })));
+        drawText(ctx, w.w, px + w.x, y + j * 44, { size: 36, weight: LIGHT, color: C.white, alpha })));
     });
   }
 
   function scene4(ctx, t) {
     const b = Math.sin(t * 0.6);
-    const end = prog(t, 49.4, 50, easeInOut); // fade final p/ loop limpo no telão
-    const k1 = prog(t, 38.6, 40.0, easeOutQuint);
-    const k2 = prog(t, 38.9, 40.3, easeOutQuint);
+    const end = prog(t, DURATION - 0.6, DURATION, easeInOut); // fade final p/ loop limpo no telão
+    const leave = prog(t, CLOSE_T0 - 0.6, CLOSE_T0 + 0.2, easeInOut); // foto/texto saem para o fechamento
+    const k1 = prog(t, 38.4, 39.8, easeOutQuint);
+    const k2 = prog(t, 38.7, 40.1, easeOutQuint);
     if (k1 > 0) {
       fillCaco(ctx, S[1], { x: 1760 + (1 - k1) * 160, y: 80, w: 460, rot: 8 + b, color: C.yellow, alpha: k1 * (1 - end) });
       fillCaco(ctx, S[29], { x: 150 - (1 - k1) * 120, y: 970 + (1 - k1) * 80, w: 340, rot: -14 - b * 1.5, color: C.yellow, alpha: k1 * (1 - end) });
     }
     // foto 2 recortada em caco (Ativo 32)
-    if (k2 > 0) {
+    if (k2 > 0 && leave < 1) {
       photoCaco(ctx, A.foto2, S[32], {
-        x: 560, y: 530, w: 940, rot: lerp(5, 2, k2) + b * 0.4, s: lerp(0.86, 1, k2), flip: true,
+        x: 560 - leave * 80, y: 530, w: 940, rot: lerp(5, 2, k2) + b * 0.4, s: lerp(0.86, 1, k2) - leave * 0.06, flip: true,
         zoom: lerp(1.25, 1.08, k2) - (t - 40) * 0.004, focus: [0.48, 0.5],
-        alpha: k2 * (1 - end),
+        alpha: k2 * (1 - leave),
       });
     }
 
     const runs = [
-      { text: 'Acesse o', color: C.navy },
-      { text: 'Portal Sempre Juntos', color: C.blue },
-      { text: 'e conheça os Agilizados reconhecidos!', color: C.navy },
+      { text: 'Acesse o', color: C.blue, weight: LIGHT },
+      { text: 'Portal Sempre Juntos', color: C.blue, weight: BOLD },
+      { text: 'e conheça os', color: C.blue, weight: LIGHT },
+      { text: 'Agilizados reconhecidos!', color: C.blue, weight: BOLD },
     ];
-    const lines = layoutRich(ctx, runs, 74, 700, 700);
+    const size = 76, lhK = 1.14;
+    const lines = layoutRich(ctx, runs, size, 700);
     drawRichReveal(ctx, lines, {
-      x: 1100, y: 390, size: 74, weight: 700, maxW: 700, lineHeight: 1.14,
-      start: 39.8, stagger: 0.3, dur: 1.1, end: 49.3,
+      x: 1100, y: blockTop(lines, size, lhK, 540), size, maxW: 700, lineHeight: lhK,
+      start: 39.6, stagger: 0.3, dur: 1.1, end: CLOSE_T0 - 0.7,
     }, t);
 
-    // assinatura Agibank (área de respiro preservada)
-    const sk = prog(t, 42.0, 43.2, easeOutQuint) * (1 - end);
-    drawLogo(ctx, A.agibank, 1100, 860 + (1 - sk) * 24, 300, sk);
+    // tela de fechamento: logo "O jeito Agi | Crescer na jornada"
+    const c = prog(t, CLOSE_T0, CLOSE_T0 + 1.2, easeOutQuint);
+    if (c > 0) {
+      fillCaco(ctx, S[22], { x: 1800 + (1 - c) * 160, y: 985 + (1 - c) * 100, w: 330, rot: -8 - b, color: C.yellow, alpha: c * (1 - end) });
+      fillCaco(ctx, S[36], { x: 250, y: 170 - (1 - c) * 120, w: 110, rot: 24 + b * 3, color: C.yellow, alpha: c * (1 - end) });
+      const lh = (LOGO_W * A.logo.height) / A.logo.width;
+      const s = lerp(0.94, 1, c);
+      ctx.save();
+      ctx.translate(W / 2, H / 2 + (1 - c) * 40);
+      ctx.scale(s, s);
+      drawLogo(ctx, A.logo, -LOGO_W / 2, -lh / 2, LOGO_W, c * (1 - end));
+      ctx.restore();
+    }
   }
 
   function render(ctx, t) {
     ctx.save();
     ctx.fillStyle = C.gray;
     ctx.fillRect(0, 0, W, H);
-    if (t < 12.6) scene1(ctx, t);
-    const blueFull = cacoWipe(ctx, t, 11.3, 12.6, C.blue, 1395, 520, S[33], -20);
-    if (blueFull || t >= 12.6) {
-      if (t < 38.6) {
-        ctx.fillStyle = C.blue; ctx.fillRect(0, 0, W, H);
+    if (t < WIPE1[1]) scene1(ctx, t);
+    const blueFull = cacoWipe(ctx, t, WIPE1, C.blue, 1445, 520, S[33], -20);
+    if (blueFull) {
+      if (t < WIPE2[1]) {
         scene3(ctx, t);
       }
-      const grayFull = cacoWipe(ctx, t, 37.3, 38.6, C.gray, 560, 540, S[12], 15);
+      const grayFull = cacoWipe(ctx, t, WIPE2, C.gray, 560, 540, S[12], 15);
       if (grayFull) scene4(ctx, t);
     }
     ctx.restore();

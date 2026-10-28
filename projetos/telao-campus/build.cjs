@@ -38,10 +38,9 @@ for (const [key, file] of Object.entries(privateFiles)) {
   }
   images[key] = dataUrl(p, file.endsWith('.png') ? 'image/png' : 'image/jpeg');
 }
-images.agibank = dataUrl(path.join(ASSETS, 'logos/Agibank_Positivo.svg'), 'image/svg+xml');
 
 const fonts = {};
-for (const w of ['Regular', 'Medium', 'Bold']) {
+for (const w of ['Light', 'Bold']) {
   fonts[w] = dataUrl(path.join(ASSETS, `fonts/AgibankSans-${w}.woff2`), 'font/woff2');
 }
 
