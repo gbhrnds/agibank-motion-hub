@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giro Meetup Agibank RH</title>
+<style>
+  :root {
+    --azul: #0064f5; --azul-medio: #0033b0; --azul-escuro: #000f44;
+    --verde: #77df40; --verde-claro: #C9FF90; --cinza: #f3f3f3; --branco: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #00082a; color: var(--branco); font-family: 'AgibankSans', system-ui, sans-serif; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-weight: 700; font-size: 22px; margin: 0; }
+  h1 span { color: var(--verde); }
+  .meta { font-size: 13px; opacity: .7; }
+  .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--azul-escuro); border-radius: 15px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+  canvas { width: 100%; height: 100%; display: block; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; opacity: .8; }
+  .bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  button { font: 700 14px 'AgibankSans', system-ui, sans-serif; color: var(--branco); background: var(--azul); border: 0; border-radius: 15px; padding: 10px 16px; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  button.ghost { background: transparent; border: 1.5px solid rgba(255,255,255,.35); }
+  button.scene { background: rgba(255,255,255,.08); font-weight: 400; }
+  button.scene.on { background: var(--verde); color: var(--azul-escuro); font-weight: 700; }
+  button.rec { background: var(--verde); color: var(--azul-escuro); }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=range] { flex: 1; min-width: 160px; accent-color: var(--verde); }
+  .time { font-variant-numeric: tabular-nums; font-size: 14px; min-width: 110px; text-align: right; }
+  .scenes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .status { font-size: 13px; margin-top: 10px; min-height: 18px; color: var(--verde-claro); }
+  .status a { color: var(--verde); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Giro Meetup <span>Agibank RH</span></h1>
+    <div class="meta">1920 × 1080 · 24 fps · 30 s</div>
+  </header>
+  <div class="stage">
+    <canvas id="cv" width="1920" height="1080"></canvas>
+    <div class="loading" id="loading">Carregando fontes e assets…</div>
+  </div>
+  <div class="bar">
+    <button id="play">Play</button>
+    <button id="restart" class="ghost">Restart</button>
+    <input id="seek" type="range" min="0" max="720" step="1" value="0" aria-label="Linha do tempo">
+    <div class="time" id="time">00:00 / 00:30</div>
+    <button id="export" class="rec">Exportar vídeo</button>
+  </div>
+  <div class="scenes" id="scenes"></div>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const ASSETS = /*__ASSETS__*/null;
+
+const W = 1920, H = 1080, FPS = 24, DURATION = 30;
+const C = {
+  azul: '#0064f5', medio: '#0033b0', escuro: '#000f44',
+  verde: '#77df40', verdeClaro: '#C9FF90', amarelo: '#FFD600',
+  cinza: '#f3f3f3', branco: '#FFFFFF',
+};
+const RADIUS = 15; // cantos de cards/caixas/módulos: 12–17px
+const FONT = 'AgibankSans';
+const SCENES = [
+  { id: '01', name: 'Gancho', start: 0 },
+  { id: '02', name: 'Desafio', start: 6 },
+  { id: '03', name: 'IA no RH', start: 9 },
+  { id: '04', name: 'Dados no RH', start: 16 },
+  { id: '05', name: 'Encerramento', start: 23 },
+];
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+/* ---------- utilidades ---------- */
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const prog = (t, start, dur) => clamp((t - start) / dur);
+const ease = {
+  outCubic: (p) => 1 - Math.pow(1 - p, 3),
+  inOutCubic: (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2),
+  outExpo: (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p)),
+  inExpo: (p) => (p <= 0 ? 0 : Math.pow(2, 10 * p - 10)),
+  outBack: (p) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); },
+  inOutQuart: (p) => (p < .5 ? 8 * p * p * p * p : 1 - Math.pow(-2 * p + 2, 4) / 2),
+};
+const font = (w, s) => `${w} ${s}px ${FONT}`;
+
+/* ---------- assets ---------- */
+const images = {};
+function svgToImage(svg) {
+  // dimensões intrínsecas a partir do viewBox (sem isso o navegador assume 300x150)
+  const vb = /viewBox="([^"]+)"/.exec(svg);
+  if (vb && !/<svg[^>]*\swidth=/.test(svg)) {
+    const [, , w, h] = vb[1].trim().split(/[\s,]+/).map(Number);
+    svg = svg.replace('<svg ', `<svg width="${w}" height="${h}" `);
+  }
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+}
+const recolor = (svg, color) => svg.replace(/fill="#[0-9a-fA-F]{3,6}"/g, `fill="${color}"`).replace(/fill:\s*#[0-9a-fA-F]{3,6}/g, `fill: ${color}`);
+const recolorSeq = (svg, colors) => { let i = 0; return svg.replace(/fill:\s*#[0-9a-fA-F]{3,6}/g, (m) => `fill: ${colors[i++] || m.split(':')[1].trim()}`); };
+const tintIcon = (svg, color) => recolor(svg.replace('<svg ', `<svg fill="${color}" `), color);
+
+async function loadAssets() {
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer;
+  const faces = [
+    new FontFace(FONT, b64(ASSETS.fonts.light), { weight: '300' }),
+    new FontFace(FONT, b64(ASSETS.fonts.regular), { weight: '400' }),
+    new FontFace(FONT, b64(ASSETS.fonts.bold), { weight: '700' }),
+  ];
+  await Promise.all(faces.map((f) => f.load().then((ff) => document.fonts.add(ff))));
+  const jobs = [];
+  const add = (key, svg) => jobs.push(svgToImage(svg).then((img) => { images[key] = img; }));
+  add('agiNeg', ASSETS.logos.agiNeg);
+  add('agiPos', ASSETS.logos.agiPos);
+  add('agibankPos', ASSETS.logos.agibankPos);
+  const shapeColors = { azul: C.azul, verde: C.verde, medio: C.medio, verdeClaro: C.verdeClaro };
+  for (const [name, svg] of Object.entries(ASSETS.shapes)) {
+    for (const [ck, cval] of Object.entries(shapeColors)) add(`shape:${name}:${ck}`, recolor(svg, cval));
+  }
+  add('mod65', recolorSeq(ASSETS.modules['Ativo 65'], [C.azul, C.verde]));
+  add('mod66', ASSETS.modules['Ativo 66'].replace(/#76df40/g, C.verde));
+  add('icon:check:escuro', tintIcon(ASSETS.icons.check, C.escuro));
+  add('icon:check:medio', tintIcon(ASSETS.icons.check, C.medio));
+  add('icon:arrow:verde', tintIcon(ASSETS.icons.arrow, C.verde));
+  add('icon:arrow:branco', tintIcon(ASSETS.icons.arrow, C.branco));
+  add('icon:arrow:verdeClaro', tintIcon(ASSETS.icons.arrow, C.verdeClaro));
+  await Promise.all(jobs);
+}
+
+/* ---------- desenho base ---------- */
+function drawImg(key, cx, cy, w, { rot = 0, alpha = 1, scale = 1, flipX = false } = {}) {
+  const img = images[key];
+  if (!img || alpha <= 0) return;
+  const h = w * (img.naturalHeight / img.naturalWidth);
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.scale(scale * (flipX ? -1 : 1), scale);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+function drawLogo(key, x, y, h, alpha = 1, anchor = 'left') {
+  const img = images[key];
+  if (!img || alpha <= 0) return;
+  const w = h * (img.naturalWidth / img.naturalHeight);
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.drawImage(img, anchor === 'right' ? x - w : anchor === 'center' ? x - w / 2 : x, y, w, h);
+  ctx.restore();
+}
+function rrectPath(x, y, w, h, r = RADIUS) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+}
+function polyPath(pts, r = RADIUS) {
+  ctx.beginPath();
+  const n = pts.length;
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const s = mid(pts[n - 1], pts[0]);
+  ctx.moveTo(s[0], s[1]);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n];
+    ctx.arcTo(p[0], p[1], q[0], q[1], r);
+  }
+  ctx.closePath();
+}
+
+// Converte uma polilinha em pontos amostrados com cantos arredondados (para traço progressivo).
+function roundPts(pts, r, closed = false) {
+  const out = [];
+  const n = pts.length;
+  const get = (i) => pts[(i + n) % n];
+  if (!closed) out.push(pts[0]);
+  const from = closed ? 0 : 1, to = closed ? n : n - 1;
+  for (let i = from; i < to; i++) {
+    const p0 = get(i - 1), p1 = get(i), p2 = get(i + 1);
+    const d1 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    const d2 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    const rr = Math.min(r, d1 / 2, d2 / 2);
+    const a = [p1[0] + (p0[0] - p1[0]) * rr / d1, p1[1] + (p0[1] - p1[1]) * rr / d1];
+    const b = [p1[0] + (p2[0] - p1[0]) * rr / d2, p1[1] + (p2[1] - p1[1]) * rr / d2];
+    const steps = 12;
+    for (let k = 0; k <= steps; k++) {
+      const u = k / steps, v = 1 - u;
+      out.push([v * v * a[0] + 2 * v * u * p1[0] + u * u * b[0], v * v * a[1] + 2 * v * u * p1[1] + u * u * b[1]]);
+    }
+  }
+  if (closed) out.push(out[0]); else out.push(pts[n - 1]);
+  return out;
+}
+function rrectPts(cx, cy, w, h, r = RADIUS) {
+  const x = cx - w / 2, y = cy - h / 2;
+  // começa no topo central e segue no sentido horário
+  return roundPts([[cx, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y], [cx, y]], r);
+}
+// Traça os primeiros p*100% da polilinha e devolve o ponto da "cabeça".
+function strokePartial(pts, p) {
+  if (p <= 0) return null;
+  let total = 0;
+  const seg = [];
+  for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); total += d; }
+  let remain = total * clamp(p);
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  let head = pts[0];
+  for (let i = 1; i < pts.length; i++) {
+    const d = seg[i - 1];
+    if (remain >= d) { ctx.lineTo(pts[i][0], pts[i][1]); head = pts[i]; remain -= d; continue; }
+    const u = d ? remain / d : 0;
+    head = [lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)];
+    ctx.lineTo(head[0], head[1]);
+    break;
+  }
+  ctx.stroke();
+  return head;
+}
+
+// Linha conectora que "acende": brilho forte enquanto desenha, decai para um brilho residual.
+function glowLine(pts, p, color, { width = 4, dash = null, glowAfter = 0, head = true } = {}) {
+  if (p <= 0) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (dash) ctx.setLineDash(dash);
+  const drawing = p < 1;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = drawing ? 22 : 10 + 14 * glowAfter;
+  const h = strokePartial(pts, p);
+  ctx.setLineDash([]);
+  if (head && drawing && h) {
+    ctx.shadowBlur = 30;
+    ctx.fillStyle = C.branco;
+    ctx.beginPath(); ctx.arc(h[0], h[1], width * 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(h[0], h[1], width * 1.2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---------- texto ---------- */
+function measureRich(segs) {
+  let w = 0;
+  for (const s of segs) { ctx.font = s.font; s._w = ctx.measureText(s.text).width; w += s._w; }
+  return w;
+}
+// Desenha segmentos de texto com cores distintas numa linha; devolve x de cada segmento.
+function drawRich(segs, x, baseline, align = 'left') {
+  const total = measureRich(segs);
+  let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  const spans = [];
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  for (const s of segs) {
+    ctx.font = s.font;
+    ctx.fillStyle = s.color;
+    ctx.fillText(s.text, cx, baseline);
+    spans.push({ x: cx, w: s._w, seg: s });
+    cx += s._w;
+  }
+  return { spans, total, left: align === 'center' ? x - total / 2 : align === 'right' ? x - total : x };
+}
+// Revela uma linha de texto subindo por trás de uma máscara.
+function maskLine(p, size, baseline, fn, { dy = 1, blur = false } = {}) {
+  if (p <= 0) return;
+  const top = baseline - size * 1.0, h = size * 1.32;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, top, W, h); ctx.clip();
+  ctx.translate(0, (1 - p) * h * dy);
+  ctx.globalAlpha *= clamp(p * 1.6);
+  fn();
+  ctx.restore();
+}
+
+/* ---------- componentes ---------- */
+function box(cx, cy, w, h, o) {
+  const { pop = 1, border = 1, fill = null, fillP = 1, stroke = null, dash = null, text = '', tfont, tcolor, textP = 1, lw = 3, glow = 0 } = o;
+  if (pop <= 0) return;
+  ctx.save();
+  ctx.translate(cx, cy);
+  const s = lerp(.6, 1, ease.outBack(pop));
+  ctx.scale(s, s);
+  ctx.globalAlpha *= clamp(pop * 2);
+  if (fill && fillP > 0) {
+    ctx.save();
+    if (glow > 0) { ctx.shadowColor = fill; ctx.shadowBlur = 40 * glow; }
+    const fw = w * ease.outExpo(fillP);
+    rrectPath(-fw / 2, -h / 2, fw, h, Math.min(RADIUS, fw / 2));
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.restore();
+  }
+  if (stroke && border > 0) {
+    ctx.save();
+    ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.lineCap = 'round';
+    if (dash) ctx.setLineDash(dash);
+    strokePartial(rrectPts(0, 0, w, h), border);
+    ctx.restore();
+  }
+  if (text && textP > 0) {
+    ctx.globalAlpha *= clamp(textP);
+    ctx.font = tfont; ctx.fillStyle = tcolor;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, 3 + (1 - ease.outCubic(textP)) * 14);
+  }
+  ctx.restore();
+}
+
+// Assinatura "Meetup Agibank RH" (versão compacta usada no topo dos fluxogramas e na cena 02).
+function lockup(x, y, size, { upColor, textColor = C.branco, pillFill, pillText, p = [1, 1, 1], knockout = null } = {}) {
+  const meetBase = y + size * 0.82, agiBase = meetBase + size * 0.98;
+  ctx.font = font(300, size);
+  const wMeet = ctx.measureText('Meet').width, wUp = ctx.measureText('up').width;
+  ctx.font = font(700, size);
+  const wAgi = ctx.measureText('Agibank').width;
+  const pillW = size * 0.92, pillH = size * 0.42;
+  const pillX = x + wAgi - pillW, pillY = agiBase + size * 0.2;
+  if (knockout) {
+    ctx.save(); ctx.fillStyle = knockout;
+    ctx.fillRect(x - size * .18, y - size * .08, Math.max(wMeet + wUp, wAgi) + size * .36, agiBase - y + size * .24);
+    rrectPath(pillX - size * .16, pillY - size * .1, pillW + size * .32, pillH + size * .2, RADIUS); ctx.fill();
+    ctx.restore();
+  }
+  maskLine(ease.outExpo(p[0]), size, meetBase, () => {
+    drawRich([{ text: 'Meet', font: font(300, size), color: textColor }, { text: 'up', font: font(300, size), color: upColor }], x, meetBase);
+  });
+  maskLine(ease.outExpo(p[1]), size, agiBase, () => {
+    drawRich([{ text: 'Agibank', font: font(700, size), color: textColor }], x, agiBase);
+  });
+  if (p[2] > 0) {
+    box(pillX + pillW / 2, pillY + pillH / 2, pillW, pillH, { pop: p[2], fill: pillFill, text: 'RH', tfont: font(700, size * 0.27), tcolor: pillText, textP: prog(p[2], .4, .6) });
+  }
+  return { bottom: pillY + pillH, width: Math.max(wMeet + wUp, wAgi) };
+}
+
+// Formas irregulares das bordas, com flutuação sutil.
+function floatingShape(t, key, cx, cy, w, { rot = 0, inAt = 0, inDur = .9, from = [0, 0], amp = 12, period = 5, phase = 0, alpha = 1, flipX = false } = {}) {
+  const e = ease.outExpo(prog(t, inAt, inDur));
+  if (e <= 0) return;
+  const fx = Math.sin((t / period) * Math.PI * 2 + phase) * amp;
+  const fy = Math.cos((t / (period * 1.3)) * Math.PI * 2 + phase) * amp;
+  const fr = Math.sin((t / (period * 1.7)) * Math.PI * 2 + phase) * 0.035;
+  drawImg(key, cx + from[0] * (1 - e) + fx, cy + from[1] * (1 - e) + fy, w, { rot: rot + fr, alpha: alpha * clamp(e * 1.5), scale: lerp(.85, 1, e), flipX });
+}
+
+// Rota luminosa (motivo do mapa do PDF) no rodapé dos fluxogramas.
+function route(t, start, color, pts, alpha = .9) {
+  const p = ease.inOutCubic(prog(t, start, 2.6));
+  if (p <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  glowLine(roundPts(pts, 80), p, color, { width: 4, head: true, glowAfter: .6 });
+  ctx.restore();
+}
+
+/* ---------- transições em módulo diagonal ---------- */
+// Wipe diagonal com faixa de destaque (ângulos não paralelos, cantos de 15px).
+function diagonalWipe(t, start, dur, drawFrom, drawTo, accent, dir = 1) {
+  const p = prog(t, start, dur);
+  if (p <= 0) { drawFrom(); return; }
+  if (p >= 1) { drawTo(); return; }
+  const e = ease.inOutQuart(p);
+  const top = lerp(W + 420, -760, e);
+  const bot = top - 360;
+  const gap = 38;
+  const mx = (x) => (dir === 1 ? x : W - x);
+  const mapPts = (pts) => pts.map(([x, y]) => [mx(x), y]);
+  const main = mapPts([[top, -60], [W + 900, -60], [W + 900, H + 60], [bot, H + 60]]);
+  const stripe = mapPts([[top - gap - 300, -60], [top - gap, -60], [bot - gap, H + 60], [bot - gap - 140, H + 60]]);
+  drawFrom();
+  ctx.save();
+  polyPath(main, RADIUS); ctx.clip();
+  drawTo();
+  ctx.restore();
+  ctx.save();
+  polyPath(stripe, RADIUS);
+  ctx.fillStyle = accent; ctx.fill();
+  ctx.restore();
+}
+
+/* =========================================================
+   CENA 01 — Gancho de abertura (0s–6s)
+   ========================================================= */
+function scene1(t) {
+  ctx.fillStyle = C.escuro; ctx.fillRect(0, 0, W, H);
+  floatingShape(t, 'shape:Ativo 28:azul', 1800, 70, 560, { rot: .2, inAt: 0, from: [260, -200], amp: 14, phase: 0 });
+  floatingShape(t, 'shape:Ativo 20:verde', 70, 1010, 380, { rot: -.5, inAt: .12, from: [-220, 220], amp: 12, phase: 1.3 });
+  floatingShape(t, 'shape:Ativo 13:azul', 1690, 1050, 470, { rot: -.15, inAt: .22, from: [200, 240], amp: 10, phase: 2.1 });
+  floatingShape(t, 'shape:Ativo 36:verde', -10, 360, 200, { rot: .4, inAt: .3, from: [-200, 0], amp: 9, phase: 3.2 });
+  floatingShape(t, 'shape:Ativo 24:azul', 210, -20, 260, { rot: 2.6, inAt: .38, from: [0, -200], amp: 9, phase: 4.1 });
+
+  const lp = ease.outCubic(prog(t, .35, .7));
+  drawLogo('agiNeg', W / 2, 74 - (1 - lp) * 20, 54, lp, 'center');
+
+  const S = 86, LH = 108;
+  const b1 = 400, b2 = b1 + LH, b3 = b2 + LH, b4 = b3 + LH + 26;
+  const lines = [
+    { at: .55, base: b1, segs: [{ text: 'No Meetup de RH do Agi,', color: C.branco }] },
+    { at: 1.25, base: b2, segs: [{ text: 'descobrimos como ', color: C.branco }, { text: 'acelerar o futuro', color: C.verde, hl: true }] },
+    { at: 1.95, base: b3, segs: [{ text: 'com ', color: C.branco }, { text: 'inteligência de verdade', color: C.verde, hl: true }, { text: '.', color: C.branco }] },
+  ];
+  for (const L of lines) {
+    const p = ease.outExpo(prog(t, L.at, .75));
+    const segs = L.segs.map((s) => ({ ...s, font: font(700, S) }));
+    let layout = null;
+    maskLine(p, S, L.base, () => { layout = drawRich(segs, W / 2, L.base, 'center'); });
+    // sublinhado verde varrendo os destaques
+    const up = ease.inOutCubic(prog(t, L.at + .55, .55));
+    if (layout && up > 0) {
+      for (const sp of layout.spans) if (sp.seg.hl) {
+        ctx.fillStyle = C.verde;
+        rrectPath(sp.x, L.base + 18, sp.w * up, 7, 3.5); ctx.fill();
+      }
+    }
+  }
+  // Pergunta de virada
+  const q = ease.outExpo(prog(t, 3.0, .7));
+  const QS = 60;
+  maskLine(q, QS, b4, () => {
+    const lay = drawRich([{ text: 'Quer ver o que rolou por lá?', font: font(400, QS), color: C.branco }], W / 2 - 40, b4, 'center');
+    const ap = ease.outBack(prog(t, 3.4, .5));
+    const nudge = Math.max(0, Math.sin((t - 3.9) * Math.PI * 2 / 1.1)) * 14 * (t > 3.9 ? 1 : 0);
+    if (ap > 0) drawImg('icon:arrow:verde', lay.left + lay.total + 52 + nudge, b4 - 20, 62 * ap);
+  });
+}
+
+/* =========================================================
+   CENA 02 — Transição do desafio (6s–9s)
+   ========================================================= */
+function scene2(t) {
+  ctx.fillStyle = C.azul; ctx.fillRect(0, 0, W, H);
+  floatingShape(t, 'shape:Ativo 9:medio', 120, 1010, 420, { rot: .3, inAt: 5.9, from: [-200, 200], amp: 10, phase: .7 });
+  floatingShape(t, 'shape:Ativo 33:medio', 1870, 90, 300, { rot: -.4, inAt: 6.0, from: [200, -200], amp: 9, phase: 2.4 });
+
+  const lp = ease.outCubic(prog(t, 6.15, .5));
+  drawLogo('agiNeg', 160, 92, 50, lp);
+
+  // Texto original do PDF, em branco sobre Azul Agibank
+  const S = 66, LH = 84, x = 160;
+  const lines = ['Faça os testes e descubra', 'se você deve marcar', 'presença no'];
+  const b0 = 470;
+  lines.forEach((txt, i) => {
+    const p = ease.outExpo(prog(t, 6.2 + i * .16, .7));
+    maskLine(p, S, b0 + i * LH, () => {
+      const lay = drawRich([{ text: txt, font: font(400, S), color: C.branco }], x, b0 + i * LH);
+      if (i === 2) {
+        const ap = ease.outBack(prog(t, 6.75, .5));
+        const nudge = t > 7.3 ? Math.max(0, Math.sin((t - 7.3) * Math.PI * 2 / 1.1)) * 14 : 0;
+        if (ap > 0) drawImg('icon:arrow:branco', lay.left + lay.total + 60 + nudge, b0 + i * LH - 22, 66 * ap);
+      }
+    });
+  });
+
+  // Triângulo arredondado em traço verde (assinatura visual do PDF)
+  const tri = roundPts([[1530, 150], [1820, 850], [930, 760]], 34, true);
+  const tp = ease.inOutCubic(prog(t, 6.35, 1.1));
+  glowLine(tri, tp, C.verde, { width: 7, glowAfter: .2 });
+  // Lockup com "knockout" sobre o traço, como no PDF
+  const lx = 1050, ly = 340, ls = 150;
+  const k = [prog(t, 6.6, .7), prog(t, 6.78, .7), prog(t, 7.1, .5)];
+  if (k[0] > 0) {
+    lockup(lx, ly, ls, { upColor: C.branco, pillFill: C.verde, pillText: C.escuro, p: k, knockout: C.azul });
+  }
+}
+
+/* =========================================================
+   Fluxograma (cenas 03 e 04)
+   ========================================================= */
+const FX = { L: 600, R: 1320, qY: 240, rowA: 420, rowB: 590, rowC: 760 };
+function flowHeader(t, t0, bg, accent, upColor) {
+  const hp = prog(t, t0 + .15, .6);
+  lockup(120, 64, 50, { upColor, pillFill: accent, pillText: bg === C.escuro ? C.escuro : C.medio, p: [hp, prog(t, t0 + .25, .6), prog(t, t0 + .45, .5)] });
+  const lp = ease.outCubic(prog(t, t0 + .3, .6));
+  drawLogo('agiNeg', 1800, 78 - (1 - lp) * 18, 58, lp, 'right');
+}
+function flowchart(t, t0, o) {
+  const { question, qColor, accent, left, right, mid, bg } = o;
+  const T = (s) => t0 + s;
+  const QS = 92;
+  // Pergunta principal
+  const qp = ease.outExpo(prog(t, T(.35), .7));
+  maskLine(qp, QS, FX.qY + 30, () => drawRich([{ text: question, font: font(700, QS), color: qColor }], W / 2, FX.qY + 30, 'center'));
+  // ramificações pontilhadas
+  const dash = [2, 10];
+  const fork = [W / 2, FX.qY + 62];
+  const lp = ease.inOutCubic(prog(t, T(.95), .5));
+  glowLine([fork, [FX.L, FX.rowA - 44]], lp, accent, { width: 3, dash, glowAfter: .2 });
+  glowLine([fork, [FX.R, FX.rowA - 44]], lp, accent, { width: 3, dash, glowAfter: .2 });
+  // caixas SIM / alternativa
+  const bp = prog(t, T(1.3), .45);
+  const pill = { stroke: accent, lw: 3, tfont: font(400, 48), tcolor: C.branco };
+  box(FX.L, FX.rowA, 290, 88, { ...pill, pop: bp, border: ease.outCubic(prog(t, T(1.3), .6)), text: 'SIM', textP: prog(t, T(1.45), .4) });
+  box(FX.R, FX.rowA, 290, 88, { ...pill, pop: bp, border: ease.outCubic(prog(t, T(1.35), .6)), text: right, textP: prog(t, T(1.5), .4) });
+  // Caminho 1: SIM -> card de aprovação (traço sólido)
+  glowLine([[FX.L, FX.rowA + 44], [FX.L, FX.rowB - 48]], ease.inOutCubic(prog(t, T(1.8), .4)), accent, { width: 4, glowAfter: .3 });
+  const conv = ease.inOutCubic(prog(t, T(4.55), .95));
+  const pulse = prog(t, T(5.45), .7);
+  const cardGlow = pulse > 0 ? Math.sin(pulse * Math.PI) : 0;
+  box(FX.L, FX.rowB, 520, 96, { pop: prog(t, T(2.1), .45), fill: accent, fillP: prog(t, T(2.1), .55), text: left, tfont: font(700, 48), tcolor: C.escuro, textP: prog(t, T(2.4), .4), glow: cardGlow });
+  // Caminho 2: alternativa -> pergunta -> SIM
+  glowLine([[FX.R, FX.rowA + 44], [FX.R, FX.rowB - 48]], ease.inOutCubic(prog(t, T(2.65), .4)), accent, { width: 3, dash, glowAfter: .2 });
+  box(FX.R, FX.rowB, 620, 96, { pop: prog(t, T(2.95), .3), stroke: accent, dash: [3, 9], lw: 3, border: ease.inOutCubic(prog(t, T(2.95), .7)), text: mid, tfont: font(400, 46), tcolor: C.branco, textP: prog(t, T(3.25), .45) });
+  glowLine([[FX.R, FX.rowB + 48], [FX.R, FX.rowC - 44]], ease.inOutCubic(prog(t, T(3.75), .35)), accent, { width: 3, dash, glowAfter: .2 });
+  box(FX.R, FX.rowC, 290, 88, { pop: prog(t, T(4.05), .45), fill: accent, fillP: prog(t, T(4.05), .5), text: 'SIM', tfont: font(400, 48), tcolor: C.escuro, textP: prog(t, T(4.25), .4), glow: o.converge === 'card' ? cardGlow * .6 : 0 });
+  return { conv, pulse, cardGlow };
+}
+
+/* =========================================================
+   CENA 03 — Fluxograma 01: IA no RH (9s–16s)
+   ========================================================= */
+function scene3(t) {
+  const t0 = 9;
+  ctx.fillStyle = C.escuro; ctx.fillRect(0, 0, W, H);
+  route(t, t0 + .2, C.verde, [[-40, 950], [260, 975], [430, 1015], [600, 985], [760, 945], [930, 975], [1040, 1050], [1240, 1048], [1460, 1020], [1700, 1050], [1980, 1010]], .85);
+  flowHeader(t, t0, C.escuro, C.verde, C.verde);
+  const f = flowchart(t, t0, { question: 'É do RH e usa IA?', qColor: C.verde, accent: C.verde, left: 'Então pode vir!', right: 'NÃO', mid: 'Quer saber como usar?', bg: C.escuro, converge: 'card' });
+  // Convergência: SIM (direita) -> card "Então pode vir!"
+  const path = roundPts([[FX.R - 145, FX.rowC], [FX.L, FX.rowC], [FX.L, FX.rowB + 48]], 48);
+  glowLine(path, f.conv, C.verde, { width: 4, glowAfter: f.cardGlow });
+  // selo de aprovação
+  const cp = prog(t, t0 + 5.5, .5);
+  if (cp > 0) {
+    const cx = FX.L + 260, cy = FX.rowB - 48;
+    ctx.save();
+    ctx.shadowColor = C.verde; ctx.shadowBlur = 30 * f.cardGlow;
+    ctx.fillStyle = C.verdeClaro;
+    ctx.beginPath(); ctx.arc(cx, cy, 34 * ease.outBack(cp), 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    drawImg('icon:check:escuro', cx, cy, 58 * ease.outBack(cp));
+  }
+  if (f.pulse > 0 && f.pulse < 1) {
+    ctx.save();
+    ctx.strokeStyle = C.verde; ctx.lineWidth = 3; ctx.globalAlpha = 1 - f.pulse;
+    const g = 20 * ease.outCubic(f.pulse);
+    rrectPath(FX.L - 260 - g, FX.rowB - 48 - g, 520 + g * 2, 96 + g * 2, RADIUS + 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/* =========================================================
+   CENA 04 — Fluxograma 02: Dados no RH (16s–23s)
+   ========================================================= */
+function scene4(t) {
+  const t0 = 16;
+  ctx.fillStyle = C.medio; ctx.fillRect(0, 0, W, H);
+  floatingShape(t, 'shape:Ativo 7:azul', 1880, 640, 300, { rot: .5, inAt: t0 - .3, from: [220, 0], amp: 10, phase: 1 });
+  floatingShape(t, 'shape:Ativo 24:azul', 40, 760, 260, { rot: -.3, inAt: t0 - .2, from: [-220, 0], amp: 10, phase: 2.6 });
+  route(t, t0 + .2, C.verdeClaro, [[-40, 1050], [180, 1030], [330, 1000], [470, 1020], [560, 1070]], .7);
+  route(t, t0 + .5, C.verdeClaro, [[1380, 1090], [1480, 1030], [1640, 1015], [1760, 1040], [1980, 1000]], .7);
+  flowHeader(t, t0, C.medio, C.verdeClaro, C.verdeClaro);
+  const f = flowchart(t, t0, { question: 'Analisa dados no RH?', qColor: C.verdeClaro, accent: C.verdeClaro, left: 'Esse encontro é seu!', right: 'Às vezes', mid: 'Quer conhecer cases?', bg: C.medio, converge: 'center' });
+  // Convergência para o centro: card (esquerda) e SIM (direita) se encontram no nó central
+  const nodeY = 905;
+  const a = roundPts([[FX.L, FX.rowB + 48], [FX.L, nodeY], [W / 2 - 46, nodeY]], 48);
+  const b = roundPts([[FX.R, FX.rowC + 44], [FX.R, nodeY], [W / 2 + 46, nodeY]], 48);
+  glowLine(a, f.conv, C.verdeClaro, { width: 4, glowAfter: f.cardGlow });
+  glowLine(b, f.conv, C.verdeClaro, { width: 4, glowAfter: f.cardGlow });
+  const np = prog(t, t0 + 5.45, .55);
+  if (np > 0) {
+    const s = ease.outBack(np);
+    if (f.pulse < 1) {
+      ctx.save();
+      ctx.strokeStyle = C.verdeClaro; ctx.lineWidth = 3; ctx.globalAlpha = 1 - f.pulse;
+      ctx.beginPath(); ctx.arc(W / 2, nodeY, 46 + 40 * ease.outCubic(f.pulse), 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.shadowColor = C.verdeClaro; ctx.shadowBlur = 20 + 30 * f.cardGlow;
+    ctx.fillStyle = C.verdeClaro;
+    ctx.beginPath(); ctx.arc(W / 2, nodeY, 44 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    drawImg('icon:check:medio', W / 2, nodeY, 70 * s);
+  }
+}
+
+/* =========================================================
+   CENA 05 — Encerramento e CTA (23s–30s)
+   ========================================================= */
+function scene5(t) {
+  ctx.fillStyle = C.cinza; ctx.fillRect(0, 0, W, H);
+  // Módulo oficial (Ativo 65) na borda direita, escalado para cantos de 15px
+  const mod = images.mod65;
+  const ms = 15 / 19.29;
+  const mw = mod.naturalWidth * ms;
+  const me = ease.outExpo(prog(t, 22.9, 1.1));
+  const mfloat = Math.sin(t * 1.3) * 5;
+  drawImg('mod65', 1560 + mw / 2 + (1 - me) * 520, 540 + mfloat, mw, { alpha: clamp(me * 2) });
+  floatingShape(t, 'shape:Ativo 20:verde', 1250, -40, 250, { rot: 2.9, inAt: 23.3, from: [0, -200], amp: 8, phase: .4 });
+  floatingShape(t, 'shape:Ativo 13:azul', 1260, 1090, 330, { rot: .1, inAt: 23.4, from: [0, 220], amp: 8, phase: 2 });
+  floatingShape(t, 'shape:Ativo 36:verde', -30, 1040, 230, { rot: 1.1, inAt: 23.5, from: [-200, 100], amp: 8, phase: 3 });
+
+  const lp = ease.outCubic(prog(t, 23.35, .6));
+  drawLogo('agibankPos', 160, 84 - (1 - lp) * 18, 50, lp);
+
+  const x = 160, S = 66, LH = 80;
+  const head = [
+    { at: 23.55, base: 280, text: 'Chega de ver a inovação acontecer' },
+    { at: 23.78, base: 280 + LH, text: 'só depois que ela passou.' },
+    { at: 24.45, base: 280 + LH * 2 + 22, text: 'Coloque seu crescimento' },
+    { at: 24.68, base: 280 + LH * 3 + 22, text: 'em primeiro lugar!' },
+  ];
+  const impact = (L, size, color) => {
+    const p = prog(t, L.at, .55);
+    if (p <= 0) return;
+    const e = ease.outExpo(p);
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 2.2);
+    ctx.translate(x, L.base);
+    const s = lerp(1.12, 1, e);
+    ctx.scale(s, s);
+    ctx.translate(0, (1 - e) * 46);
+    drawRich([{ text: L.text, font: font(700, size), color }], 0, 0);
+    ctx.restore();
+  };
+  head.forEach((L) => impact(L, S, C.escuro));
+  // barra verde de impacto junto ao bloco
+  const bp = ease.outExpo(prog(t, 23.5, .7));
+  if (bp > 0) { ctx.fillStyle = C.verde; rrectPath(x - 44, 222, 12, (head[3].base - 222 + 18) * bp, 6); ctx.fill(); }
+
+  const cta = [
+    { at: 25.5, base: 662, text: 'Agilize agora sua inscrição' },
+    { at: 25.72, base: 662 + 74, text: 'para o próximo Meetup Agibank!' },
+  ];
+  cta.forEach((L) => impact(L, 60, C.azul));
+
+  // Badge de conversão
+  const gp = prog(t, 26.45, .6);
+  if (gp > 0) {
+    const url = 'carreiras.agibank.com.br/meetup-agibank';
+    ctx.font = font(700, 42);
+    const tw = ctx.measureText(url).width;
+    const bw = tw + 72 + 70, bh = 100, by = 800;
+    const s = lerp(.7, 1, ease.outBack(gp));
+    ctx.save();
+    ctx.translate(x, by + bh / 2);
+    ctx.scale(s, s);
+    ctx.globalAlpha = clamp(gp * 2);
+    ctx.shadowColor = 'rgba(0,100,245,.35)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
+    rrectPath(0, -bh / 2, bw, bh, RADIUS); ctx.fillStyle = C.azul; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    // brilho varrendo o badge
+    for (const st of [27.2, 28.8]) {
+      const sp = prog(t, st, .7);
+      if (sp > 0 && sp < 1) {
+        ctx.save();
+        rrectPath(0, -bh / 2, bw, bh, RADIUS); ctx.clip();
+        const sx = lerp(-200, bw + 200, ease.inOutCubic(sp));
+        const g = ctx.createLinearGradient(sx - 120, 0, sx + 120, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.28)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.fillRect(sx - 120, -bh / 2, 240, bh);
+        ctx.restore();
+      }
+    }
+    ctx.font = font(700, 42); ctx.fillStyle = C.branco; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText(url, 36, 3);
+    const nudge = t > 27.4 ? Math.max(0, Math.sin((t - 27.4) * Math.PI * 2 / 1.2)) * 10 : 0;
+    drawImg('icon:arrow:verdeClaro', 36 + tw + 50 + nudge, 0, 52 * ease.outBack(prog(t, 26.8, .45)));
+    ctx.restore();
+  }
+}
+
+/* ---------- composição ---------- */
+function render(t) {
+  t = clamp(t, 0, DURATION);
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  if (t < 6.3) diagonalWipe(t, 5.55, .75, () => scene1(t), () => scene2(t), C.verde, 1);
+  else if (t < 9.3) diagonalWipe(t, 8.55, .75, () => scene2(t), () => scene3(t), C.verde, -1);
+  else if (t < 16.3) diagonalWipe(t, 15.55, .75, () => scene3(t), () => scene4(t), C.verdeClaro, 1);
+  else diagonalWipe(t, 22.55, .75, () => scene4(t), () => scene5(t), C.azul, -1);
+  ctx.restore();
+}
+
+/* ---------- player ---------- */
+const $ = (id) => document.getElementById(id);
+const playBtn = $('play'), seek = $('seek'), timeEl = $('time'), statusEl = $('status');
+let playing = false, cur = 0, last = 0, recording = false;
+const fmt = (s) => `00:${String(Math.floor(s)).padStart(2, '0')}`;
+const sceneBtns = SCENES.map((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'scene'; b.textContent = `Cena ${s.id} · ${s.name}`;
+  b.onclick = () => { if (!recording) { cur = s.start; draw(); } };
+  $('scenes').appendChild(b);
+  return b;
+});
+function draw() {
+  render(cur);
+  seek.value = Math.round(cur * FPS);
+  timeEl.textContent = `${fmt(cur)} / ${fmt(DURATION)}`;
+  let idx = 0; SCENES.forEach((s, i) => { if (cur >= s.start) idx = i; });
+  sceneBtns.forEach((b, i) => b.classList.toggle('on', i === idx));
+}
+function loop(now) {
+  if (!playing) return;
+  cur += (now - last) / 1000; last = now;
+  if (cur >= DURATION) { cur = DURATION; draw(); setPlaying(false); if (recording) stopRecording(); return; }
+  draw();
+  requestAnimationFrame(loop);
+}
+function setPlaying(v) {
+  playing = v; playBtn.textContent = v ? 'Pause' : 'Play';
+  if (v) { if (cur >= DURATION) cur = 0; last = performance.now(); requestAnimationFrame(loop); }
+}
+playBtn.onclick = () => { if (!recording) setPlaying(!playing); };
+$('restart').onclick = () => { if (recording) return; cur = 0; draw(); setPlaying(true); };
+seek.oninput = () => { if (recording) return; cur = seek.value / FPS; draw(); };
+document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); playBtn.click(); } });
+
+// Exportação no navegador: grava o canvas em tempo real (MP4 quando suportado, senão WebM).
+let recorder = null, chunks = [];
+function pickMime() {
+  const c = ['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  return c.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+}
+function stopRecording() { if (recorder && recorder.state !== 'inactive') recorder.stop(); }
+$('export').onclick = () => {
+  if (recording) return;
+  if (!window.MediaRecorder || !cv.captureStream) { statusEl.textContent = 'Este navegador não suporta exportação de vídeo pelo canvas.'; return; }
+  const mime = pickMime();
+  const stream = cv.captureStream(FPS);
+  recorder = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 16e6 });
+  chunks = [];
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    recording = false;
+    document.querySelectorAll('button').forEach((b) => (b.disabled = false));
+    const type = recorder.mimeType || mime || 'video/webm';
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `giro-meetup-agibank-rh-1920x1080.${ext}`; a.textContent = 'baixar novamente';
+    a.click();
+    statusEl.innerHTML = `Vídeo exportado (${ext.toUpperCase()}, ${(blob.size / 1048576).toFixed(1)} MB) — `;
+    statusEl.appendChild(a);
+  };
+  recording = true;
+  document.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  statusEl.textContent = 'Gravando em tempo real (30 s)…';
+  cur = 0; draw();
+  recorder.start(250);
+  setPlaying(true);
+};
+
+window.__motion = { render, canvas: cv, FPS, DURATION, ready: null };
+window.__motion.ready = loadAssets().then(() => {
+  $('loading').remove();
+  draw();
+  if (!/[?&]autoplay=0/.test(location.search)) setPlaying(true);
+});
+})();
+</script>
+</body>
+</html>
