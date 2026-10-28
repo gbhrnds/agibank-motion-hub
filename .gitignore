@@ -1,0 +1,9 @@
+# Vídeos brutos e renders (não versionar)
+*.mp4
+*.mov
+*.MP4
+*.MOV
+
+# Saídas temporárias de render
+projetos/*/render/
+node_modules/

@@ -1,0 +1,101 @@
+/* Letterings VS01 — Programa de Estágio Agi (Matheus)
+   Palco fixo 1920×1080; o player escala o palco para o tamanho do vídeo. */
+
+@font-face {
+  font-family: 'Agibank Sans';
+  font-weight: 700;
+  src: url('../../assets/fonts/AgibankSans-Bold.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Agibank Sans';
+  font-weight: 400;
+  src: url('../../assets/fonts/AgibankSans-Regular.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Regular.woff2') format('woff2');
+}
+
+:root {
+  --azul: #0064f5;
+  --azul-medio: #0033b0;
+  --azul-escuro: #000f44;
+  --verde: #77df40;
+  --verde-claro: #C9FF90;
+  --amarelo: #FFD600;
+  --branco: #FFFFFF;
+  --raio: 15px;          /* diretrizes: 12–17px */
+  --margem-x: 110px;     /* respiro lateral */
+  --base-y: 140px;       /* respiro inferior */
+}
+
+.agi-stage {
+  position: absolute;
+  left: 0; top: 0;
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: 'Agibank Sans', sans-serif;
+  color: var(--branco);
+  -webkit-font-smoothing: antialiased;
+}
+.agi-stage * { box-sizing: border-box; }
+
+.cue { position: absolute; left: var(--margem-x); bottom: var(--base-y); display: none; will-change: transform, clip-path; }
+.mask { overflow: hidden; display: block; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.mask > * { display: block; will-change: transform; }
+.ico { display: inline-block; flex: none; fill: currentColor; }
+.forma { position: absolute; fill: currentColor; z-index: 0; }
+.box { position: relative; z-index: 1; border-radius: var(--raio); }
+
+/* 1 · Lower third */
+#c-gc .verde { position: absolute; inset: 0; background: var(--verde); border-radius: var(--raio); transform: translate(-14px, 14px); }
+#c-gc .box { background: var(--azul); padding: 26px 48px 30px 44px; }
+#c-gc .l1 { font-weight: 700; font-size: 68px; line-height: 1; letter-spacing: -0.01em; }
+#c-gc .l2 { font-weight: 400; font-size: 36px; line-height: 1.15; margin-top: 8px; }
+#c-gc .forma { color: var(--verde); width: 96px; top: -34px; right: -40px; }
+
+/* 2 · Card de prazo */
+#c-prazo .box { background: var(--azul-escuro); padding: 30px 40px 34px; }
+#c-prazo .topo { display: flex; align-items: center; gap: 14px; font-size: 32px; font-weight: 400; }
+#c-prazo .topo .ico { width: 38px; height: 38px; color: var(--amarelo); }
+#c-prazo .destaque { font-size: 52px; font-weight: 700; line-height: 1.05; margin-top: 14px; white-space: nowrap; }
+#c-prazo .hl { position: relative; display: inline-block; color: var(--amarelo); transform-origin: 30% 70%; }
+#c-prazo .hl i { position: absolute; left: 0; right: 0; bottom: -6px; height: 7px; border-radius: 4px; background: var(--amarelo); transform-origin: left; }
+#c-prazo .forma { color: var(--amarelo); width: 64px; top: -28px; right: -26px; }
+
+/* 3 · Bolsa-auxílio */
+#c-bolsa { bottom: calc(var(--base-y) + 230px); }
+#c-bolsa .box { background: var(--verde); color: var(--azul-escuro); padding: 24px 44px 26px 40px; }
+#c-bolsa .apoio, #c-vavr .apoio { display: flex; align-items: center; gap: 12px; font-size: 32px; font-weight: 400; }
+#c-bolsa .apoio .ico, #c-vavr .apoio .ico { width: 36px; height: 36px; }
+.valor { font-weight: 700; line-height: 0.95; white-space: nowrap; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.valor small { font-size: 0.5em; font-weight: 700; margin-right: 0.12em; }
+#c-bolsa .valor { font-size: 112px; }
+
+/* 4 · VA e VR */
+#c-vavr .box { background: var(--azul); padding: 24px 44px 26px 40px; }
+#c-vavr .apoio .ico { color: var(--verde-claro); }
+#c-vavr .valor { font-size: 104px; color: var(--verde-claro); }
+
+/* 5 · Tags */
+#c-tags .tag { position: relative; display: flex; align-items: center; gap: 16px; width: max-content; border-radius: var(--raio); padding: 18px 30px 20px 24px; font-size: 38px; font-weight: 700; line-height: 1; margin-top: 18px; }
+#c-tags .tag .ico { width: 38px; height: 38px; }
+#c-tags .t1 { background: var(--branco); color: var(--azul-escuro); margin-top: 0; }
+#c-tags .t1 .ico { color: var(--azul); }
+#c-tags .t2 { background: var(--azul); color: var(--branco); }
+#c-tags .t3 { background: var(--azul-escuro); color: var(--branco); }
+#c-tags .t3 .ico, #c-tags .t3 b { color: var(--verde); }
+
+/* 6 · Requisito */
+#c-req .box { background: var(--branco); color: var(--azul-escuro); padding: 30px 44px 32px 30px; display: flex; gap: 22px; align-items: flex-start; }
+#c-req .barra { width: 10px; align-self: stretch; border-radius: 5px; background: var(--azul); transform-origin: top; }
+#c-req .ico { width: 54px; height: 54px; color: var(--azul); margin-top: 4px; }
+#c-req .principal { font-size: 50px; font-weight: 700; line-height: 1.05; }
+#c-req .sub { font-size: 30px; font-weight: 400; color: var(--azul-medio); margin-top: 12px; }
+#c-req .forma { color: var(--azul); width: 70px; top: -30px; right: -28px; }
+
+/* 7 · Localidade */
+#c-pres .box { background: var(--azul); padding: 28px 44px 32px 40px; }
+#c-pres .destaque { font-size: 68px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#c-pres .chip { display: inline-flex; align-items: center; gap: 12px; margin-top: 18px; background: var(--verde); color: var(--azul-escuro); border-radius: var(--raio); padding: 10px 22px 12px 16px; font-size: 32px; font-weight: 700; transform-origin: left center; }
+#c-pres .chip .ico { width: 32px; height: 32px; }
+#c-pres .forma { color: var(--verde); width: 92px; top: -36px; right: -40px; }
