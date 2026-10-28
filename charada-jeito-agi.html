@@ -195,6 +195,11 @@
   body.fs.idle #controls { opacity: 0; pointer-events: none; }
   body.fs.idle { cursor: none; }
 
+  /* ?render=1: só o palco em 1920x1080, usado por tools/render-mp4.js */
+  body.render #controls { display: none; }
+  body.render #viewport { padding: 0; }
+  body.render #stage-wrap { border-radius: 0; box-shadow: none; }
+
   @media (max-width: 900px) {
     #controls { padding: 8px 12px 14px; }
     .scene-btn .lbl { display: none; }
@@ -684,12 +689,20 @@ function ajustar() {
 window.addEventListener('resize', ajustar);
 
 // ?t=12.5 abre num instante específico; ?cena=3 abre numa cena; ?autoplay=1 começa tocando
+// ?render=1 esconde os controles e expõe window.renderFrame(f) para exportar o MP4
 async function iniciar() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('render') === '1') document.body.classList.add('render');
   ajustar();
   try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 4000))]);
         await Promise.all([400, 500, 600, 700].map(w => document.fonts.load(`${w} 40px "Agibank Sans"`))); } catch (e) {}
   $('loading').remove();
-  const q = new URLSearchParams(location.search);
+  if (q.get('render') === '1') {
+    window.TOTAL_FRAMES = TOTAL_FRAMES; window.FPS = FPS;
+    window.renderFrame = f => render(f);
+    window.pronto = true;
+    return;
+  }
   if (q.has('t')) irPara(parseFloat(q.get('t')) * FPS, false);
   else if (q.has('cena')) irParaCena(parseInt(q.get('cena'), 10) - 1);
   if (q.get('autoplay') === '1') tocar();
