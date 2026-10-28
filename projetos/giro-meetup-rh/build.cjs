@@ -16,14 +16,11 @@ const FONTS = {
 };
 
 const LOGOS = {
-  agiNeg: 'Agi_Negativo_RGB.svg',
-  agiPos: 'Agi_Positivo.svg',
-  agibankPos: 'Agibank_Positivo.svg',
+  agibankNeg: 'Agibank_Negativo.svg',
 };
 
 const SHAPES = ['Ativo 28', 'Ativo 20', 'Ativo 13', 'Ativo 36', 'Ativo 24', 'Ativo 9', 'Ativo 33', 'Ativo 7'];
-const MODULES = ['Ativo 65', 'Ativo 66'];
-const ICONS = { check: 'Ativo 122', arrow: 'Ativo 127' };
+const ICONS = { check: 'Ativo 122' };
 
 const clean = (s) => s.replace(/<\?xml[^>]*\?>\s*/, '').trim();
 
@@ -57,12 +54,10 @@ async function cropLogos(svgs) {
 
   const shapes = {};
   for (const s of SHAPES) shapes[s] = clean(read(A('shapes', `${s}.svg`)));
-  const modules = {};
-  for (const m of MODULES) modules[m] = clean(read(A('modulos', `${m}.svg`)));
   const icons = {};
   for (const [k, f] of Object.entries(ICONS)) icons[k] = clean(read(A('icons', `${f}.svg`)));
 
-  const assets = { fonts, logos, shapes, modules, icons };
+  const assets = { fonts, logos, shapes, icons };
   const tpl = read(path.join(__dirname, 'src', 'template.html'));
   const html = tpl.replace('/*__ASSETS__*/null', () => JSON.stringify(assets));
   const out = path.join(__dirname, 'meetup-rh-motion.html');

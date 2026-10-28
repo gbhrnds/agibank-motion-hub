@@ -110,7 +110,6 @@ function svgToImage(svg) {
   });
 }
 const recolor = (svg, color) => svg.replace(/fill="#[0-9a-fA-F]{3,6}"/g, `fill="${color}"`).replace(/fill:\s*#[0-9a-fA-F]{3,6}/g, `fill: ${color}`);
-const recolorSeq = (svg, colors) => { let i = 0; return svg.replace(/fill:\s*#[0-9a-fA-F]{3,6}/g, (m) => `fill: ${colors[i++] || m.split(':')[1].trim()}`); };
 const tintIcon = (svg, color) => recolor(svg.replace('<svg ', `<svg fill="${color}" `), color);
 
 async function loadAssets() {
@@ -123,20 +122,12 @@ async function loadAssets() {
   await Promise.all(faces.map((f) => f.load().then((ff) => document.fonts.add(ff))));
   const jobs = [];
   const add = (key, svg) => jobs.push(svgToImage(svg).then((img) => { images[key] = img; }));
-  add('agiNeg', ASSETS.logos.agiNeg);
-  add('agiPos', ASSETS.logos.agiPos);
-  add('agibankPos', ASSETS.logos.agibankPos);
-  const shapeColors = { azul: C.azul, verde: C.verde, medio: C.medio, verdeClaro: C.verdeClaro };
+  add('agibankNeg', ASSETS.logos.agibankNeg);
+  const shapeColors = { azul: C.azul, verde: C.verde };
   for (const [name, svg] of Object.entries(ASSETS.shapes)) {
     for (const [ck, cval] of Object.entries(shapeColors)) add(`shape:${name}:${ck}`, recolor(svg, cval));
   }
-  add('mod65', recolorSeq(ASSETS.modules['Ativo 65'], [C.azul, C.verde]));
-  add('mod66', ASSETS.modules['Ativo 66'].replace(/#76df40/g, C.verde));
   add('icon:check:escuro', tintIcon(ASSETS.icons.check, C.escuro));
-  add('icon:check:medio', tintIcon(ASSETS.icons.check, C.medio));
-  add('icon:arrow:verde', tintIcon(ASSETS.icons.arrow, C.verde));
-  add('icon:arrow:branco', tintIcon(ASSETS.icons.arrow, C.branco));
-  add('icon:arrow:verdeClaro', tintIcon(ASSETS.icons.arrow, C.verdeClaro));
   await Promise.all(jobs);
 }
 
@@ -362,33 +353,8 @@ function route(t, start, color, pts, alpha = .9) {
   const p = ease.inOutCubic(prog(t, start, 2.6));
   if (p <= 0) return;
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha *= alpha;
   glowLine(roundPts(pts, 80), p, color, { width: 4, head: true, glowAfter: .6 });
-  ctx.restore();
-}
-
-/* ---------- transições em módulo diagonal ---------- */
-// Wipe diagonal com faixa de destaque (ângulos não paralelos, cantos de 15px).
-function diagonalWipe(t, start, dur, drawFrom, drawTo, accent, dir = 1) {
-  const p = prog(t, start, dur);
-  if (p <= 0) { drawFrom(); return; }
-  if (p >= 1) { drawTo(); return; }
-  const e = ease.inOutQuart(p);
-  const top = lerp(W + 420, -760, e);
-  const bot = top - 360;
-  const gap = 38;
-  const mx = (x) => (dir === 1 ? x : W - x);
-  const mapPts = (pts) => pts.map(([x, y]) => [mx(x), y]);
-  const main = mapPts([[top, -60], [W + 900, -60], [W + 900, H + 60], [bot, H + 60]]);
-  const stripe = mapPts([[top - gap - 300, -60], [top - gap, -60], [bot - gap, H + 60], [bot - gap - 140, H + 60]]);
-  drawFrom();
-  ctx.save();
-  polyPath(main, RADIUS); ctx.clip();
-  drawTo();
-  ctx.restore();
-  ctx.save();
-  polyPath(stripe, RADIUS);
-  ctx.fillStyle = accent; ctx.fill();
   ctx.restore();
 }
 
@@ -396,15 +362,12 @@ function diagonalWipe(t, start, dur, drawFrom, drawTo, accent, dir = 1) {
    CENA 01 — Gancho de abertura (0s–6s)
    ========================================================= */
 function scene1(t) {
-  ctx.fillStyle = C.escuro; ctx.fillRect(0, 0, W, H);
-  floatingShape(t, 'shape:Ativo 28:azul', 1800, 70, 560, { rot: .2, inAt: 0, from: [260, -200], amp: 14, phase: 0 });
+  floatingShape(t, 'shape:Ativo 28:azul', -40, 90, 480, { rot: 3.3, inAt: 0, from: [-260, -200], amp: 14, phase: 0 });
   floatingShape(t, 'shape:Ativo 20:verde', 70, 1010, 380, { rot: -.5, inAt: .12, from: [-220, 220], amp: 12, phase: 1.3 });
   floatingShape(t, 'shape:Ativo 13:azul', 1690, 1050, 470, { rot: -.15, inAt: .22, from: [200, 240], amp: 10, phase: 2.1 });
-  floatingShape(t, 'shape:Ativo 36:verde', -10, 360, 200, { rot: .4, inAt: .3, from: [-200, 0], amp: 9, phase: 3.2 });
-  floatingShape(t, 'shape:Ativo 24:azul', 210, -20, 260, { rot: 2.6, inAt: .38, from: [0, -200], amp: 9, phase: 4.1 });
+  floatingShape(t, 'shape:Ativo 36:verde', 1910, 420, 200, { rot: -2.6, inAt: .3, from: [200, 0], amp: 9, phase: 3.2 });
+  floatingShape(t, 'shape:Ativo 24:verde', 400, -30, 200, { rot: 2.6, inAt: .38, from: [0, -200], amp: 9, phase: 4.1 });
 
-  const lp = ease.outCubic(prog(t, .35, .7));
-  drawLogo('agiNeg', W / 2, 74 - (1 - lp) * 20, 54, lp, 'center');
 
   const S = 86, LH = 108;
   const b1 = 400, b2 = b1 + LH, b3 = b2 + LH, b4 = b3 + LH + 26;
@@ -431,10 +394,7 @@ function scene1(t) {
   const q = ease.outExpo(prog(t, 3.0, .7));
   const QS = 60;
   maskLine(q, QS, b4, () => {
-    const lay = drawRich([{ text: 'Quer ver o que rolou por lá?', font: font(400, QS), color: C.branco }], W / 2 - 40, b4, 'center');
-    const ap = ease.outBack(prog(t, 3.4, .5));
-    const nudge = Math.max(0, Math.sin((t - 3.9) * Math.PI * 2 / 1.1)) * 14 * (t > 3.9 ? 1 : 0);
-    if (ap > 0) drawImg('icon:arrow:verde', lay.left + lay.total + 52 + nudge, b4 - 20, 62 * ap);
+    drawRich([{ text: 'Quer ver o que rolou por lá?', font: font(400, QS), color: C.branco }], W / 2, b4, 'center');
   });
 }
 
@@ -442,26 +402,18 @@ function scene1(t) {
    CENA 02 — Transição do desafio (6s–9s)
    ========================================================= */
 function scene2(t) {
-  ctx.fillStyle = C.azul; ctx.fillRect(0, 0, W, H);
-  floatingShape(t, 'shape:Ativo 9:medio', 120, 1010, 420, { rot: .3, inAt: 5.9, from: [-200, 200], amp: 10, phase: .7 });
-  floatingShape(t, 'shape:Ativo 33:medio', 1870, 90, 300, { rot: -.4, inAt: 6.0, from: [200, -200], amp: 9, phase: 2.4 });
+  floatingShape(t, 'shape:Ativo 9:azul', 120, 1010, 420, { rot: .3, inAt: 5.9, from: [-200, 200], amp: 10, phase: .7 });
+  floatingShape(t, 'shape:Ativo 33:verde', -30, 120, 240, { rot: -.4, inAt: 6.0, from: [-200, -200], amp: 9, phase: 2.4 });
 
-  const lp = ease.outCubic(prog(t, 6.15, .5));
-  drawLogo('agiNeg', 160, 92, 50, lp);
 
-  // Texto original do PDF, em branco sobre Azul Agibank
+  // Texto original do PDF, em branco sobre Azul Escuro
   const S = 66, LH = 84, x = 160;
   const lines = ['Faça os testes e descubra', 'se você deve marcar', 'presença no'];
   const b0 = 470;
   lines.forEach((txt, i) => {
     const p = ease.outExpo(prog(t, 6.2 + i * .16, .7));
     maskLine(p, S, b0 + i * LH, () => {
-      const lay = drawRich([{ text: txt, font: font(400, S), color: C.branco }], x, b0 + i * LH);
-      if (i === 2) {
-        const ap = ease.outBack(prog(t, 6.75, .5));
-        const nudge = t > 7.3 ? Math.max(0, Math.sin((t - 7.3) * Math.PI * 2 / 1.1)) * 14 : 0;
-        if (ap > 0) drawImg('icon:arrow:branco', lay.left + lay.total + 60 + nudge, b0 + i * LH - 22, 66 * ap);
-      }
+      drawRich([{ text: txt, font: font(400, S), color: C.branco }], x, b0 + i * LH);
     });
   });
 
@@ -473,7 +425,7 @@ function scene2(t) {
   const lx = 1050, ly = 340, ls = 150;
   const k = [prog(t, 6.6, .7), prog(t, 6.78, .7), prog(t, 7.1, .5)];
   if (k[0] > 0) {
-    lockup(lx, ly, ls, { upColor: C.branco, pillFill: C.verde, pillText: C.escuro, p: k, knockout: C.azul });
+    lockup(lx, ly, ls, { upColor: C.verde, pillFill: C.verde, pillText: C.escuro, p: k, knockout: C.escuro });
   }
 }
 
@@ -483,9 +435,7 @@ function scene2(t) {
 const FX = { L: 600, R: 1320, qY: 240, rowA: 420, rowB: 590, rowC: 760 };
 function flowHeader(t, t0, bg, accent, upColor) {
   const hp = prog(t, t0 + .15, .6);
-  lockup(120, 64, 50, { upColor, pillFill: accent, pillText: bg === C.escuro ? C.escuro : C.medio, p: [hp, prog(t, t0 + .25, .6), prog(t, t0 + .45, .5)] });
-  const lp = ease.outCubic(prog(t, t0 + .3, .6));
-  drawLogo('agiNeg', 1800, 78 - (1 - lp) * 18, 58, lp, 'right');
+  lockup(120, 64, 50, { upColor, pillFill: accent, pillText: C.escuro, p: [hp, prog(t, t0 + .25, .6), prog(t, t0 + .45, .5)] });
 }
 function flowchart(t, t0, o) {
   const { question, qColor, accent, left, right, mid, bg } = o;
@@ -524,7 +474,6 @@ function flowchart(t, t0, o) {
    ========================================================= */
 function scene3(t) {
   const t0 = 9;
-  ctx.fillStyle = C.escuro; ctx.fillRect(0, 0, W, H);
   route(t, t0 + .2, C.verde, [[-40, 950], [260, 975], [430, 1015], [600, 985], [760, 945], [930, 975], [1040, 1050], [1240, 1048], [1460, 1020], [1700, 1050], [1980, 1010]], .85);
   flowHeader(t, t0, C.escuro, C.verde, C.verde);
   const f = flowchart(t, t0, { question: 'É do RH e usa IA?', qColor: C.verde, accent: C.verde, left: 'Então pode vir!', right: 'NÃO', mid: 'Quer saber como usar?', bg: C.escuro, converge: 'card' });
@@ -544,7 +493,7 @@ function scene3(t) {
   }
   if (f.pulse > 0 && f.pulse < 1) {
     ctx.save();
-    ctx.strokeStyle = C.verde; ctx.lineWidth = 3; ctx.globalAlpha = 1 - f.pulse;
+    ctx.strokeStyle = C.verde; ctx.lineWidth = 3; ctx.globalAlpha *= 1 - f.pulse;
     const g = 20 * ease.outCubic(f.pulse);
     rrectPath(FX.L - 260 - g, FX.rowB - 48 - g, 520 + g * 2, 96 + g * 2, RADIUS + 2); ctx.stroke();
     ctx.restore();
@@ -556,13 +505,12 @@ function scene3(t) {
    ========================================================= */
 function scene4(t) {
   const t0 = 16;
-  ctx.fillStyle = C.medio; ctx.fillRect(0, 0, W, H);
   floatingShape(t, 'shape:Ativo 7:azul', 1880, 640, 300, { rot: .5, inAt: t0 - .3, from: [220, 0], amp: 10, phase: 1 });
   floatingShape(t, 'shape:Ativo 24:azul', 40, 760, 260, { rot: -.3, inAt: t0 - .2, from: [-220, 0], amp: 10, phase: 2.6 });
   route(t, t0 + .2, C.verdeClaro, [[-40, 1050], [180, 1030], [330, 1000], [470, 1020], [560, 1070]], .7);
   route(t, t0 + .5, C.verdeClaro, [[1380, 1090], [1480, 1030], [1640, 1015], [1760, 1040], [1980, 1000]], .7);
-  flowHeader(t, t0, C.medio, C.verdeClaro, C.verdeClaro);
-  const f = flowchart(t, t0, { question: 'Analisa dados no RH?', qColor: C.verdeClaro, accent: C.verdeClaro, left: 'Esse encontro é seu!', right: 'Às vezes', mid: 'Quer conhecer cases?', bg: C.medio, converge: 'center' });
+  flowHeader(t, t0, C.escuro, C.verdeClaro, C.verdeClaro);
+  const f = flowchart(t, t0, { question: 'Analisa dados no RH?', qColor: C.verdeClaro, accent: C.verdeClaro, left: 'Esse encontro é seu!', right: 'Às vezes', mid: 'Quer conhecer cases?', bg: C.escuro, converge: 'center' });
   // Convergência para o centro: card (esquerda) e SIM (direita) se encontram no nó central
   const nodeY = 905;
   const a = roundPts([[FX.L, FX.rowB + 48], [FX.L, nodeY], [W / 2 - 46, nodeY]], 48);
@@ -574,7 +522,7 @@ function scene4(t) {
     const s = ease.outBack(np);
     if (f.pulse < 1) {
       ctx.save();
-      ctx.strokeStyle = C.verdeClaro; ctx.lineWidth = 3; ctx.globalAlpha = 1 - f.pulse;
+      ctx.strokeStyle = C.verdeClaro; ctx.lineWidth = 3; ctx.globalAlpha *= 1 - f.pulse;
       ctx.beginPath(); ctx.arc(W / 2, nodeY, 46 + 40 * ease.outCubic(f.pulse), 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
@@ -583,7 +531,7 @@ function scene4(t) {
     ctx.fillStyle = C.verdeClaro;
     ctx.beginPath(); ctx.arc(W / 2, nodeY, 44 * s, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    drawImg('icon:check:medio', W / 2, nodeY, 70 * s);
+    drawImg('icon:check:escuro', W / 2, nodeY, 70 * s);
   }
 }
 
@@ -591,34 +539,24 @@ function scene4(t) {
    CENA 05 — Encerramento e CTA (23s–30s)
    ========================================================= */
 function scene5(t) {
-  ctx.fillStyle = C.cinza; ctx.fillRect(0, 0, W, H);
-  // Módulo oficial (Ativo 65) na borda direita, escalado para cantos de 15px
-  const mod = images.mod65;
-  const ms = 15 / 19.29;
-  const mw = mod.naturalWidth * ms;
-  const me = ease.outExpo(prog(t, 22.9, 1.1));
-  const mfloat = Math.sin(t * 1.3) * 5;
-  drawImg('mod65', 1560 + mw / 2 + (1 - me) * 520, 540 + mfloat, mw, { alpha: clamp(me * 2) });
-  floatingShape(t, 'shape:Ativo 20:verde', 1250, -40, 250, { rot: 2.9, inAt: 23.3, from: [0, -200], amp: 8, phase: .4 });
-  floatingShape(t, 'shape:Ativo 13:azul', 1260, 1090, 330, { rot: .1, inAt: 23.4, from: [0, 220], amp: 8, phase: 2 });
-  floatingShape(t, 'shape:Ativo 36:verde', -30, 1040, 230, { rot: 1.1, inAt: 23.5, from: [-200, 100], amp: 8, phase: 3 });
-
-  const lp = ease.outCubic(prog(t, 23.35, .6));
-  drawLogo('agibankPos', 160, 84 - (1 - lp) * 18, 50, lp);
+  floatingShape(t, 'shape:Ativo 20:verde', 1250, -40, 250, { rot: 2.9, inAt: 23.0, from: [0, -200], amp: 8, phase: .4 });
+  floatingShape(t, 'shape:Ativo 13:azul', 1260, 1090, 330, { rot: .1, inAt: 23.1, from: [0, 220], amp: 8, phase: 2 });
+  floatingShape(t, 'shape:Ativo 36:verde', -30, 1040, 230, { rot: 1.1, inAt: 23.2, from: [-200, 100], amp: 8, phase: 3 });
+  floatingShape(t, 'shape:Ativo 9:azul', 1900, 960, 340, { rot: -.3, inAt: 23.3, from: [200, 200], amp: 8, phase: 1.2 });
 
   const x = 160, S = 66, LH = 80;
   const head = [
-    { at: 23.55, base: 280, text: 'Chega de ver a inovação acontecer' },
-    { at: 23.78, base: 280 + LH, text: 'só depois que ela passou.' },
-    { at: 24.45, base: 280 + LH * 2 + 22, text: 'Coloque seu crescimento' },
-    { at: 24.68, base: 280 + LH * 3 + 22, text: 'em primeiro lugar!' },
+    { at: 23.25, base: 250, text: 'Chega de ver a inovação acontecer' },
+    { at: 23.48, base: 250 + LH, text: 'só depois que ela passou.' },
+    { at: 24.15, base: 250 + LH * 2 + 22, text: 'Coloque seu crescimento' },
+    { at: 24.38, base: 250 + LH * 3 + 22, text: 'em primeiro lugar!' },
   ];
   const impact = (L, size, color) => {
     const p = prog(t, L.at, .55);
     if (p <= 0) return;
     const e = ease.outExpo(p);
     ctx.save();
-    ctx.globalAlpha = clamp(p * 2.2);
+    ctx.globalAlpha *= clamp(p * 2.2);
     ctx.translate(x, L.base);
     const s = lerp(1.12, 1, e);
     ctx.scale(s, s);
@@ -626,34 +564,34 @@ function scene5(t) {
     drawRich([{ text: L.text, font: font(700, size), color }], 0, 0);
     ctx.restore();
   };
-  head.forEach((L) => impact(L, S, C.escuro));
+  head.forEach((L) => impact(L, S, C.branco));
   // barra verde de impacto junto ao bloco
-  const bp = ease.outExpo(prog(t, 23.5, .7));
-  if (bp > 0) { ctx.fillStyle = C.verde; rrectPath(x - 44, 222, 12, (head[3].base - 222 + 18) * bp, 6); ctx.fill(); }
+  const bp = ease.outExpo(prog(t, 23.2, .7));
+  if (bp > 0) { ctx.fillStyle = C.verde; rrectPath(x - 44, 192, 12, (head[3].base - 192 + 18) * bp, 6); ctx.fill(); }
 
   const cta = [
-    { at: 25.5, base: 662, text: 'Agilize agora sua inscrição' },
-    { at: 25.72, base: 662 + 74, text: 'para o próximo Meetup Agibank!' },
+    { at: 25.2, base: 640, text: 'Agilize agora sua inscrição' },
+    { at: 25.42, base: 640 + 74, text: 'para o próximo Meetup Agibank!' },
   ];
-  cta.forEach((L) => impact(L, 60, C.azul));
+  cta.forEach((L) => impact(L, 60, C.verde));
 
   // Badge de conversão
-  const gp = prog(t, 26.45, .6);
+  const gp = prog(t, 26.1, .6);
   if (gp > 0) {
     const url = 'carreiras.agibank.com.br/meetup-agibank';
     ctx.font = font(700, 42);
     const tw = ctx.measureText(url).width;
-    const bw = tw + 72 + 70, bh = 100, by = 800;
+    const bw = tw + 80, bh = 100, by = 780;
     const s = lerp(.7, 1, ease.outBack(gp));
     ctx.save();
     ctx.translate(x, by + bh / 2);
     ctx.scale(s, s);
-    ctx.globalAlpha = clamp(gp * 2);
-    ctx.shadowColor = 'rgba(0,100,245,.35)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
+    ctx.globalAlpha *= clamp(gp * 2);
+    ctx.shadowColor = 'rgba(0,100,245,.45)'; ctx.shadowBlur = 36;
     rrectPath(0, -bh / 2, bw, bh, RADIUS); ctx.fillStyle = C.azul; ctx.fill();
     ctx.shadowColor = 'transparent';
     // brilho varrendo o badge
-    for (const st of [27.2, 28.8]) {
+    for (const st of [27.0, 29.0]) {
       const sp = prog(t, st, .7);
       if (sp > 0 && sp < 1) {
         ctx.save();
@@ -665,23 +603,51 @@ function scene5(t) {
         ctx.restore();
       }
     }
-    ctx.font = font(700, 42); ctx.fillStyle = C.branco; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    ctx.fillText(url, 36, 3);
-    const nudge = t > 27.4 ? Math.max(0, Math.sin((t - 27.4) * Math.PI * 2 / 1.2)) * 10 : 0;
-    drawImg('icon:arrow:verdeClaro', 36 + tw + 50 + nudge, 0, 52 * ease.outBack(prog(t, 26.8, .45)));
+    ctx.font = font(700, 42); ctx.fillStyle = C.branco; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.fillText(url, bw / 2, 3);
     ctx.restore();
   }
 }
 
+/* ---------- mosca + assinatura final ---------- */
+// Logo Agibank fixo no canto superior direito; na tela final ele cresce e assina o vídeo.
+const MOSCA = { right: 1800, top: 66, h: 40 };
+const SIGN = { cx: 1560, cy: 520, h: 120, at: 27.3, dur: 1.0 };
+function mosca(t) {
+  const img = images.agibankNeg;
+  if (!img) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const a = ease.outCubic(prog(t, .2, .6));
+  const e = ease.inOutCubic(prog(t, SIGN.at, SIGN.dur));
+  const h = lerp(MOSCA.h, SIGN.h, e);
+  const cx = lerp(MOSCA.right - MOSCA.h * ratio / 2, SIGN.cx, e);
+  const cy = lerp(MOSCA.top + MOSCA.h / 2, SIGN.cy, e);
+  ctx.save();
+  ctx.globalAlpha = a * lerp(.92, 1, e);
+  ctx.drawImage(img, cx - h * ratio / 2, cy - h / 2, h * ratio, h);
+  ctx.restore();
+}
+
 /* ---------- composição ---------- */
+// Fundo Azul Escuro contínuo (identidade do Meetup); cenas saem com fade + leve subida.
+const SCENE_FNS = [scene1, scene2, scene3, scene4, scene5];
+const EXITS = [5.55, 8.55, 15.55, 22.55, Infinity];
+const ENTRIES = [0, 5.5, 8.5, 15.5, 22.5];
 function render(t) {
   t = clamp(t, 0, DURATION);
   ctx.save();
-  ctx.clearRect(0, 0, W, H);
-  if (t < 6.3) diagonalWipe(t, 5.55, .75, () => scene1(t), () => scene2(t), C.verde, 1);
-  else if (t < 9.3) diagonalWipe(t, 8.55, .75, () => scene2(t), () => scene3(t), C.verde, -1);
-  else if (t < 16.3) diagonalWipe(t, 15.55, .75, () => scene3(t), () => scene4(t), C.verdeClaro, 1);
-  else diagonalWipe(t, 22.55, .75, () => scene4(t), () => scene5(t), C.azul, -1);
+  ctx.fillStyle = C.escuro; ctx.fillRect(0, 0, W, H);
+  SCENE_FNS.forEach((fn, i) => {
+    if (t < ENTRIES[i]) return;
+    const out = ease.inOutCubic(prog(t, EXITS[i], .45));
+    if (out >= 1) return;
+    ctx.save();
+    ctx.globalAlpha = 1 - out;
+    ctx.translate(0, -36 * out);
+    fn(t);
+    ctx.restore();
+  });
+  mosca(t);
   ctx.restore();
 }
 
