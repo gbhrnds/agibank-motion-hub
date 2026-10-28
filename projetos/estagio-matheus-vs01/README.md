@@ -52,10 +52,10 @@ Saída: `projetos/estagio-matheus-vs01/render/MONTAGEM_VS01_letterings.mp4`. Par
 Só os letterings em .mov RGB+alpha (duração total, começando em 00:00, para soltar sobre o vídeo na timeline):
 
 ```bash
-node projetos/estagio-matheus-vs01/render.mjs projetos/estagio-matheus-vs01/MONTAGEM_VS01_1.mp4 --alpha prores
+node projetos/estagio-matheus-vs01/render.mjs projetos/estagio-matheus-vs01/MONTAGEM_VS01_1.mp4 --alpha animation
 ```
 
-`--alpha prores` = ProRes 4444 com alfa · `--alpha animation` = QuickTime Animation (sem perda) · `--alpha ambos`.
+`--alpha animation` = QuickTime Animation (sem perda) — **formato validado no Premiere Pro** · `--alpha prores` = ProRes 4444 (apareceu preto no Premiere do time) · `--alpha ambos`.
 
 ## Regras aplicadas
 
