@@ -1,0 +1,102 @@
+<!doctype html>
+<html
+  lang="pt-BR"
+  data-composition-variables='[{"id":"titulo","type":"string","label":"Título","default":"{{titulo}}"},{"id":"subtitulo","type":"string","label":"Subtítulo (pode ficar vazio)","default":"{{subtitulo}}"}]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=__W__, height=__H__" />
+    <!-- Cartela de título Agibank em tela cheia: módulos diagonais (cantos 14 px, divisões não paralelas),
+         título branco sobre o azul, logo agi negativo no módulo azul-escuro. Opaca. -->
+    <script src="assets/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/brand.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: __W__px; height: __H__px; overflow: hidden; background: var(--agi-branco); }
+      #root { position: relative; width: 100%; height: 100%; font-family: var(--agi-font); }
+      #bg { position: absolute; inset: 0; background: var(--agi-branco); }
+      #mods { position: absolute; inset: 0; }
+      #mods polygon { stroke-width: 28px; stroke-linejoin: round; }
+      #tt { position: absolute; display: flex; flex-direction: column; gap: 28px; }
+      #tt-titulo { color: var(--agi-branco); font-weight: 700; font-size: 104px; line-height: 1.02; letter-spacing: -0.02em; }
+      #tt-titulo .w { display: inline-block; }
+      #tt-sub { color: var(--agi-branco); font-weight: 400; font-size: 44px; line-height: 1.2; opacity: 0.92; }
+      #tt-logo { position: absolute; }
+      #tt-logo img { display: block; width: 100%; height: auto; }
+    </style>
+  </head>
+  <body class="__ORIENT__">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="__DUR__" data-width="__W__" data-height="__H__">
+      <div id="bg" class="clip" data-start="0" data-duration="__DUR__" data-track-index="0"></div>
+      <svg id="mods" class="clip" data-start="0" data-duration="__DUR__" data-track-index="1" viewBox="0 0 __W__ __H__" xmlns="http://www.w3.org/2000/svg">
+        <g id="mod-a"><polygon id="poly-a" fill="#0064f5" stroke="#0064f5" /></g>
+        <g id="mod-b"><polygon id="poly-b" fill="#77df40" stroke="#77df40" /></g>
+        <g id="mod-c"><polygon id="poly-c" fill="#000f44" stroke="#000f44" /></g>
+      </svg>
+      <div id="tt" class="clip" data-start="0" data-duration="__DUR__" data-track-index="2">
+        <h1 id="tt-titulo" data-var-text="titulo">{{titulo}}</h1>
+        <p id="tt-sub" data-var-text="subtitulo">{{subtitulo}}</p>
+      </div>
+      <div id="tt-logo" class="clip" data-start="0" data-duration="__DUR__" data-track-index="3">
+        <img src="assets/logos/Agi_Negativo_RGB.svg" alt="agi" />
+      </div>
+    </div>
+    <script>
+      const D = __DUR__, W = __W__, H = __H__;
+      // Geometria (determinística, calculada uma vez). Cada polígono é expandido 14 px pelo traço
+      // arredondado, então margem visível = M - 14 e vão visível entre módulos = G - 28.
+      const M = 54, G = 64;
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const pts = (arr) => arr.map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ");
+      let A, B, C, text, logo;
+      if (W > H) {
+        // Paisagem: A (azul) à esquerda; B (verde) em cima à direita; C (azul-escuro) embaixo à direita.
+        const ab = (y) => lerp(1250, 1120, (y - M) / (H - 2 * M));            // divisão A|B
+        const bc = (x) => lerp(700, 610, (x - ab(700)) / (W - M - ab(700)));   // divisão B|C, outro ângulo
+        A = [[M, M], [ab(M), M], [ab(H - M), H - M], [M, H - M]];
+        const bl = (y) => ab(y) + G;
+        B = [[bl(M), M], [W - M, M], [W - M, bc(W - M) - G / 2], [bl(700), bc(bl(700)) - G / 2]];
+        C = [[bl(760), bc(bl(760)) + G / 2], [W - M, bc(W - M) + G / 2], [W - M, H - M], [bl(H - M), H - M]];
+        text = { left: M + 70, bottom: M + 90, width: 1120 - M - 160 };
+        logo = { w: 220, right: M + 70, bottom: M + 60 };
+      } else {
+        // Retrato/quadrado: A (azul) em cima; B (verde) embaixo à esquerda; C (azul-escuro) embaixo à direita.
+        const yA = (x) => lerp(H * 0.64, H * 0.58, (x - M) / (W - 2 * M));      // divisão A|(B,C)
+        const yT = (x) => yA(x) + G;
+        const bcx = (y) => lerp(W * 0.6, W * 0.52, (y - yT(W * 0.56)) / (H - M - yT(W * 0.56)));
+        A = [[M, M], [W - M, M], [W - M, yA(W - M)], [M, yA(M)]];
+        const xt = bcx(yT(W * 0.56));
+        B = [[M, yT(M)], [xt - G / 2, yT(xt - G / 2)], [bcx(H - M) - G / 2, H - M], [M, H - M]];
+        C = [[xt + G / 2, yT(xt + G / 2)], [W - M, yT(W - M)], [W - M, H - M], [bcx(H - M) + G / 2, H - M]];
+        text = { left: M + 60, bottom: H - yA(M) + 90, width: W - 2 * M - 120 };
+        logo = { w: 200, right: M + 60, bottom: M + 60 };
+      }
+      document.getElementById("poly-a").setAttribute("points", pts(A));
+      document.getElementById("poly-b").setAttribute("points", pts(B));
+      document.getElementById("poly-c").setAttribute("points", pts(C));
+      const tt = document.getElementById("tt");
+      Object.assign(tt.style, { left: text.left + "px", bottom: text.bottom + "px", width: text.width + "px" });
+      const lg = document.getElementById("tt-logo");
+      Object.assign(lg.style, { width: logo.w + "px", right: logo.right + "px", bottom: logo.bottom + "px" });
+
+      // Título palavra a palavra (o texto vem da variável, se houver).
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const h1 = document.getElementById("tt-titulo");
+      const titulo = (vars.titulo ?? h1.textContent).trim();
+      h1.innerHTML = titulo.split(/\s+/).map((w) => `<span class="w">${w.replace(/</g, "&lt;")}</span>`).join(" ");
+      const sub = document.getElementById("tt-sub");
+      if (!(vars.subtitulo ?? sub.textContent).trim()) sub.style.display = "none";
+
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#mod-a", { x: -W * 0.6, opacity: 0 }, { x: 0, opacity: 1, duration: 0.75, ease: "expo.out" }, 0);
+      tl.fromTo("#mod-b", { y: -H * 0.4, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "expo.out" }, 0.15);
+      tl.fromTo("#mod-c", { x: W * 0.4, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "expo.out" }, 0.25);
+      tl.fromTo("#tt-titulo .w", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power4.out", stagger: 0.08 }, 0.5);
+      tl.fromTo("#tt-sub", { opacity: 0, filter: "blur(6px)" }, { opacity: 0.92, filter: "blur(0px)", duration: 0.25, ease: "power4.out" }, 0.9);
+      tl.fromTo("#tt-logo img", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.4)" }, 0.75);
+      // Saída: o conteúdo sai com blur; os módulos ficam até o corte.
+      tl.to("#tt, #tt-logo img", { opacity: 0, filter: "blur(8px)", duration: 0.25, ease: "power3.in" }, D - 0.35);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

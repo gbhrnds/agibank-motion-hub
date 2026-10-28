@@ -1,0 +1,22 @@
+/* Tokens da marca Agibank para composições HyperFrames.
+   Copiado para <slot>/assets/brand.css pelo motion.py; as fontes e logos
+   são copiados para <slot>/assets/fonts e <slot>/assets/logos. */
+@font-face { font-family: "Agibank Sans"; font-weight: 300; src: url("fonts/AgibankSans-Light.woff2") format("woff2"); }
+@font-face { font-family: "Agibank Sans"; font-weight: 400; src: url("fonts/AgibankSans-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Agibank Sans"; font-weight: 500; src: url("fonts/AgibankSans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Agibank Sans"; font-weight: 600; src: url("fonts/AgibankSans-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "Agibank Sans"; font-weight: 700; src: url("fonts/AgibankSans-Bold.woff2") format("woff2"); }
+@font-face { font-family: "Agibank Sans"; font-weight: 800; src: url("fonts/AgibankSans-ExtraBold.woff2") format("woff2"); }
+@font-face { font-family: "Agibank Sans"; font-weight: 900; src: url("fonts/AgibankSans-Black.woff2") format("woff2"); }
+
+:root {
+  --agi-azul: #0064f5;        /* principal, obrigatório */
+  --agi-azul-medio: #0033b0;
+  --agi-azul-escuro: #000f44;
+  --agi-verde: #77df40;
+  --agi-verde-claro: #c9ff90;
+  --agi-amarelo: #ffd600;     /* apenas detalhes */
+  --agi-branco: #ffffff;
+  --agi-raio: 14px;           /* módulos: 12–17 px, nunca fora disso */
+  --agi-font: "Agibank Sans", sans-serif;
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html
+  lang="pt-BR"
+  data-composition-variables='[{"id":"texto","type":"string","label":"Destaque (palavra ou número)","default":"{{texto}}"},{"id":"apoio","type":"string","label":"Linha de apoio (pode ficar vazia)","default":"{{apoio}}"}]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=__W__, height=__H__" />
+    <!-- Destaque Agibank: palavra-chave ou número em módulo verde, com linha de apoio. Fundo transparente. -->
+    <script src="assets/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/brand.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: __W__px; height: __H__px; overflow: hidden; background: transparent; }
+      #root { position: relative; width: 100%; height: 100%; font-family: var(--agi-font); }
+      #dq { position: absolute; right: 6%; top: 10%; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+      .portrait #dq { right: 7%; top: 14%; }
+      #dq-box { background: var(--agi-verde); border-radius: var(--agi-raio); padding: 18px 44px 24px; transform-origin: 100% 50%; }
+      #dq-texto { color: var(--agi-azul-escuro); font-weight: 800; font-size: 120px; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
+      #dq-apoio-box { background: var(--agi-azul-escuro); border-radius: var(--agi-raio); padding: 14px 30px 16px; }
+      #dq-apoio { color: var(--agi-branco); font-weight: 500; font-size: 36px; line-height: 1.1; white-space: nowrap; }
+    </style>
+  </head>
+  <body class="__ORIENT__">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="__DUR__" data-width="__W__" data-height="__H__">
+      <div id="dq" class="clip" data-start="0" data-duration="__DUR__" data-track-index="0" data-track-kind="graphics">
+        <div id="dq-box"><div id="dq-texto" data-var-text="texto">{{texto}}</div></div>
+        <div id="dq-apoio-box"><div id="dq-apoio" data-var-text="apoio">{{apoio}}</div></div>
+      </div>
+    </div>
+    <script>
+      const D = __DUR__;
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const apoio = (vars.apoio ?? document.getElementById("dq-apoio").textContent).trim();
+      if (!apoio) document.getElementById("dq-apoio-box").style.display = "none";
+
+      const tl = gsap.timeline({ paused: true });
+      // Chegada com mola leve (premium, sem quicar opacidade), texto nítido em seguida.
+      tl.fromTo("#dq-box", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.4)" }, 0.1);
+      tl.fromTo("#dq-texto", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.22, ease: "power4.out" }, 0.22);
+      tl.fromTo("#dq-apoio-box", { clipPath: "inset(0 0 0 100% round 14px)" }, { clipPath: "inset(0 0 0 0% round 14px)", duration: 0.5, ease: "expo.out" }, 0.45);
+      tl.to("#dq", { opacity: 0, filter: "blur(8px)", scale: 0.96, duration: 0.3, ease: "power3.in" }, D - 0.4);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
