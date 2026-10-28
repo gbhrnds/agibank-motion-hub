@@ -22,6 +22,7 @@
 - **Logo Reduzido (agi) Positivo:** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/logos/Agi_Positivo.svg`
 - **Logo Reduzido (agi) Negativo (Branco):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/logos/Agi_Negativo_RGB.svg`
 
-## 🔺 Pasta de Formas e Ícones Dedicados
-- **Formas Irregulares (Grafismos):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/shapes/` (Exemplo: `Ativo 1.svg`)
-- **Ícones (Iconografia):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/icons/` (Exemplo: `Ativo 1.svg`)
+## 🔺 Pasta de Formas, Ícones e Módulos Dedicados
+- **Formas Irregulares (Grafismos):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/shapes/`
+- **Ícones (Iconografia):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/icons/`
+- **Módulos de Composição (Diagonais):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/modulos/`
