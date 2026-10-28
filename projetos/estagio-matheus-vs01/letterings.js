@@ -6,8 +6,11 @@
   // in = início da palavra-gatilho; marks = gatilhos internos; out = fim da animação de saída.
   const DEFAULT_CUES = [
     { id: 'gc', nome: '1 · Lower third Matheus', fala: '“Eu sou o Matheus, estagiário em governança de TI”', in: 74.72, out: 79.0 },
-    { id: 'prazo', nome: '2 · Prazo de inscrição', fala: '“…correr e se inscrever no Programa de Estágio do Agi…”', in: 87.96, out: 92.85,
-      marks: { hl: { nome: 'Destaque “dia 08”', t: 91.2 } } },
+    { id: 'prazo', nome: '2 · Logo do programa + prazo', fala: '“…correr e se inscrever no Programa de Estágio do Agi. As inscrições vão até o dia 08…”', in: 87.96, out: 94.35,
+      marks: {
+        ch: { nome: '“Inscrições até o dia 08”', t: 90.34 },
+        hl: { nome: 'Destaque “dia 08”', t: 91.2 },
+      } },
     { id: 'ben', nome: '3 · Benefícios', fala: '“…bolsa-auxílio de 2 mil e 400 reais, VA e VR… flexibilidade… mentoria… IA…”', in: 94.54, out: 104.4,
       marks: {
         vavr: { nome: 'VA e VR + de R$ 1.200', t: 96.36 },
@@ -34,6 +37,8 @@
     cubic: (x) => 1 - Math.pow(1 - x, 3),
     inOut: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
     back: (x) => { const c = 1.6, c3 = c + 1; return 1 + c3 * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); },
+    // Mola amortecida: passa ~15% do alvo, volta e assenta (bounce).
+    bounce: (x) => (x >= 1 ? 1 : 1 - Math.exp(-6 * x) * Math.cos(3.2 * Math.PI * x)),
     in: (x) => x * x * x,
   };
   const prog = (t, start, dur, e = ease.expo) => e(clamp((t - start) / dur));
@@ -64,7 +69,7 @@
       ${caco()}
       <div class="box azul">
         <span class="mask"><span>${logo()}</span></span>
-        <span class="mask"><span class="chamada">Inscrições até o <span class="hl">dia 08<i></i></span></span></span>
+        <div class="cresce"><div class="inner"><span class="mask"><span class="chamada">Inscrições até o <span class="hl">dia 08<i></i></span></span></span></div></div>
       </div>
     </div>
     <div class="cue" id="c-ben">
@@ -105,21 +110,48 @@
     </div>`;
 
   // Helpers de animação --------------------------------------------------
-  const wipeX = (el, p) => { el.style.clipPath = `inset(-2px ${(1 - p) * 100}% -2px -2px round var(--raio))`; };
-  const wipeY = (el, p) => { el.style.clipPath = `inset(${(1 - p) * 100}% -2px -2px -2px round var(--raio))`; };
-  const rise = (el, p) => { el.style.transform = `translateY(${(1 - p) * 115}%)`; };
-  // Caco: o traço se desenha e o neon acende junto.
-  // Rotação leve: gira um pouco enquanto se desenha e segue girando devagar
-  // (soma-se à rotação base de cada cue, definida no CSS).
-  const desenha = (el, p, k) => {
+  // Todos recebem (t, início, duração) para saber quando a entrada terminou:
+  // a partir daí recortes (clip-path / máscaras) são liberados, assim nenhum
+  // bounce ou pulso de escala posterior é cortado.
+  const fim = (t, start, dur) => t >= start + dur;
+  const wipeX = (el, t, start, dur) => {
+    const p = prog(t, start, dur);
+    el.style.clipPath = fim(t, start, dur) ? 'none' : `inset(-30px ${(1 - p) * 100}% -30px -30px round var(--raio))`;
+  };
+  const wipeY = (el, t, start, dur) => {
+    const p = prog(t, start, dur);
+    el.style.clipPath = fim(t, start, dur) ? 'none' : `inset(${(1 - p) * 100}% -30px -30px -30px round var(--raio))`;
+  };
+  // Texto sobe de dentro da máscara com bounce; a máscara tem folga para o
+  // overshoot e é liberada ao fim da entrada.
+  const rise = (el, t, start, dur = 0.7) => {
+    el.style.transform = `translateY(${(1 - prog(t, start, dur, ease.bounce)) * 115}%)`;
+    el.parentElement.style.overflow = fim(t, start, dur) ? 'visible' : 'hidden';
+  };
+  // Box entra com escala em mola a partir do canto indicado.
+  const salta = (el, t, start, dur = 0.75, de = 0.82) => {
+    const p = prog(t, start, dur, ease.bounce);
+    el.style.scale = `${de + (1 - de) * p}`;
+  };
+  // Caco: o traço se desenha com o neon, entra com escala em mola e segue com
+  // rotação leve (soma-se à rotação base de cada cue, definida no CSS).
+  const desenha = (el, t, start, dur, k) => {
+    const p = prog(t, start, dur, ease.inOut);
     el.querySelector('path').style.strokeDasharray = `${p} 1`;
     el.style.opacity = clamp(p * 4);
+    el.style.scale = `${0.6 + 0.4 * prog(t, start, dur, ease.bounce)}`;
     el.style.rotate = `${-18 * (1 - p) + 3.5 * k}deg`;
   };
   // Saída: varredura para a esquerda + leve deslocamento.
   const exit = (el, o) => {
     el.style.clipPath = o > 0 ? `inset(-400px calc(-400px + ${o} * (100% + 800px)) -400px -400px)` : 'none';
     el.style.transform = `translateX(${-o * 36}px)`;
+  };
+  // Bloco que cresce de 0 à altura natural (com bounce) empurrando o que está acima.
+  const cresce = (el, t, start, dur = 0.7) => {
+    el.style.height = `${prog(t, start, dur, ease.bounce) * el.firstElementChild.offsetHeight}px`;
+    el.style.overflow = fim(t, start, dur) ? 'visible' : 'hidden';
+    el.style.visibility = t >= start ? 'visible' : 'hidden';
   };
 
   function mount(container) {
@@ -132,72 +164,85 @@
 
     const ANIM = {
       gc(el, k) {
-        wipeX(q('#c-gc .fundo'), prog(k, 0, 0.5));
-        wipeX(q('#c-gc .box'), prog(k, 0.08, 0.55));
-        rise(q('#c-gc .l1'), prog(k, 0.22, 0.55));
-        rise(q('#c-gc .l2'), prog(k, 0.32, 0.55));
-        desenha(q('#c-gc .caco'), prog(k, 0.3, 0.9, ease.inOut), k);
+        const s = q('#c-gc .sobreposto');
+        s.style.translate = `${(1 - prog(k, 0, 0.8, ease.bounce)) * -60}px 0`;
+        wipeX(q('#c-gc .fundo'), k, 0, 0.5);
+        wipeX(q('#c-gc .box'), k, 0.08, 0.55);
+        salta(q('#c-gc .box'), k, 0.08);
+        rise(q('#c-gc .l1'), k, 0.22);
+        rise(q('#c-gc .l2'), k, 0.32);
+        desenha(q('#c-gc .caco'), k, 0.3, 0.9, k);
       },
       prazo(el, k, c, t) {
+        // 1º o logo do programa; depois, no gatilho “Inscrições”, a chamada
+        // cresce embaixo dele e o box acompanha.
         const box = q('#c-prazo .box');
-        wipeY(box, prog(k, 0, 0.5));
-        box.style.transform = `translateY(${(1 - prog(k, 0, 0.6)) * 40}px)`;
+        wipeY(box, k, 0, 0.5);
+        box.style.translate = `0 ${(1 - prog(k, 0, 0.8, ease.bounce)) * 50}px`;
+        salta(box, k, 0);
+        rise(q('#c-prazo .mask:first-child > span'), k, 0.15);
+        desenha(q('#c-prazo .caco'), k, 0.35, 0.9, k);
         // “Inscrições até o dia 08” com exatamente a largura do logo do programa.
         const ch = q('#c-prazo .chamada');
         ch.style.fontSize = '100px';
         ch.style.fontSize = `${100 * q('#c-prazo .logo').clientWidth / ch.offsetWidth}px`;
-        rise(q('#c-prazo .mask:first-child > span'), prog(k, 0.15, 0.55));
-        rise(q('#c-prazo .chamada'), prog(k, 0.28, 0.55));
-        // A máscara do “sobe” só serve na entrada; depois libera para o pulso de
-        // escala do “dia 08” não ser cortado.
-        q('#c-prazo .chamada').parentElement.style.overflow = k >= 0.83 ? 'visible' : 'hidden';
-        desenha(q('#c-prazo .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
-        // “dia 08” acende em verde no instante em que ele fala.
+        const tc = c.marks.ch.t;
+        cresce(q('#c-prazo .cresce'), t, tc);
+        rise(ch, t, tc + 0.08);
+        // “dia 08” acende em verde no instante em que ele fala, com pulso em mola.
         const m = c.marks.hl.t;
         const hl = q('#c-prazo .hl');
         hl.style.color = `rgb(${mix([255, 255, 255], [119, 223, 64], prog(t, m, 0.3, ease.cubic)).join(',')})`;
-        hl.style.transform = `scale(${1 + 0.12 * Math.sin(Math.PI * clamp((t - m) / 0.45))})`;
-        q('#c-prazo .hl i').style.transform = `scaleX(${prog(t, m + 0.08, 0.4)})`;
+        const x = Math.max(0, t - m);
+        hl.style.scale = `${1 + 0.16 * Math.exp(-5 * x) * Math.sin(Math.PI * 2.4 * Math.min(x, 1.2))}`;
+        q('#c-prazo .hl i').style.transform = `scaleX(${prog(t, m + 0.08, 0.6, ease.bounce)})`;
       },
       ben(el, k, c, t) {
-        // Coluna ancorada embaixo: cada item cresce de 0 à altura natural e
-        // empurra os anteriores para cima.
+        // Coluna ancorada embaixo: cada item cresce de 0 à altura natural (com
+        // bounce) e empurra os anteriores para cima.
         const starts = [c.in, c.marks.vavr.t, c.marks.t1.t, c.marks.t2.t, c.marks.t3.t];
         const valores = [2400, 1200];
         qa('#c-ben .item').forEach((item, i) => {
-          const kk = t - starts[i];
-          const inner = item.firstElementChild;
-          item.style.height = `${prog(kk, 0, 0.55, ease.inOut) * inner.offsetHeight}px`;
-          item.style.visibility = kk >= 0 ? 'visible' : 'hidden';
-          const boxes = inner.querySelectorAll('.box');
-          boxes.forEach((b, j) => wipeX(b, prog(kk, 0.05 + j * 0.12, 0.5)));
-          const n = inner.querySelector('.n');
-          if (n) n.textContent = milhar(Math.round(valores[i] / 10 * prog(kk, 0.2, 0.75, ease.cubic)) * 10);
+          const s = starts[i];
+          cresce(item, t, s);
+          item.querySelectorAll('.box').forEach((b, j) => {
+            wipeX(b, t, s + 0.05 + j * 0.12, 0.5);
+            salta(b, t, s + 0.05 + j * 0.12);
+          });
+          const n = item.querySelector('.n');
+          if (n) n.textContent = milhar(Math.round(valores[i] / 10 * prog(t, s + 0.2, 0.75, ease.cubic)) * 10);
         });
-        desenha(q('#c-ben .caco'), prog(k, 0.4, 1.0, ease.inOut), k);
+        desenha(q('#c-ben .caco'), k, 0.4, 1.0, k);
       },
       req(el, k) {
-        wipeX(q('#c-req .fundo'), prog(k, 0, 0.5));
-        wipeX(q('#c-req .box'), prog(k, 0.08, 0.55));
-        qa('#c-req .mask > span').forEach((s, i) => rise(s, prog(k, 0.22 + i * 0.09, 0.5)));
-        desenha(q('#c-req .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
+        const s = q('#c-req .sobreposto');
+        s.style.translate = `${(1 - prog(k, 0, 0.8, ease.bounce)) * -60}px 0`;
+        wipeX(q('#c-req .fundo'), k, 0, 0.5);
+        wipeX(q('#c-req .box'), k, 0.08, 0.55);
+        salta(q('#c-req .box'), k, 0.08);
+        qa('#c-req .mask > span').forEach((sp, i) => rise(sp, k, 0.22 + i * 0.09));
+        desenha(q('#c-req .caco'), k, 0.35, 0.9, k);
       },
       pres(el, k) {
-        wipeX(q('#c-pres > .box'), prog(k, 0, 0.45));
-        rise(q('#c-pres .destaque'), prog(k, 0.1, 0.5));
+        const box = q('#c-pres > .box');
+        wipeX(box, k, 0, 0.45);
+        salta(box, k, 0);
+        rise(q('#c-pres .destaque'), k, 0.1);
         q('#c-pres .n').textContent = Math.round(100 * prog(k, 0.1, 0.6, ease.cubic));
-        wipeX(q('#c-pres .chip'), prog(k, 0.35, 0.45));
-        desenha(q('#c-pres .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
+        const chip = q('#c-pres .chip');
+        chip.style.scale = `${prog(k, 0.35, 0.75, ease.bounce)}`;
+        chip.style.opacity = clamp((k - 0.35) / 0.12);
+        desenha(q('#c-pres .caco'), k, 0.35, 0.9, k);
       },
       final(el, k, c, t) {
-        // Cada palavra entra no instante em que é falada; o layout já reserva o
-        // espaço da frase inteira, então nada se reposiciona.
+        // Cada palavra entra no instante em que é falada, com bounce; o layout
+        // já reserva o espaço da frase inteira, então nada se reposiciona.
         const starts = [c.in, c.marks.w2.t, c.marks.w3.t, c.marks.w4.t, c.marks.w5.t];
         qa('#c-final .w').forEach((w, i) => {
           const kk = t - starts[i];
-          const p = prog(kk, 0, 0.42, ease.back);
+          const p = prog(kk, 0, 0.7, ease.bounce);
           w.style.opacity = clamp(kk / 0.12);
-          w.style.transform = `translateY(${(1 - p) * 50}px) scale(${0.75 + 0.25 * p})`;
+          w.style.transform = `translateY(${(1 - p) * 50}px) scale(${0.7 + 0.3 * p})`;
         });
       },
     };

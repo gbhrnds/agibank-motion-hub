@@ -41,9 +41,11 @@
 .cue { position: absolute; left: var(--margem-x); bottom: var(--base-y); display: none;
   /* Escala geral dos letterings (−20%), ancorada no canto inferior esquerdo. */
   scale: var(--escala, 0.8); transform-origin: 0 100%; }
-.mask { overflow: hidden; display: block; padding-bottom: 0.1em; margin-bottom: -0.1em; }
+/* Máscara com folga (topo e laterais) para o overshoot do bounce não ser cortado. */
+.mask { overflow: hidden; display: block; padding: 0.35em 0.15em 0.1em; margin: -0.35em -0.15em -0.1em; }
 .mask > * { display: block; will-change: transform; }
-.box { position: relative; z-index: 1; border-radius: var(--raio); }
+.box { position: relative; z-index: 1; border-radius: var(--raio); transform-origin: 0 100%; }
+#c-ben .box { transform-origin: 50% 50%; }
 .azul { background: var(--azul); color: var(--branco); }
 .verde { background: var(--verde); color: var(--azul-escuro); }
 .azul-medio { background: var(--azul-medio); color: var(--branco); }
@@ -67,16 +69,20 @@
 
 /* 2 · Prazo — logo do programa + chamada na mesma largura */
 #c-prazo .box { padding: 34px 42px 36px; }
+#c-prazo .box > .mask:first-child { padding-top: 70px; margin-top: -70px; }
 #c-prazo .logo { display: block; width: 440px; height: auto; overflow: visible; }
-#c-prazo .chamada { font-weight: 700; line-height: 1; margin-top: 22px; white-space: nowrap; display: inline-block; letter-spacing: -0.01em; }
+#c-prazo .cresce .inner { padding-top: 22px; }
+#c-prazo .chamada { font-weight: 700; line-height: 1; white-space: nowrap; display: inline-block; letter-spacing: -0.01em; }
 #c-prazo .hl { position: relative; display: inline-block; transform-origin: 30% 70%; }
 #c-prazo .hl i { position: absolute; left: 0; right: 0; bottom: -7px; height: 6px; border-radius: 3px; background: var(--verde); transform-origin: left; }
 #c-prazo .caco { width: 118px; right: -52px; top: -150px; transform: rotate(24deg); }
 
 /* 3 · Benefícios — coluna única, todos os boxes com a mesma largura */
 #c-ben { width: var(--largura-beneficios); }
-#c-ben .item { overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; margin: 0 -4px; padding: 0 4px; }
-#c-ben .item > .inner { flex: none; }
+/* Itens e a chamada do prazo crescem ancorados embaixo; a folga lateral evita
+   cortar o bounce de escala dos boxes durante o crescimento. */
+#c-ben .item, #c-prazo .cresce { overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; margin: 0 -30px; padding: 0 30px; }
+#c-ben .item > .inner, #c-prazo .cresce > .inner { flex: none; }
 #c-ben .item > .inner { padding-top: 14px; }
 #c-ben .item:first-of-type > .inner { padding-top: 0; }
 #c-ben .titulo { text-align: center; padding: 14px 26px 15px; font-size: 32px; font-weight: 400; line-height: 1; }
@@ -96,7 +102,7 @@
 #c-pres .box { padding: 28px 40px 32px; display: inline-block; }
 #c-pres .destaque { font-size: 68px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #c-pres .destaque .n { display: inline-block; width: 3ch; text-align: right; }
-#c-pres .chip { display: block; width: 100%; margin-top: 18px; text-align: center; border-radius: var(--raio); padding: 11px 22px 13px; font-size: 34px; font-weight: 700; line-height: 1; transform-origin: left center; }
+#c-pres .chip { transform-origin: center; display: block; width: 100%; margin-top: 18px; text-align: center; border-radius: var(--raio); padding: 11px 22px 13px; font-size: 34px; font-weight: 700; line-height: 1; }
 #c-pres .caco { width: 118px; right: -52px; top: -150px; transform: rotate(24deg); }
 
 /* 6 · Frase final — lateral esquerda, uma palavra por vez */

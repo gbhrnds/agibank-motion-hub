@@ -10,7 +10,7 @@ Extraídos com faster-whisper (modelo `small`, timestamps por palavra) → `tran
 | # | Lettering | Palavra-gatilho | Entrada | Saída |
 |---|-----------|-----------------|---------|-------|
 | 1 | GC “Matheus / Estagiário em Governança de TI” (sobreposto azul/verde) | “eu **sou** o Matheus” | 01:14.72 | 01:19.00 |
-| 2 | Logo do Programa de Estágio + “Inscrições até o dia 08” (mesma largura do logo) | “**correr** e se inscrever” · “dia 08” acende em verde em “**dia**” (01:31.20) | 01:27.96 | 01:32.85 |
+| 2 | Logo do Programa de Estágio, depois “Inscrições até o dia 08” (mesma largura do logo) | logo em “**correr**” · chamada em “**Inscrições**” (01:30.34) · “dia 08” acende em verde em “**dia**” (01:31.20) | 01:27.96 | 01:34.35 |
 | 3 | Benefícios em coluna: Bolsa-auxílio `R$ 2.400` → VA e VR `+ de R$ 1.200` → Flexibilidade → Mentoria → IA | “**bolsa**” · “VA e VR” (01:36.36) · “flexibilidade” (01:38.46) · “mentoria” (01:40.52) · “aplicar IA” (01:41.82) | 01:34.54 | 01:44.40 |
 | 4 | Requisito “Graduação a partir do 4º semestre” (sobreposto azul/verde) | “você **precisa** estar cursando” | 01:45.08 | 01:50.75 |
 | 5 | “100% Presencial” + selo “Campinas” na mesma largura | “**100**% presencial” | 01:50.94 | 01:54.20 |
@@ -19,6 +19,7 @@ Extraídos com faster-whisper (modelo `small`, timestamps por palavra) → `tran
 Padrão visual: boxes só em Azul Agibank (`#0064f5`, texto branco) e Verde (`#77df40`, texto azul-escuro), cantos de 15px,
 com o caco em outline verde com neon do KV (`assets_programa_de_estagio/graphics/forma_irregular_01.svg`) se desenhando no canto de cada box, com rotação leve contínua.
 Na coluna de benefícios os textos são centralizados nos boxes; os diferenciais (flexibilidade, mentoria, IA) usam Azul Médio (`#0033b0`).
+Todas as animações de posição e escala usam bounce (mola amortecida); máscaras e recortes têm folga para o overshoot e são liberados ao fim de cada entrada, então nenhum pulso de escala é cortado.
 Todos os letterings estão em escala 0,8 (variável `--escala` em `letterings.css`).
 Na coluna de benefícios cada item tem box de título + box de valor, todos com a mesma largura; a coluna é ancorada embaixo e sobe conforme os novos itens entram.
 
