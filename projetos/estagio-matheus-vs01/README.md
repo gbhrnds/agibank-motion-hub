@@ -14,11 +14,12 @@ Extraídos com faster-whisper (modelo `small`, timestamps por palavra) → `tran
 | 3 | Benefícios em coluna: Bolsa-auxílio `R$ 2.400` → VA e VR `+ de R$ 1.200` → Flexibilidade → Mentoria → IA | “**bolsa**” · “VA e VR” (01:36.36) · “flexibilidade” (01:38.46) · “mentoria” (01:40.52) · “aplicar IA” (01:41.82) | 01:34.54 | 01:44.40 |
 | 4 | Requisito “Graduação a partir do 4º semestre” (sobreposto azul/verde) | “você **precisa** estar cursando” | 01:45.08 | 01:50.75 |
 | 5 | “100% Presencial” + selo “Campinas” na mesma largura | “**100**% presencial” | 01:50.94 | 01:54.20 |
-| 6 | Frase final “com inteligência, com a gente!” — uma palavra por vez, lateral esquerda | “com” (01:59.06) · “inteligência” (01:59.42) · “com” (02:00.30) · “a” (02:00.44) · “gente” (02:00.56) | 01:59.06 | 02:02.40 |
+| 6 | Frase final “Com inteligência, \| com a gente.” — uma palavra por vez, lateral esquerda | “com” (01:59.06) · “inteligência” (01:59.42) · “com” (02:00.30) · “a” (02:00.44) · “gente” (02:00.56) | 01:59.06 | 02:02.40 |
 
 Padrão visual: boxes só em Azul Agibank (`#0064f5`, texto branco) e Verde (`#77df40`, texto azul-escuro), cantos de 15px,
 com o caco em outline verde com neon do KV (`assets_programa_de_estagio/graphics/forma_irregular_01.svg`) se desenhando no canto de cada box, com rotação leve contínua.
-Na coluna de benefícios os textos são centralizados nos boxes.
+Na coluna de benefícios os textos são centralizados nos boxes; os diferenciais (flexibilidade, mentoria, IA) usam Azul Médio (`#0033b0`).
+Todos os letterings estão em escala 0,8 (variável `--escala` em `letterings.css`).
 Na coluna de benefícios cada item tem box de título + box de valor, todos com a mesma largura; a coluna é ancorada embaixo e sobe conforme os novos itens entram.
 
 ## Arquivos

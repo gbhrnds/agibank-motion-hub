@@ -17,12 +17,12 @@
       } },
     { id: 'req', nome: '4 · Requisito de curso', fala: '“…você precisa estar cursando Graduação a partir do 4º semestre…”', in: 105.08, out: 110.75 },
     { id: 'pres', nome: '5 · 100% Presencial', fala: '“…100% presencial em Campinas”', in: 110.94, out: 114.2 },
-    { id: 'final', nome: '6 · Frase final', fala: '“…com inteligência e com a gente”', in: 119.06, out: 122.4, saida: 'fade',
+    { id: 'final', nome: '6 · Frase final', fala: '“…Com inteligência, com a gente.”', in: 119.06, out: 122.4, saida: 'fade',
       marks: {
         w2: { nome: 'Palavra “inteligência,”', t: 119.42 },
         w3: { nome: 'Palavra “com”', t: 120.3 },
         w4: { nome: 'Palavra “a”', t: 120.44 },
-        w5: { nome: 'Palavra “gente!”', t: 120.56 },
+        w5: { nome: 'Palavra “gente.”', t: 120.56 },
       } },
   ];
 
@@ -77,9 +77,9 @@
         <div class="box azul titulo">VA e VR</div>
         <div class="box verde valor"><small>+ de R$</small><span class="n">1.200</span></div>
       </div></div>
-      <div class="item"><div class="inner"><div class="box azul tag">Flexibilidade de jornada diária</div></div></div>
-      <div class="item"><div class="inner"><div class="box azul tag">Mentoria próxima</div></div></div>
-      <div class="item"><div class="inner"><div class="box verde tag"><b>IA</b> no seu dia a dia e do time</div></div></div>
+      <div class="item"><div class="inner"><div class="box azul-medio tag">Flexibilidade de jornada diária</div></div></div>
+      <div class="item"><div class="inner"><div class="box azul-medio tag">Mentoria próxima</div></div></div>
+      <div class="item"><div class="inner"><div class="box azul-medio tag"><b>IA</b> no seu dia a dia e do time</div></div></div>
     </div>
     <div class="cue" id="c-req">
       ${caco()}
@@ -100,9 +100,8 @@
       </div>
     </div>
     <div class="cue" id="c-final">
-      <span class="linha"><span class="w">com</span></span>
-      <span class="linha"><span class="w destaque">inteligência,</span></span>
-      <span class="linha"><span class="w">com</span> <span class="w">a</span> <span class="w destaque">gente!</span></span>
+      <span class="linha"><span class="w">Com</span> <span class="w destaque">inteligência,</span></span>
+      <span class="linha"><span class="w">com</span> <span class="w">a</span> <span class="w destaque">gente.</span></span>
     </div>`;
 
   // Helpers de animação --------------------------------------------------
@@ -149,6 +148,9 @@
         ch.style.fontSize = `${100 * q('#c-prazo .logo').clientWidth / ch.offsetWidth}px`;
         rise(q('#c-prazo .mask:first-child > span'), prog(k, 0.15, 0.55));
         rise(q('#c-prazo .chamada'), prog(k, 0.28, 0.55));
+        // A máscara do “sobe” só serve na entrada; depois libera para o pulso de
+        // escala do “dia 08” não ser cortado.
+        q('#c-prazo .chamada').parentElement.style.overflow = k >= 0.83 ? 'visible' : 'hidden';
         desenha(q('#c-prazo .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
         // “dia 08” acende em verde no instante em que ele fala.
         const m = c.marks.hl.t;

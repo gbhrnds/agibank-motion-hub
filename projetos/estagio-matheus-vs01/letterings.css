@@ -16,6 +16,7 @@
 
 :root {
   --azul: #0064f5;
+  --azul-medio: #0033b0;
   --azul-escuro: #000f44;
   --verde: #77df40;
   --branco: #FFFFFF;
@@ -37,12 +38,15 @@
 }
 .agi-stage * { box-sizing: border-box; }
 
-.cue { position: absolute; left: var(--margem-x); bottom: var(--base-y); display: none; }
+.cue { position: absolute; left: var(--margem-x); bottom: var(--base-y); display: none;
+  /* Escala geral dos letterings (−20%), ancorada no canto inferior esquerdo. */
+  scale: var(--escala, 0.8); transform-origin: 0 100%; }
 .mask { overflow: hidden; display: block; padding-bottom: 0.1em; margin-bottom: -0.1em; }
 .mask > * { display: block; will-change: transform; }
 .box { position: relative; z-index: 1; border-radius: var(--raio); }
 .azul { background: var(--azul); color: var(--branco); }
 .verde { background: var(--verde); color: var(--azul-escuro); }
+.azul-medio { background: var(--azul-medio); color: var(--branco); }
 
 /* Caco em outline verde com neon (KV do Programa de Estágio). Fica atrás dos
    boxes: o texto nunca é sobreposto ao grafismo. */
