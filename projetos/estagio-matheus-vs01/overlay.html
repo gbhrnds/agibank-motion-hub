@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Overlay de render VS01</title>
+<link rel="stylesheet" href="letterings.css">
+<style>html, body { margin: 0; background: transparent; width: 1920px; height: 1080px; overflow: hidden; }</style>
+</head>
+<body>
+<script src="assets.generated.js"></script>
+<script src="letterings.js"></script>
+<script>
+  // Alvo do render.mjs: renderAt(t, overrides) desenha o quadro do tempo t.
+  const L = window.AgiLetterings;
+  const { render } = L.mount(document.body);
+  let cues = L.DEFAULT_CUES;
+  window.setCues = (overrides) => { cues = L.withOverrides(overrides); };
+  window.renderAt = (t) => render(t, cues);
+  window.cueSpan = () => [Math.min(...cues.map((c) => c.in)), Math.max(...cues.map((c) => c.out))];
+  document.fonts.ready.then(() => { window.ready = true; });
+</script>
+</body>
+</html>

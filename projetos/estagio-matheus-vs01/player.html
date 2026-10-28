@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Player de Letterings VS01</title>
+<link rel="stylesheet" href="letterings.css">
+<style>
+  :root { --bg: #000a2e; --painel: #00134f; --linha: #0b2a7a; --txt: #FFFFFF; --sub: #a9b8e6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font-family: 'Agibank Sans', system-ui, sans-serif; }
+  header { padding: 18px 24px 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+  header h1 { font-size: 22px; margin: 0; }
+  header p { margin: 0; color: var(--sub); font-size: 14px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 20px; padding: 12px 24px 24px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; padding: 12px 16px 24px; } }
+
+  .viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 15px; overflow: hidden; }
+  .viewer video { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .viewer .host { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  .vazio { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--sub); padding: 24px; font-size: 15px; }
+
+  .controles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .controles input[type=range] { flex: 1 1 260px; accent-color: #77df40; }
+  .tempo { font-variant-numeric: tabular-nums; min-width: 150px; color: var(--sub); }
+  button, select, label.btn { font: inherit; font-size: 14px; color: var(--txt); background: var(--painel); border: 1px solid var(--linha); border-radius: 12px; padding: 7px 12px; cursor: pointer; }
+  button:hover, label.btn:hover { border-color: #0064f5; }
+  button.prim { background: #0064f5; border-color: #0064f5; }
+  label.btn input { display: none; }
+  .dica { color: var(--sub); font-size: 13px; margin-top: 8px; }
+
+  aside { display: flex; flex-direction: column; gap: 10px; }
+  .cue-card { background: var(--painel); border: 1px solid var(--linha); border-radius: 15px; padding: 12px 14px; }
+  .cue-card.ativo { border-color: #77df40; box-shadow: 0 0 0 1px #77df40 inset; }
+  .cue-card h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .cue-card .fala { color: var(--sub); font-size: 12.5px; margin: 4px 0 8px; }
+  .linha { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 3px 0; font-size: 13px; }
+  .linha .ajuste { display: flex; gap: 4px; align-items: center; }
+  .linha button { padding: 3px 7px; font-size: 12px; border-radius: 12px; }
+  .linha output { font-variant-numeric: tabular-nums; min-width: 64px; text-align: center; }
+  .delta { font-size: 11px; color: #C9FF90; min-width: 44px; text-align: right; }
+  .delta.zero { color: transparent; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+  textarea { width: 100%; height: 120px; background: #000; color: #C9FF90; border: 1px solid var(--linha); border-radius: 12px; font: 12px ui-monospace, monospace; padding: 8px; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Letterings VS01 · Programa de Estágio Agi</h1>
+  <p>Ajuste cada gatilho em ±0,1 s / ±0,5 s e confira sincronizado com a fala. Os ajustes ficam salvos neste navegador.</p>
+</header>
+<main>
+  <section>
+    <div class="viewer" id="viewer">
+      <video id="video" src="MONTAGEM_VS01_1.mp4" playsinline preload="auto"></video>
+      <div class="host" id="host"></div>
+      <div class="vazio" id="vazio">Coloque <b>&nbsp;MONTAGEM_VS01_1.mp4&nbsp;</b> nesta pasta ou use “Carregar vídeo”.</div>
+    </div>
+    <div class="controles">
+      <button class="prim" id="play">▶ Play</button>
+      <button id="fb" title="Quadro anterior (←)">−1f</button>
+      <button id="ff" title="Próximo quadro (→)">+1f</button>
+      <input type="range" id="scrub" min="0" max="132" step="0.01" value="70">
+      <span class="tempo" id="tempo">00:00.00</span>
+      <select id="vel" title="Velocidade">
+        <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option>
+      </select>
+      <label class="btn">Carregar vídeo<input type="file" id="arquivo" accept="video/*"></label>
+    </div>
+    <p class="dica">Atalhos: espaço = play/pause · ← → = 1 quadro · Shift + ← → = 1 s. Clique em “ver” num gatilho para assistir a partir de 1 s antes.</p>
+  </section>
+  <aside>
+    <div id="lista"></div>
+    <div class="acoes">
+      <button id="copiar">Copiar ajustes (JSON)</button>
+      <button id="baixar">Baixar cues.json</button>
+      <button id="reset">Restaurar padrão</button>
+    </div>
+    <textarea id="json" readonly></textarea>
+  </aside>
+</main>
+
+<script src="assets.generated.js"></script>
+<script src="letterings.js"></script>
+<script>
+  const L = window.AgiLetterings;
+  const FPS = 24000 / 1001;
+  const KEY = 'agi-vs01-cues';
+  const video = document.getElementById('video');
+  const host = document.getElementById('host');
+  const viewer = document.getElementById('viewer');
+  const { render } = L.mount(host);
+
+  let salvo = null;
+  try { salvo = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  let cues = L.withOverrides(salvo);
+
+  const fmt = (t) => { const m = Math.floor(t / 60); return `${String(m).padStart(2, '0')}:${(t - m * 60).toFixed(2).padStart(5, '0')}`; };
+  const sinal = (d) => (Math.abs(d) < 0.005 ? '±0,0' : (d > 0 ? '+' : '−') + Math.abs(d).toFixed(2).replace('.', ',')) + ' s';
+
+  function salvar() {
+    try { localStorage.setItem(KEY, JSON.stringify(L.toOverrides(cues))); } catch (e) {}
+    montarLista();
+  }
+
+  // Painel de gatilhos -----------------------------------------------------
+  function linha(rotulo, valor, padrao, onShift, verEm) {
+    const d = valor - padrao;
+    const el = document.createElement('div');
+    el.className = 'linha';
+    el.innerHTML = `<span>${rotulo}</span><span class="ajuste">
+      <button data-d="-0.5">−0,5</button><button data-d="-0.1">−0,1</button>
+      <output>${fmt(valor)}</output>
+      <button data-d="0.1">+0,1</button><button data-d="0.5">+0,5</button>
+      <span class="delta ${Math.abs(d) < 0.005 ? 'zero' : ''}">${sinal(d)}</span>
+      <button data-ver>ver</button></span>`;
+    el.querySelectorAll('button[data-d]').forEach((b) => b.onclick = () => { onShift(+b.dataset.d); salvar(); });
+    el.querySelector('[data-ver]').onclick = () => { video.currentTime = Math.max(0, verEm - 1); video.play(); };
+    return el;
+  }
+
+  function montarLista() {
+    const lista = document.getElementById('lista');
+    lista.innerHTML = '';
+    cues.forEach((c, i) => {
+      const def = L.DEFAULT_CUES[i];
+      const card = document.createElement('div');
+      card.className = 'cue-card';
+      card.dataset.id = c.id;
+      card.innerHTML = `<h3>${c.nome}</h3><div class="fala">${c.fala}</div>`;
+      // Mover a entrada desloca o lettering inteiro (entrada, gatilhos internos e saída).
+      card.appendChild(linha('Entrada', c.in, def.in, (d) => {
+        c.in += d; c.out += d;
+        for (const m of Object.values(c.marks || {})) m.t += d;
+      }, c.in));
+      for (const [k, m] of Object.entries(c.marks || {})) {
+        card.appendChild(linha(m.nome, m.t, def.marks[k].t, (d) => { m.t += d; }, m.t));
+      }
+      card.appendChild(linha('Saída', c.out, def.out, (d) => { c.out = Math.max(c.in + 0.5, c.out + d); }, c.out));
+      lista.appendChild(card);
+    });
+  }
+  montarLista();
+
+  // Loop de render sincronizado ao vídeo ------------------------------------
+  function ajustarEscala() { host.style.transform = `scale(${viewer.clientWidth / 1920})`; }
+  new ResizeObserver(ajustarEscala).observe(viewer);
+  ajustarEscala();
+
+  const scrub = document.getElementById('scrub');
+  const tempo = document.getElementById('tempo');
+  let arrastando = false;
+  function tick() {
+    const t = video.currentTime || 0;
+    render(t, cues);
+    if (!arrastando) scrub.value = t;
+    tempo.textContent = `${fmt(t)} · f${Math.round(t * FPS)}`;
+    document.querySelectorAll('.cue-card').forEach((el) => {
+      const c = cues.find((x) => x.id === el.dataset.id);
+      el.classList.toggle('ativo', t >= c.in && t < c.out);
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  video.addEventListener('loadedmetadata', () => {
+    document.getElementById('vazio').style.display = 'none';
+    scrub.max = video.duration;
+    if (video.currentTime < 1) video.currentTime = 72;
+  });
+  video.addEventListener('play', () => document.getElementById('play').textContent = '❚❚ Pausar');
+  video.addEventListener('pause', () => document.getElementById('play').textContent = '▶ Play');
+
+  const alternar = () => (video.paused ? video.play() : video.pause());
+  const passo = (s) => { video.pause(); video.currentTime = Math.max(0, video.currentTime + s); };
+  document.getElementById('play').onclick = alternar;
+  document.getElementById('fb').onclick = () => passo(-1 / FPS);
+  document.getElementById('ff').onclick = () => passo(1 / FPS);
+  scrub.addEventListener('pointerdown', () => arrastando = true);
+  scrub.addEventListener('pointerup', () => arrastando = false);
+  scrub.addEventListener('input', () => { video.currentTime = +scrub.value; });
+  document.getElementById('vel').onchange = (e) => { video.playbackRate = +e.target.value; };
+  document.getElementById('arquivo').onchange = (e) => {
+    const f = e.target.files[0];
+    if (f) video.src = URL.createObjectURL(f);
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+    if (e.code === 'Space') { e.preventDefault(); alternar(); }
+    if (e.code === 'ArrowLeft') { e.preventDefault(); passo(e.shiftKey ? -1 : -1 / FPS); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); passo(e.shiftKey ? 1 : 1 / FPS); }
+  });
+
+  // Exportação dos ajustes para o render.mjs --------------------------------
+  const json = () => JSON.stringify(L.toOverrides(cues), null, 2);
+  document.getElementById('copiar').onclick = async () => {
+    const ta = document.getElementById('json');
+    ta.value = json(); ta.style.display = 'block';
+    try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); }
+  };
+  document.getElementById('baixar').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([json()], { type: 'application/json' }));
+    a.download = 'cues.json';
+    a.click();
+  };
+  document.getElementById('reset').onclick = () => {
+    cues = L.withOverrides(null);
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    montarLista();
+  };
+</script>
+</body>
+</html>

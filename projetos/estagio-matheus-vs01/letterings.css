@@ -1,0 +1,113 @@
+/* Letterings VS01 — Programa de Estágio Agi (Matheus)
+   Palco fixo 1920×1080; o player escala o palco para o tamanho do vídeo. */
+
+@font-face {
+  font-family: 'Agibank Sans';
+  font-weight: 700;
+  src: url('../../assets/fonts/AgibankSans-Bold.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Agibank Sans';
+  font-weight: 400;
+  src: url('../../assets/fonts/AgibankSans-Regular.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Regular.woff2') format('woff2');
+}
+
+:root {
+  --azul: #0064f5;
+  --azul-medio: #0033b0;
+  --azul-escuro: #000f44;
+  --verde: #77df40;
+  --branco: #FFFFFF;
+  --raio: 15px;          /* diretrizes: 12–17px */
+  --margem-x: 110px;     /* respiro lateral */
+  --base-y: 120px;       /* respiro inferior */
+  --largura-beneficios: 560px;
+}
+
+.agi-stage {
+  position: absolute;
+  left: 0; top: 0;
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: 'Agibank Sans', sans-serif;
+  color: var(--branco);
+  -webkit-font-smoothing: antialiased;
+}
+.agi-stage * { box-sizing: border-box; }
+
+.cue { position: absolute; left: var(--margem-x); bottom: var(--base-y); display: none;
+  /* Escala geral dos letterings (−20%), ancorada no canto inferior esquerdo. */
+  scale: var(--escala, 0.8); transform-origin: 0 100%; }
+/* Máscara com folga (topo e laterais) para o overshoot do bounce não ser cortado. */
+.mask { overflow: hidden; display: block; padding: 0.35em 0.15em 0.1em; margin: -0.35em -0.15em -0.1em; }
+.mask > * { display: block; will-change: transform; }
+.box { position: relative; z-index: 1; border-radius: var(--raio); transform-origin: 0 100%; }
+#c-ben .box { transform-origin: 50% 50%; }
+.azul { background: var(--azul); color: var(--branco); }
+.verde { background: var(--verde); color: var(--azul-escuro); }
+.azul-medio { background: var(--azul-medio); color: var(--branco); }
+
+/* Caco em outline verde com neon (KV do Programa de Estágio). Fica atrás dos
+   boxes: o texto nunca é sobreposto ao grafismo. */
+.caco { position: absolute; z-index: 0; overflow: visible; fill: none; transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 2px #77df40) drop-shadow(0 0 8px rgba(119, 223, 64, 0.9)) drop-shadow(0 0 22px rgba(119, 223, 64, 0.6)) drop-shadow(0 0 44px rgba(119, 223, 64, 0.3)); }
+.caco path { stroke: var(--verde); stroke-width: 6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+
+/* Sobreposto azul/verde (GC e requisito) */
+.sobreposto { position: relative; }
+.sobreposto .fundo { position: absolute; inset: 0; z-index: 1; background: var(--verde); border-radius: var(--raio); transform: translate(-14px, 14px); }
+.sobreposto .box { z-index: 2; }
+
+/* 1 · Lower third */
+#c-gc .box { padding: 26px 48px 30px 44px; }
+#c-gc .l1 { font-weight: 700; font-size: 68px; line-height: 1; letter-spacing: -0.01em; }
+#c-gc .l2 { font-weight: 400; font-size: 36px; line-height: 1.15; margin-top: 8px; }
+#c-gc .caco { width: 118px; right: -52px; top: -150px; transform: rotate(24deg); }
+
+/* 2 · Prazo — logo do programa + chamada na mesma largura */
+#c-prazo .box { padding: 34px 42px 36px; }
+#c-prazo .box > .mask:first-child { padding-top: 70px; margin-top: -70px; }
+#c-prazo .logo { display: block; width: 440px; height: auto; overflow: visible; }
+#c-prazo .cresce .inner { padding-top: 22px; }
+#c-prazo .chamada { font-weight: 700; line-height: 1; white-space: nowrap; display: inline-block; letter-spacing: -0.01em; }
+#c-prazo .hl { position: relative; display: inline-block; transform-origin: 30% 70%; }
+#c-prazo .hl i { position: absolute; left: 0; right: 0; bottom: -7px; height: 6px; border-radius: 3px; background: var(--verde); transform-origin: left; }
+#c-prazo .caco { width: 118px; right: -52px; top: -150px; transform: rotate(24deg); }
+
+/* 3 · Benefícios — coluna única, todos os boxes com a mesma largura */
+#c-ben { width: var(--largura-beneficios); }
+/* Itens e a chamada do prazo crescem ancorados embaixo; a folga lateral evita
+   cortar o bounce de escala dos boxes durante o crescimento. */
+#c-ben .item, #c-prazo .cresce { overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; margin: 0 -30px; padding: 0 30px; }
+#c-ben .item > .inner, #c-prazo .cresce > .inner { flex: none; }
+#c-ben .item > .inner { padding-top: 14px; }
+#c-ben .item:first-of-type > .inner { padding-top: 0; }
+#c-ben .titulo { text-align: center; padding: 14px 26px 15px; font-size: 32px; font-weight: 400; line-height: 1; }
+#c-ben .valor { text-align: center; margin-top: 8px; padding: 14px 26px 18px; font-weight: 700; font-size: 88px; line-height: 0.95; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#c-ben .valor small { font-size: 0.48em; font-weight: 700; margin-right: 0.14em; }
+#c-ben .tag { text-align: center; padding: 17px 26px 19px; font-size: 34px; font-weight: 700; line-height: 1; white-space: nowrap; }
+#c-ben .tag b { font-weight: 700; }
+#c-ben .caco { width: 118px; right: -52px; top: -136px; transform: rotate(24deg); }
+
+/* 4 · Requisito */
+#c-req .box { padding: 30px 46px 32px 40px; }
+#c-req .principal { font-size: 50px; font-weight: 700; line-height: 1.05; }
+#c-req .sub { font-size: 30px; font-weight: 400; margin-top: 12px; }
+#c-req .caco { width: 118px; right: -52px; top: -150px; transform: rotate(-24deg) scaleX(-1); }
+
+/* 5 · Localidade — selo “Campinas” na largura de “100% Presencial” */
+#c-pres .box { padding: 28px 40px 32px; display: inline-block; }
+#c-pres .destaque { font-size: 68px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#c-pres .destaque .n { display: inline-block; width: 3ch; text-align: right; }
+#c-pres .chip { transform-origin: center; display: block; width: 100%; margin-top: 18px; text-align: center; border-radius: var(--raio); padding: 11px 22px 13px; font-size: 34px; font-weight: 700; line-height: 1; }
+#c-pres .caco { width: 118px; right: -52px; top: -150px; transform: rotate(24deg); }
+
+/* 6 · Frase final — lateral esquerda, uma palavra por vez */
+#c-final { bottom: var(--final-base, 130px); text-align: left; }
+#c-final .linha { display: block; font-weight: 700; font-size: 94px; line-height: 1.04; letter-spacing: -0.015em; white-space: nowrap;
+  text-shadow: 0 4px 30px rgba(0, 15, 68, 0.6), 0 2px 8px rgba(0, 15, 68, 0.5); }
+#c-final .w { display: inline-block; transform-origin: 0% 80%; }
+#c-final .destaque { color: var(--verde); }
