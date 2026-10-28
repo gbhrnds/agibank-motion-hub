@@ -141,6 +141,48 @@
     ctx.restore();
   }
 
+  // Encaixa um caco ao lado da aresta de outro (foto/caco) voltada para `dir`:
+  // a aresta mais longa do caco fica paralela à do alvo, com respiro `gap` entre
+  // elas. Como os cacos são convexos, nunca há sobreposição.
+  function dockCaco(shape, w, target, dir, gap, along = 0.5, flip = false) {
+    const n = target.length;
+    const tc = [target.reduce((a, p) => a + p[0], 0) / n, target.reduce((a, p) => a + p[1], 0) / n];
+    let best = null;
+    for (let i = 0; i < n; i++) {
+      const A = target[i], B = target[(i + 1) % n];
+      const len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      const u = [(B[0] - A[0]) / len, (B[1] - A[1]) / len];
+      let nrm = [-u[1], u[0]];
+      if (((A[0] + B[0]) / 2 - tc[0]) * nrm[0] + ((A[1] + B[1]) / 2 - tc[1]) * nrm[1] < 0) nrm = [u[1], -u[0]];
+      const score = nrm[0] * dir[0] + nrm[1] * dir[1];
+      if (!best || score > best.score) best = { A, u, len, nrm, score };
+    }
+    const P = cacoPoints(shape, 0, 0, w, 0, 1, flip);
+    let ce = 0, cl = 0;
+    P.forEach((p, i) => {
+      const q = P[(i + 1) % P.length], l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (l > cl) { cl = l; ce = i; }
+    });
+    const p0 = P[ce], p1 = P[(ce + 1) % P.length];
+    const mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
+    const R = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
+    let rot = Math.atan2(best.u[1], best.u[0]) - Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+    let m = R(mid, rot);
+    // o corpo do caco fica do lado de fora da aresta do alvo
+    if (m[0] * best.nrm[0] + m[1] * best.nrm[1] > 0) { rot += Math.PI; m = R(mid, rot); }
+    const T = [best.A[0] + best.u[0] * best.len * along + best.nrm[0] * gap,
+      best.A[1] + best.u[1] * best.len * along + best.nrm[1] * gap];
+    return { x: T[0] - m[0], y: T[1] - m[1], rot: (rot * 180) / Math.PI, nrm: best.nrm };
+  }
+
+  // Caco encaixado entrando de fora para dentro, ao longo da normal da aresta.
+  function fillDocked(ctx, shape, d, w, k, alpha) {
+    fillCaco(ctx, shape, {
+      x: d.x + d.nrm[0] * (1 - k) * 90, y: d.y + d.nrm[1] * (1 - k) * 90,
+      w, rot: d.rot, color: C.yellow, alpha: k * alpha,
+    });
+  }
+
   // ---------- tipografia ----------
   const LIGHT = 300, BOLD = 700; // Light para o texto corrido, Bold para o destaque
   function font(weight, size) {
@@ -212,6 +254,29 @@
       });
       ctx.restore();
     });
+  }
+
+  // Linhas definidas por frase ([[runs], [runs], ...]); o corpo diminui só se a
+  // linha mais longa não couber em maxW.
+  function layoutManual(ctx, lineRuns, maxW, maxSize) {
+    const measure = size => lineRuns.map(runs => {
+      ctx.font = font(LIGHT, size);
+      const space = ctx.measureText(' ').width;
+      const line = [];
+      let x = 0;
+      runs.forEach(r => r.text.split(' ').filter(Boolean).forEach(w => {
+        ctx.font = font(r.weight, size);
+        const width = ctx.measureText(w).width;
+        line.push({ w, color: r.color, weight: r.weight, x, width });
+        x += width + space;
+      }));
+      line.width = x - space;
+      return line;
+    });
+    let size = maxSize, lines = measure(size);
+    const widest = Math.max(...lines.map(l => l.width));
+    if (widest > maxW) { size = Math.floor((maxSize * maxW) / widest); lines = measure(size); }
+    return { lines, size };
   }
 
   // primeira linha de base para centralizar verticalmente um bloco de texto
@@ -289,7 +354,7 @@
   }
 
   // ---------- roteiro ----------
-  const LOGO_W = 944; // logo da campanha na abertura/fechamento (20% menor que a v1)
+  const LOGO_W = 755; // logo da campanha na abertura/fechamento
   const WIPE1 = [11.45, 12.15], WIPE2 = [37.35, 38.15];
   const CLOSE_T0 = 47.4; // tela de fechamento com o logo
   const ITEMS = [
@@ -302,7 +367,7 @@
   const SUMMARY_T0 = ITEM_T0 + ITEM_DUR * 4; // 31s
 
   // Cacos da tela azul: poucos, maiores e nas extremidades (alguns vazados para fora),
-  // mais alguns pequenos e contornos brancos, como nos exemplos de aplicação da marca.
+  // mais alguns pequenos, como nos exemplos de aplicação da marca.
   const CELEB = [
     { s: 25, x: 150, y: 1035, w: 470, rot: 8, from: [-1, 1] },
     { s: 22, x: 1830, y: 990, w: 380, rot: -10, from: [1, 1] },
@@ -310,8 +375,8 @@
     { s: 10, x: -50, y: 560, w: 160, rot: 62, from: [-1, 0] },
     { s: 36, x: 1490, y: 255, w: 80, rot: 18, from: [0, -1] },
     { s: 13, x: 610, y: 945, w: 100, rot: -14, from: [0, 1] },
-    { s: 5, x: 330, y: 270, w: 96, rot: 12, from: [0, -1], outline: true },
-    { s: 3, x: 1300, y: 960, w: 104, rot: -22, from: [0, 1], outline: true },
+    { s: 5, x: 330, y: 270, w: 84, rot: 12, from: [0, -1] },
+    { s: 3, x: 1300, y: 960, w: 92, rot: -22, from: [0, 1] },
   ];
 
   function scene1(ctx, t) {
@@ -320,9 +385,7 @@
     const yIn = k => prog(t, k, k + 1.4, easeOutQuint);
     const out = prog(t, 10.9, 11.5, easeInOut);
     const ys = [
-      { s: S[32], x: 1830, y: 70, w: 420, rot: -8 + b * 1.2, d: 0.1, from: [140, -120] },
       { s: S[25], x: 130, y: 1010, w: 520, rot: 6 - b, d: 0.3, from: [-160, 120] },
-      { s: S[24], x: 1010, y: 960, w: 120, rot: 30 + b * 3, d: 4.9, from: [0, 60] },
     ];
     ys.forEach(c => {
       const k = yIn(c.d);
@@ -349,32 +412,34 @@
     drawLogo(ctx, A.logo, -lw / 2, -lh / 2, lw, lIn * (1 - out));
     ctx.restore();
 
-    // foto 1 mascarada em caco (Ativo 37) + caco amarelo de apoio
+    // foto 1 mascarada em caco (Ativo 37) + cacos amarelos encaixados nas arestas
+    const PH = { x: 1490, y: 540, w: 680, rot: -1.5 };
+    const photo = cacoPoints(S[37], PH.x, PH.y, PH.w, PH.rot);
+    const dTop = dockCaco(S[32], 380, photo, [0.2, -1], 24, 0.62);
+    const dBot = dockCaco(S[15], 250, photo, [0, 1], 24, 0.3);
+    fillDocked(ctx, S[32], dTop, 380, prog(t, 0.1, 1.5, easeOutQuint), 1 - out);
+    fillDocked(ctx, S[15], dBot, 250, prog(t, 5.3, 6.6, easeOutQuint), 1 - out);
     const pIn = prog(t, 4.3, 5.9, easeOutQuint);
     if (pIn > 0) {
-      fillCaco(ctx, S[15], {
-        x: 1200 - (1 - pIn) * 60, y: 840 + (1 - pIn) * 60, w: 300, rot: -12 + b * 1.5,
-        color: C.yellow, alpha: pIn * (1 - out),
-      });
       photoCaco(ctx, A.foto1, S[37], {
-        x: 1445, y: 520, w: 800, rot: lerp(-4, -1.5, pIn), s: lerp(0.86, 1, pIn),
+        x: PH.x, y: PH.y, w: PH.w, rot: lerp(-4, PH.rot, pIn), s: lerp(0.86, 1, pIn),
         zoom: lerp(1.22, 1.06, pIn) - (t - 6) * 0.004, focus: [0.5, 0.36],
         alpha: pIn * (1 - out),
       });
     }
 
     // lettering (fundo claro: azul Agibank, Light + Bold no destaque)
-    const runs = [
-      { text: 'Quem contribui com o crescimento do Agi vive a', color: C.blue, weight: LIGHT },
-      { text: 'meritocracia na prática', color: C.blue, weight: BOLD },
-      { text: 'e é', color: C.blue, weight: LIGHT },
-      { text: 'reconhecido', color: C.blue, weight: BOLD },
-      { text: 'por isso.', color: C.blue, weight: LIGHT },
-    ];
-    const size = 66, lhK = 1.16;
-    const lines = layoutRich(ctx, runs, size, 860);
+    const L = text => ({ text, color: C.blue, weight: LIGHT });
+    const B = text => ({ text, color: C.blue, weight: BOLD });
+    const lhK = 1.18;
+    const { lines, size } = layoutManual(ctx, [
+      [L('Quem contribui')],
+      [L('com o crescimento do Agi')],
+      [L('vive a'), B('meritocracia na prática')],
+      [L('e é'), B('reconhecido'), L('por isso.')],
+    ], 960, 66);
     drawRichReveal(ctx, lines, {
-      x: MARGIN, y: blockTop(lines, size, lhK, 580), size, maxW: 860, lineHeight: lhK,
+      x: MARGIN, y: blockTop(lines, size, lhK, 580), size, maxW: 960, lineHeight: lhK,
       start: 5.3, stagger: 0.32, dur: 1.1, end: 10.6,
     }, t);
   }
@@ -404,7 +469,7 @@
         x: c.x + c.from[0] * (1 - k) * 260 + Math.cos(t * 0.4 + i) * 8,
         y: c.y + c.from[1] * (1 - k) * 260 + f * 10 - hop,
         w: c.w, rot: c.rot + f * 3, s: lerp(0.85, 1, k), r: Math.min(RADIUS, c.w * 0.12),
-        color: c.outline ? C.white : C.yellow, outline: c.outline ? 4 : 0, alpha: k * (1 - out),
+        color: C.yellow, alpha: k * (1 - out),
       });
     });
 
@@ -490,20 +555,23 @@
       ctx.fillStyle = C.mid;
       roundRect(ctx, cx, cy + dy, cw, ch, RADIUS); ctx.fill();
       ctx.globalAlpha = 1;
-      const px = cx + 38;
+      const mx = cx + cw / 2; // tudo centralizado no módulo
       let y = cy + dy + 92;
-      if (it.pre) drawText(ctx, it.pre, px, y, { size: 38, weight: LIGHT, color: C.white, alpha });
+      if (it.pre) drawText(ctx, it.pre, mx, y, { size: 38, weight: LIGHT, color: C.white, align: 'center', alpha });
       y += 128;
-      drawText(ctx, fmt(it.num), px - 4, y, { size: 118, weight: BOLD, color: it.color, alpha, spacing: -3 });
-      if (it.suf) {
-        ctx.font = font(BOLD, 118); ctx.letterSpacing = '-3px';
-        const nw = ctx.measureText(fmt(it.num)).width; ctx.letterSpacing = '0px';
-        drawText(ctx, it.suf, px + nw + 12, y, { size: 44, weight: BOLD, color: it.color, alpha });
-      }
+      ctx.font = font(BOLD, 118); ctx.letterSpacing = '-3px';
+      const nw = ctx.measureText(fmt(it.num)).width; ctx.letterSpacing = '0px';
+      ctx.font = font(BOLD, 44);
+      const sw = it.suf ? ctx.measureText(it.suf).width + 12 : 0;
+      const nx = mx - (nw + sw) / 2;
+      drawText(ctx, fmt(it.num), nx, y, { size: 118, weight: BOLD, color: it.color, alpha, spacing: -3 });
+      if (it.suf) drawText(ctx, it.suf, nx + nw + 12, y, { size: 44, weight: BOLD, color: it.color, alpha });
       y += 72;
-      const lines = layoutRich(ctx, [{ text: it.label, color: C.white, weight: LIGHT }], 36, cw - 76);
-      lines.forEach((ln, j) => ln.forEach(w =>
-        drawText(ctx, w.w, px + w.x, y + j * 44, { size: 36, weight: LIGHT, color: C.white, alpha })));
+      const lines = layoutRich(ctx, [{ text: it.label, color: C.white, weight: LIGHT }], 36, cw - 60);
+      lines.forEach((ln, j) => {
+        const last = ln[ln.length - 1], lw = last.x + last.width;
+        ln.forEach(w => drawText(ctx, w.w, mx - lw / 2 + w.x, y + j * 44, { size: 36, weight: LIGHT, color: C.white, alpha }));
+      });
     });
   }
 
@@ -515,27 +583,30 @@
     const k2 = prog(t, 38.7, 40.1, easeOutQuint);
     if (k1 > 0) {
       fillCaco(ctx, S[1], { x: 1760 + (1 - k1) * 160, y: 80, w: 460, rot: 8 + b, color: C.yellow, alpha: k1 * (1 - end) });
-      fillCaco(ctx, S[29], { x: 150 - (1 - k1) * 120, y: 970 + (1 - k1) * 80, w: 340, rot: -14 - b * 1.5, color: C.yellow, alpha: k1 * (1 - end) });
     }
-    // foto 2 recortada em caco (Ativo 32)
+    // foto 2 recortada em caco (Ativo 32) + caco encaixado na aresta inferior
+    const PH = { x: 470, y: 530, w: 720, rot: 2 };
+    const photo = cacoPoints(S[32], PH.x, PH.y, PH.w, PH.rot, 1, true);
+    const dBot = dockCaco(S[29], 300, photo, [-0.2, 1], 24, 0.25);
+    fillDocked(ctx, S[29], dBot, 300, prog(t, 39.6, 40.9, easeOutQuint), (1 - leave) * (1 - end));
     if (k2 > 0 && leave < 1) {
       photoCaco(ctx, A.foto2, S[32], {
-        x: 560 - leave * 80, y: 530, w: 940, rot: lerp(5, 2, k2) + b * 0.4, s: lerp(0.86, 1, k2) - leave * 0.06, flip: true,
+        x: PH.x - leave * 80, y: PH.y, w: PH.w, rot: lerp(5, PH.rot, k2), s: lerp(0.86, 1, k2) - leave * 0.06, flip: true,
         zoom: lerp(1.25, 1.08, k2) - (t - 40) * 0.004, focus: [0.48, 0.5],
         alpha: k2 * (1 - leave),
       });
     }
 
-    const runs = [
-      { text: 'Acesse o', color: C.blue, weight: LIGHT },
-      { text: 'Portal Sempre Juntos', color: C.blue, weight: BOLD },
-      { text: 'e conheça os', color: C.blue, weight: LIGHT },
-      { text: 'Agilizados reconhecidos!', color: C.blue, weight: BOLD },
-    ];
-    const size = 76, lhK = 1.14;
-    const lines = layoutRich(ctx, runs, size, 700);
+    const L = text => ({ text, color: C.blue, weight: LIGHT });
+    const B = text => ({ text, color: C.blue, weight: BOLD });
+    const lhK = 1.18;
+    const { lines, size } = layoutManual(ctx, [
+      [L('Acesse o'), B('Portal Sempre Juntos')],
+      [L('e conheça os'), B('Agilizados')],
+      [L('que foram reconhecidos!')],
+    ], 900, 72);
     drawRichReveal(ctx, lines, {
-      x: 1100, y: blockTop(lines, size, lhK, 540), size, maxW: 700, lineHeight: lhK,
+      x: 920, y: blockTop(lines, size, lhK, 540), size, maxW: 900, lineHeight: lhK,
       start: 39.6, stagger: 0.3, dur: 1.1, end: CLOSE_T0 - 0.7,
     }, t);
 
@@ -559,7 +630,7 @@
     ctx.fillStyle = C.gray;
     ctx.fillRect(0, 0, W, H);
     if (t < WIPE1[1]) scene1(ctx, t);
-    const blueFull = cacoWipe(ctx, t, WIPE1, C.blue, 1445, 520, S[33], -20);
+    const blueFull = cacoWipe(ctx, t, WIPE1, C.blue, 1490, 540, S[33], -20);
     if (blueFull) {
       if (t < WIPE2[1]) {
         scene3(ctx, t);
