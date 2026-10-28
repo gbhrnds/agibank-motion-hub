@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Camada_2" data-name="Camada 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 567.69 1011.62">
+  <defs>
+    <clipPath id="clippath">
+      <rect y="0" width="567.69" height="1011.62" rx="7.7" ry="7.7" style="fill: none;"/>
+    </clipPath>
+  </defs>
+  <g id="Artes">
+    <g style="clip-path: url(#clippath);">
+      <rect x="0" y="0" width="567.69" height="1011.62" style="fill: #0064f5;"/>
+      <path d="M524.97,386.05L47.95,465.2c-9.75,1.62-18.62-5.9-18.62-15.78V48.91c0-8.84,7.16-16,16-16h477.02c8.84,0,16,7.16,16,16v321.35c0,7.83-5.66,14.5-13.38,15.78Z" style="fill: #fff;"/>
+      <path d="M42.71,493.76l477.02-79.15c9.75-1.62,18.62,5.9,18.62,15.78v292.46c0,9.71-8.57,17.18-18.19,15.85l-477.02-65.9c-7.92-1.09-13.81-7.86-13.81-15.85v-147.41c0-7.83,5.66-14.5,13.38-15.78Z" style="fill: #76df40;"/>
+      <path d="M522.35,985.68H45.33c-8.84,0-16-7.16-16-16v-256.99c0-9.71,8.57-17.18,18.19-15.85l477.02,65.9c7.92,1.09,13.81,7.86,13.81,15.85v191.08c0,8.84-7.16,16-16,16Z" style="fill: #fff;"/>
+    </g>
+  </g>
+</svg>
