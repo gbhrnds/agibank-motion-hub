@@ -8,13 +8,16 @@
     { id: 'gc', nome: '1 · Lower third Matheus', fala: '“Eu sou o Matheus, estagiário em governança de TI”', in: 74.72, out: 79.0 },
     { id: 'prazo', nome: '2 · Prazo de inscrição', fala: '“…correr e se inscrever no Programa de Estágio do Agi…”', in: 87.96, out: 92.85,
       marks: { hl: { nome: 'Destaque “dia 08”', t: 91.2 } } },
-    { id: 'bolsa', nome: '3 · Bolsa-auxílio R$ 2.400', fala: '“…bolsa-auxílio de 2 mil e 400 reais”', in: 94.54, out: 98.2 },
-    { id: 'vavr', nome: '4 · VA e VR + de R$ 1.200', fala: '“…VA e VR de mais de mil e 200 reais”', in: 96.36, out: 98.2 },
-    { id: 'tags', nome: '5 · Tags de benefícios', fala: '“…flexibilidade de jornada diária, mentoria próxima… IA…”', in: 98.46, out: 104.4,
-      marks: { t2: { nome: 'Tag “Mentoria próxima”', t: 100.52 }, t3: { nome: 'Tag “IA no seu dia a dia”', t: 101.82 } } },
-    { id: 'req', nome: '6 · Requisito de curso', fala: '“…você precisa estar cursando Graduação a partir do 4º semestre…”', in: 105.08, out: 110.75 },
-    { id: 'pres', nome: '7 · 100% Presencial', fala: '“…100% presencial em Campinas”', in: 110.94, out: 114.2 },
-    { id: 'final', nome: '8 · Frase final', fala: '“…com inteligência e com a gente”', in: 119.06, out: 122.4, saida: 'fade',
+    { id: 'ben', nome: '3 · Benefícios', fala: '“…bolsa-auxílio de 2 mil e 400 reais, VA e VR… flexibilidade… mentoria… IA…”', in: 94.54, out: 104.4,
+      marks: {
+        vavr: { nome: 'VA e VR + de R$ 1.200', t: 96.36 },
+        t1: { nome: 'Flexibilidade de jornada', t: 98.46 },
+        t2: { nome: 'Mentoria próxima', t: 100.52 },
+        t3: { nome: 'IA no seu dia a dia', t: 101.82 },
+      } },
+    { id: 'req', nome: '4 · Requisito de curso', fala: '“…você precisa estar cursando Graduação a partir do 4º semestre…”', in: 105.08, out: 110.75 },
+    { id: 'pres', nome: '5 · 100% Presencial', fala: '“…100% presencial em Campinas”', in: 110.94, out: 114.2 },
+    { id: 'final', nome: '6 · Frase final', fala: '“…com inteligência e com a gente”', in: 119.06, out: 122.4, saida: 'fade',
       marks: {
         w2: { nome: 'Palavra “inteligência,”', t: 119.42 },
         w3: { nome: 'Palavra “com”', t: 120.3 },
@@ -29,6 +32,7 @@
   const ease = {
     expo: (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x)),
     cubic: (x) => 1 - Math.pow(1 - x, 3),
+    inOut: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
     back: (x) => { const c = 1.6, c3 = c + 1; return 1 + c3 * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); },
     in: (x) => x * x * x,
   };
@@ -36,49 +40,52 @@
   const milhar = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const mix = (a, b, p) => a.map((v, i) => Math.round(v + (b[i] - v) * p));
 
-  function svg(name, cls) {
-    const a = window.AGI_ASSETS[name];
-    return `<svg class="${cls}" viewBox="${a.vb}" aria-hidden="true">${a.paths.map((d) => `<path d="${d}"/>`).join('')}</svg>`;
-  }
+  const caco = () => {
+    const a = window.AGI_ASSETS.caco;
+    return `<svg class="caco" viewBox="${a.vb}" aria-hidden="true"><path pathLength="1" d="${a.d}"/></svg>`;
+  };
+  const logo = () => {
+    const a = window.AGI_ASSETS.logo;
+    return `<svg class="logo" viewBox="${a.vb}" role="img" aria-label="Programa de estágio — 1ª turma de 2027 do Agibank">${a.inner}</svg>`;
+  };
 
   const MARKUP = `
     <div class="cue" id="c-gc">
-      ${svg('formaParalelogramo', 'forma')}
-      <div class="verde"></div>
-      <div class="box">
-        <span class="mask"><span class="l1">Matheus</span></span>
-        <span class="mask"><span class="l2">Estagiário em Governança de TI</span></span>
+      ${caco()}
+      <div class="sobreposto">
+        <div class="fundo"></div>
+        <div class="box azul">
+          <span class="mask"><span class="l1">Matheus</span></span>
+          <span class="mask"><span class="l2">Estagiário em Governança de TI</span></span>
+        </div>
       </div>
     </div>
     <div class="cue" id="c-prazo">
-      ${svg('formaTriangulo', 'forma')}
-      <div class="box">
-        <span class="mask"><span class="topo">Programa de Estágio Agi</span></span>
-        <span class="mask"><span class="destaque">Inscrições até <span class="hl">dia 08<i></i></span></span></span>
+      ${caco()}
+      <div class="box azul">
+        <span class="mask"><span>${logo()}</span></span>
+        <span class="mask"><span class="chamada">Inscrições até o <span class="hl">dia 08<i></i></span></span></span>
       </div>
     </div>
-    <div class="cue" id="c-bolsa">
-      <div class="box">
-        <span class="mask"><span class="apoio">Bolsa-auxílio</span></span>
-        <span class="mask"><span class="valor"><small>R$</small><span class="n">2.400</span></span></span>
-      </div>
-    </div>
-    <div class="cue" id="c-vavr">
-      <div class="box">
-        <span class="mask"><span class="apoio">VA e VR</span></span>
-        <span class="mask"><span class="valor"><small>+ de R$</small><span class="n">1.200</span></span></span>
-      </div>
-    </div>
-    <div class="cue" id="c-tags">
-      <div class="tag t1">Flexibilidade de jornada diária</div>
-      <div class="tag t2">Mentoria próxima</div>
-      <div class="tag t3"><span><b>IA</b> no seu dia a dia e do time</span></div>
+    <div class="cue" id="c-ben">
+      ${caco()}
+      <div class="item"><div class="inner">
+        <div class="box azul titulo">Bolsa-auxílio</div>
+        <div class="box verde valor"><small>R$</small><span class="n">2.400</span></div>
+      </div></div>
+      <div class="item"><div class="inner">
+        <div class="box azul titulo">VA e VR</div>
+        <div class="box verde valor"><small>+ de R$</small><span class="n">1.200</span></div>
+      </div></div>
+      <div class="item"><div class="inner"><div class="box azul tag">Flexibilidade de jornada diária</div></div></div>
+      <div class="item"><div class="inner"><div class="box azul tag">Mentoria próxima</div></div></div>
+      <div class="item"><div class="inner"><div class="box verde tag"><b>IA</b> no seu dia a dia e do time</div></div></div>
     </div>
     <div class="cue" id="c-req">
-      ${svg('formaLosango', 'forma')}
-      <div class="box">
-        <div class="barra"></div>
-        <div>
+      ${caco()}
+      <div class="sobreposto">
+        <div class="fundo"></div>
+        <div class="box azul">
           <span class="mask"><span class="principal">Graduação a partir</span></span>
           <span class="mask"><span class="principal">do 4º semestre</span></span>
           <span class="mask"><span class="sub">Ou outros cursos superiores</span></span>
@@ -86,28 +93,30 @@
       </div>
     </div>
     <div class="cue" id="c-pres">
-      ${svg('formaFaixa', 'forma')}
-      <div class="box">
+      ${caco()}
+      <div class="box azul">
         <span class="mask"><span class="destaque"><span class="n">100</span>% Presencial</span></span>
-        <div class="chip">Campinas</div>
+        <div class="box verde chip">Campinas</div>
       </div>
     </div>
     <div class="cue" id="c-final">
-      <span class="linha"><span class="w">com</span> <span class="w verde">inteligência,</span></span>
-      <span class="linha"><span class="w">com</span> <span class="w">a</span> <span class="w">gente!</span></span>
+      <span class="linha"><span class="w">com</span></span>
+      <span class="linha"><span class="w destaque">inteligência,</span></span>
+      <span class="linha"><span class="w">com</span> <span class="w">a</span> <span class="w destaque">gente!</span></span>
     </div>`;
 
   // Helpers de animação --------------------------------------------------
   const wipeX = (el, p) => { el.style.clipPath = `inset(-2px ${(1 - p) * 100}% -2px -2px round var(--raio))`; };
   const wipeY = (el, p) => { el.style.clipPath = `inset(${(1 - p) * 100}% -2px -2px -2px round var(--raio))`; };
   const rise = (el, p) => { el.style.transform = `translateY(${(1 - p) * 115}%)`; };
-  const pop = (el, p, rot = 0) => {
-    el.style.transform = `scale(${p}) rotate(${(1 - p) * rot}deg)`;
-    el.style.opacity = clamp(p * 3);
+  // Caco: o traço se desenha e o neon acende junto.
+  const desenha = (el, p) => {
+    el.querySelector('path').style.strokeDasharray = `${p} 1`;
+    el.style.opacity = clamp(p * 4);
   };
   // Saída: varredura para a esquerda + leve deslocamento.
   const exit = (el, o) => {
-    el.style.clipPath = o > 0 ? `inset(-90px calc(-90px + ${o} * (100% + 180px)) -90px -90px)` : 'none';
+    el.style.clipPath = o > 0 ? `inset(-400px calc(-400px + ${o} * (100% + 800px)) -400px -400px)` : 'none';
     el.style.transform = `translateX(${-o * 36}px)`;
   };
 
@@ -121,62 +130,59 @@
 
     const ANIM = {
       gc(el, k) {
-        wipeX(q('#c-gc .verde'), prog(k, 0, 0.5));
+        wipeX(q('#c-gc .fundo'), prog(k, 0, 0.5));
         wipeX(q('#c-gc .box'), prog(k, 0.08, 0.55));
         rise(q('#c-gc .l1'), prog(k, 0.22, 0.55));
         rise(q('#c-gc .l2'), prog(k, 0.32, 0.55));
-        pop(q('#c-gc .forma'), prog(k, 0.36, 0.5, ease.back), -40);
+        desenha(q('#c-gc .caco'), prog(k, 0.3, 0.9, ease.inOut));
       },
       prazo(el, k, c, t) {
         const box = q('#c-prazo .box');
         wipeY(box, prog(k, 0, 0.5));
         box.style.transform = `translateY(${(1 - prog(k, 0, 0.6)) * 40}px)`;
-        rise(q('#c-prazo .topo'), prog(k, 0.15, 0.5));
-        rise(q('#c-prazo .destaque'), prog(k, 0.25, 0.55));
-        // “dia 08” acende no instante em que ele fala.
-        const h = prog(t, c.marks.hl.t, 0.3, ease.cubic);
-        const hb = prog(t, c.marks.hl.t, 0.45, ease.back);
+        // “Inscrições até o dia 08” com exatamente a largura do logo do programa.
+        const ch = q('#c-prazo .chamada');
+        ch.style.fontSize = '100px';
+        ch.style.fontSize = `${100 * q('#c-prazo .logo').clientWidth / ch.offsetWidth}px`;
+        rise(q('#c-prazo .mask:first-child > span'), prog(k, 0.15, 0.55));
+        rise(q('#c-prazo .chamada'), prog(k, 0.28, 0.55));
+        desenha(q('#c-prazo .caco'), prog(k, 0.35, 0.9, ease.inOut));
+        // “dia 08” acende em verde no instante em que ele fala.
+        const m = c.marks.hl.t;
         const hl = q('#c-prazo .hl');
-        hl.style.color = `rgb(${mix([255, 255, 255], [255, 214, 0], h).join(',')})`;
-        hl.style.transform = `scale(${1 + 0.14 * Math.sin(Math.PI * clamp((t - c.marks.hl.t) / 0.45))})`;
-        q('#c-prazo .hl i').style.transform = `scaleX(${prog(t, c.marks.hl.t + 0.08, 0.4)})`;
-        pop(q('#c-prazo .forma'), hb, 50);
+        hl.style.color = `rgb(${mix([255, 255, 255], [119, 223, 64], prog(t, m, 0.3, ease.cubic)).join(',')})`;
+        hl.style.transform = `scale(${1 + 0.12 * Math.sin(Math.PI * clamp((t - m) / 0.45))})`;
+        q('#c-prazo .hl i').style.transform = `scaleX(${prog(t, m + 0.08, 0.4)})`;
       },
-      bolsa(el, k) {
-        wipeX(q('#c-bolsa .box'), prog(k, 0, 0.5));
-        rise(q('#c-bolsa .apoio'), prog(k, 0.12, 0.5));
-        rise(q('#c-bolsa .valor'), prog(k, 0.18, 0.5));
-        q('#c-bolsa .n').textContent = milhar(Math.round(240 * prog(k, 0.18, 0.75, ease.cubic)) * 10);
-      },
-      vavr(el, k) {
-        wipeX(q('#c-vavr .box'), prog(k, 0, 0.5));
-        rise(q('#c-vavr .apoio'), prog(k, 0.12, 0.5));
-        rise(q('#c-vavr .valor'), prog(k, 0.18, 0.5));
-        q('#c-vavr .n').textContent = milhar(Math.round(120 * prog(k, 0.18, 0.75, ease.cubic)) * 10);
-      },
-      tags(el, k, c, t) {
-        const starts = [c.in, c.marks.t2.t, c.marks.t3.t];
-        qa('#c-tags .tag').forEach((tag, i) => {
+      ben(el, k, c, t) {
+        // Coluna ancorada embaixo: cada item cresce de 0 à altura natural e
+        // empurra os anteriores para cima.
+        const starts = [c.in, c.marks.vavr.t, c.marks.t1.t, c.marks.t2.t, c.marks.t3.t];
+        const valores = [2400, 1200];
+        qa('#c-ben .item').forEach((item, i) => {
           const kk = t - starts[i];
-          tag.style.visibility = kk >= 0 ? 'visible' : 'hidden';
-          wipeX(tag, prog(kk, 0, 0.45));
-          tag.style.transform = `translateX(${(1 - prog(kk, 0, 0.6, ease.back)) * -60}px)`;
+          const inner = item.firstElementChild;
+          item.style.height = `${prog(kk, 0, 0.55, ease.inOut) * inner.offsetHeight}px`;
+          item.style.visibility = kk >= 0 ? 'visible' : 'hidden';
+          const boxes = inner.querySelectorAll('.box');
+          boxes.forEach((b, j) => wipeX(b, prog(kk, 0.05 + j * 0.12, 0.5)));
+          const n = inner.querySelector('.n');
+          if (n) n.textContent = milhar(Math.round(valores[i] / 10 * prog(kk, 0.2, 0.75, ease.cubic)) * 10);
         });
+        desenha(q('#c-ben .caco'), prog(k, 0.4, 1.0, ease.inOut));
       },
       req(el, k) {
-        wipeX(q('#c-req .box'), prog(k, 0, 0.5));
-        q('#c-req .barra').style.transform = `scaleY(${prog(k, 0.1, 0.5)})`;
+        wipeX(q('#c-req .fundo'), prog(k, 0, 0.5));
+        wipeX(q('#c-req .box'), prog(k, 0.08, 0.55));
         qa('#c-req .mask > span').forEach((s, i) => rise(s, prog(k, 0.22 + i * 0.09, 0.5)));
-        pop(q('#c-req .forma'), prog(k, 0.4, 0.5, ease.back), 40);
+        desenha(q('#c-req .caco'), prog(k, 0.35, 0.9, ease.inOut));
       },
       pres(el, k) {
-        wipeX(q('#c-pres .box'), prog(k, 0, 0.45));
+        wipeX(q('#c-pres > .box'), prog(k, 0, 0.45));
         rise(q('#c-pres .destaque'), prog(k, 0.1, 0.5));
         q('#c-pres .n').textContent = Math.round(100 * prog(k, 0.1, 0.6, ease.cubic));
-        const chip = q('#c-pres .chip');
-        chip.style.transform = `scale(${prog(k, 0.35, 0.5, ease.back)})`;
-        chip.style.opacity = clamp(prog(k, 0.35, 0.2));
-        pop(q('#c-pres .forma'), prog(k, 0.45, 0.5, ease.back), -35);
+        wipeX(q('#c-pres .chip'), prog(k, 0.35, 0.45));
+        desenha(q('#c-pres .caco'), prog(k, 0.35, 0.9, ease.inOut));
       },
       final(el, k, c, t) {
         // Cada palavra entra no instante em que é falada; o layout já reserva o
@@ -186,7 +192,7 @@
           const kk = t - starts[i];
           const p = prog(kk, 0, 0.42, ease.back);
           w.style.opacity = clamp(kk / 0.12);
-          w.style.transform = `translateY(${(1 - p) * 60}px) scale(${0.7 + 0.3 * p})`;
+          w.style.transform = `translateY(${(1 - p) * 50}px) scale(${0.75 + 0.25 * p})`;
         });
       },
     };
@@ -194,6 +200,7 @@
     function render(t, cues) {
       for (const c of cues) {
         const el = q(`#c-${c.id}`);
+        if (!el) continue;
         const on = t >= c.in && t < c.out;
         el.style.display = on ? 'block' : 'none';
         if (!on) continue;
