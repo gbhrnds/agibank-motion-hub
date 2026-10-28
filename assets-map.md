@@ -11,13 +11,17 @@
 
 ## 🔤 Tipografia Oficial (Fonts)
 *Nota: Estas URLs usam a CDN pública do jsDelivr apontando para o seu repositório para evitar erros de carregamento (CORS) no navegador.*
-- **Agibank Sans Bold (Títulos/Destaques):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Bold.woff2`
-- **Agibank Sans Light (Corpo/Legendas):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Light.woff2`
+- **Agibank Sans Bold (Títulos):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Bold.woff2`
+- **Agibank Sans Regular (Corpo/Legendas):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Regular.woff2`
+- **Agibank Sans Light (Alternativa leve):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Light.woff2`
+- **Agibank Sans Medium (Alternativa média):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/fonts/AgibankSans-Medium.woff2`
 
-## 🖼️ Vetores & Identidade (SVGs)
-- **Logo Principal SVG:** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/branding/logo-principal.svg`
-- **Logo Reduzido (agi) SVG:** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/branding/logo-reduzido.svg`
+## 🖼️ Logotipos Oficiais (Logos)
+- **Logo Completo Positivo:** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/logos/Agibank_Positivo.svg`
+- **Logo Completo Negativo (Branco):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/logos/Agibank_Negativo.svg`
+- **Logo Reduzido (agi) Positivo:** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/logos/Agi_Positivo.svg`
+- **Logo Reduzido (agi) Negativo (Branco):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/logos/Agi_Negativo_RGB.svg`
 
 ## 🔺 Pasta de Formas e Ícones Dedicados
-- **Formas Irregulares (Grafismos):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/shapes/`
-- **Ícones (Iconografia):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/icons/`
+- **Formas Irregulares (Grafismos):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/shapes/` (Exemplo: `Ativo 1.svg`)
+- **Ícones (Iconografia):** `https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main/assets/icons/` (Exemplo: `Ativo 1.svg`)
