@@ -17,7 +17,8 @@ Extraídos com faster-whisper (modelo `small`, timestamps por palavra) → `tran
 | 6 | Frase final “com inteligência, com a gente!” — uma palavra por vez, lateral esquerda | “com” (01:59.06) · “inteligência” (01:59.42) · “com” (02:00.30) · “a” (02:00.44) · “gente” (02:00.56) | 01:59.06 | 02:02.40 |
 
 Padrão visual: boxes só em Azul Agibank (`#0064f5`, texto branco) e Verde (`#77df40`, texto azul-escuro), cantos de 15px,
-com o caco em outline verde com neon do KV (`assets_programa_de_estagio/graphics/forma_irregular_01.svg`) se desenhando no canto de cada box.
+com o caco em outline verde com neon do KV (`assets_programa_de_estagio/graphics/forma_irregular_01.svg`) se desenhando no canto de cada box, com rotação leve contínua.
+Na coluna de benefícios os textos são centralizados nos boxes.
 Na coluna de benefícios cada item tem box de título + box de valor, todos com a mesma largura; a coluna é ancorada embaixo e sobe conforme os novos itens entram.
 
 ## Arquivos
@@ -44,7 +45,15 @@ Render final (com ou sem os ajustes):
 node projetos/estagio-matheus-vs01/render.mjs projetos/estagio-matheus-vs01/MONTAGEM_VS01_1.mp4 --cues cues.json
 ```
 
-Saída: `projetos/estagio-matheus-vs01/render/MONTAGEM_VS01_letterings.mp4`. Para conferir só alguns quadros: `--preview 76.5,97.8`.
+Saída: `projetos/estagio-matheus-vs01/render/MONTAGEM_VS01_letterings.mp4`. Para conferir só alguns quadros: `--preview 76.5,97.8`; para um clipe de prévia: `--trecho 86.5,113.5`.
+
+Só os letterings em .mov RGB+alpha (duração total, começando em 00:00, para soltar sobre o vídeo na timeline):
+
+```bash
+node projetos/estagio-matheus-vs01/render.mjs projetos/estagio-matheus-vs01/MONTAGEM_VS01_1.mp4 --alpha prores
+```
+
+`--alpha prores` = ProRes 4444 com alfa · `--alpha animation` = QuickTime Animation (sem perda) · `--alpha ambos`.
 
 ## Regras aplicadas
 

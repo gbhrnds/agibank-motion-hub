@@ -110,9 +110,12 @@
   const wipeY = (el, p) => { el.style.clipPath = `inset(${(1 - p) * 100}% -2px -2px -2px round var(--raio))`; };
   const rise = (el, p) => { el.style.transform = `translateY(${(1 - p) * 115}%)`; };
   // Caco: o traço se desenha e o neon acende junto.
-  const desenha = (el, p) => {
+  // Rotação leve: gira um pouco enquanto se desenha e segue girando devagar
+  // (soma-se à rotação base de cada cue, definida no CSS).
+  const desenha = (el, p, k) => {
     el.querySelector('path').style.strokeDasharray = `${p} 1`;
     el.style.opacity = clamp(p * 4);
+    el.style.rotate = `${-18 * (1 - p) + 3.5 * k}deg`;
   };
   // Saída: varredura para a esquerda + leve deslocamento.
   const exit = (el, o) => {
@@ -134,7 +137,7 @@
         wipeX(q('#c-gc .box'), prog(k, 0.08, 0.55));
         rise(q('#c-gc .l1'), prog(k, 0.22, 0.55));
         rise(q('#c-gc .l2'), prog(k, 0.32, 0.55));
-        desenha(q('#c-gc .caco'), prog(k, 0.3, 0.9, ease.inOut));
+        desenha(q('#c-gc .caco'), prog(k, 0.3, 0.9, ease.inOut), k);
       },
       prazo(el, k, c, t) {
         const box = q('#c-prazo .box');
@@ -146,7 +149,7 @@
         ch.style.fontSize = `${100 * q('#c-prazo .logo').clientWidth / ch.offsetWidth}px`;
         rise(q('#c-prazo .mask:first-child > span'), prog(k, 0.15, 0.55));
         rise(q('#c-prazo .chamada'), prog(k, 0.28, 0.55));
-        desenha(q('#c-prazo .caco'), prog(k, 0.35, 0.9, ease.inOut));
+        desenha(q('#c-prazo .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
         // “dia 08” acende em verde no instante em que ele fala.
         const m = c.marks.hl.t;
         const hl = q('#c-prazo .hl');
@@ -169,20 +172,20 @@
           const n = inner.querySelector('.n');
           if (n) n.textContent = milhar(Math.round(valores[i] / 10 * prog(kk, 0.2, 0.75, ease.cubic)) * 10);
         });
-        desenha(q('#c-ben .caco'), prog(k, 0.4, 1.0, ease.inOut));
+        desenha(q('#c-ben .caco'), prog(k, 0.4, 1.0, ease.inOut), k);
       },
       req(el, k) {
         wipeX(q('#c-req .fundo'), prog(k, 0, 0.5));
         wipeX(q('#c-req .box'), prog(k, 0.08, 0.55));
         qa('#c-req .mask > span').forEach((s, i) => rise(s, prog(k, 0.22 + i * 0.09, 0.5)));
-        desenha(q('#c-req .caco'), prog(k, 0.35, 0.9, ease.inOut));
+        desenha(q('#c-req .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
       },
       pres(el, k) {
         wipeX(q('#c-pres > .box'), prog(k, 0, 0.45));
         rise(q('#c-pres .destaque'), prog(k, 0.1, 0.5));
         q('#c-pres .n').textContent = Math.round(100 * prog(k, 0.1, 0.6, ease.cubic));
         wipeX(q('#c-pres .chip'), prog(k, 0.35, 0.45));
-        desenha(q('#c-pres .caco'), prog(k, 0.35, 0.9, ease.inOut));
+        desenha(q('#c-pres .caco'), prog(k, 0.35, 0.9, ease.inOut), k);
       },
       final(el, k, c, t) {
         // Cada palavra entra no instante em que é falada; o layout já reserva o
