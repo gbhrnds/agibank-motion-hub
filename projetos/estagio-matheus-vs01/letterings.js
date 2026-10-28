@@ -14,6 +14,13 @@
       marks: { t2: { nome: 'Tag “Mentoria próxima”', t: 100.52 }, t3: { nome: 'Tag “IA no seu dia a dia”', t: 101.82 } } },
     { id: 'req', nome: '6 · Requisito de curso', fala: '“…você precisa estar cursando Graduação a partir do 4º semestre…”', in: 105.08, out: 110.75 },
     { id: 'pres', nome: '7 · 100% Presencial', fala: '“…100% presencial em Campinas”', in: 110.94, out: 114.2 },
+    { id: 'final', nome: '8 · Frase final', fala: '“…com inteligência e com a gente”', in: 119.06, out: 122.4, saida: 'fade',
+      marks: {
+        w2: { nome: 'Palavra “inteligência,”', t: 119.42 },
+        w3: { nome: 'Palavra “com”', t: 120.3 },
+        w4: { nome: 'Palavra “a”', t: 120.44 },
+        w5: { nome: 'Palavra “gente!”', t: 120.56 },
+      } },
   ];
 
   const OUT_DUR = 0.42;
@@ -46,32 +53,31 @@
     <div class="cue" id="c-prazo">
       ${svg('formaTriangulo', 'forma')}
       <div class="box">
-        <span class="mask"><span class="topo">${svg('relogio', 'ico')}Programa de Estágio Agi</span></span>
+        <span class="mask"><span class="topo">Programa de Estágio Agi</span></span>
         <span class="mask"><span class="destaque">Inscrições até <span class="hl">dia 08<i></i></span></span></span>
       </div>
     </div>
     <div class="cue" id="c-bolsa">
       <div class="box">
-        <span class="mask"><span class="apoio">${svg('cifrao', 'ico')}Bolsa-auxílio</span></span>
+        <span class="mask"><span class="apoio">Bolsa-auxílio</span></span>
         <span class="mask"><span class="valor"><small>R$</small><span class="n">2.400</span></span></span>
       </div>
     </div>
     <div class="cue" id="c-vavr">
       <div class="box">
-        <span class="mask"><span class="apoio">${svg('maoCifrao', 'ico')}VA e VR</span></span>
+        <span class="mask"><span class="apoio">VA e VR</span></span>
         <span class="mask"><span class="valor"><small>+ de R$</small><span class="n">1.200</span></span></span>
       </div>
     </div>
     <div class="cue" id="c-tags">
-      <div class="tag t1">${svg('jornada', 'ico')}Flexibilidade de jornada diária</div>
-      <div class="tag t2">${svg('pessoa', 'ico')}Mentoria próxima</div>
-      <div class="tag t3">${svg('tela', 'ico')}<span><b>IA</b> no seu dia a dia e do time</span></div>
+      <div class="tag t1">Flexibilidade de jornada diária</div>
+      <div class="tag t2">Mentoria próxima</div>
+      <div class="tag t3"><span><b>IA</b> no seu dia a dia e do time</span></div>
     </div>
     <div class="cue" id="c-req">
       ${svg('formaLosango', 'forma')}
       <div class="box">
         <div class="barra"></div>
-        ${svg('check', 'ico')}
         <div>
           <span class="mask"><span class="principal">Graduação a partir</span></span>
           <span class="mask"><span class="principal">do 4º semestre</span></span>
@@ -83,8 +89,12 @@
       ${svg('formaFaixa', 'forma')}
       <div class="box">
         <span class="mask"><span class="destaque"><span class="n">100</span>% Presencial</span></span>
-        <div class="chip">${svg('predio', 'ico')}Campinas</div>
+        <div class="chip">Campinas</div>
       </div>
+    </div>
+    <div class="cue" id="c-final">
+      <span class="linha"><span class="w">com</span> <span class="w verde">inteligência,</span></span>
+      <span class="linha"><span class="w">com</span> <span class="w">a</span> <span class="w">gente!</span></span>
     </div>`;
 
   // Helpers de animação --------------------------------------------------
@@ -151,13 +161,11 @@
           tag.style.visibility = kk >= 0 ? 'visible' : 'hidden';
           wipeX(tag, prog(kk, 0, 0.45));
           tag.style.transform = `translateX(${(1 - prog(kk, 0, 0.6, ease.back)) * -60}px)`;
-          pop(tag.querySelector('.ico'), prog(kk, 0.15, 0.45, ease.back), -30);
         });
       },
       req(el, k) {
         wipeX(q('#c-req .box'), prog(k, 0, 0.5));
         q('#c-req .barra').style.transform = `scaleY(${prog(k, 0.1, 0.5)})`;
-        pop(q('#c-req .ico'), prog(k, 0.2, 0.5, ease.back), -45);
         qa('#c-req .mask > span').forEach((s, i) => rise(s, prog(k, 0.22 + i * 0.09, 0.5)));
         pop(q('#c-req .forma'), prog(k, 0.4, 0.5, ease.back), 40);
       },
@@ -170,6 +178,17 @@
         chip.style.opacity = clamp(prog(k, 0.35, 0.2));
         pop(q('#c-pres .forma'), prog(k, 0.45, 0.5, ease.back), -35);
       },
+      final(el, k, c, t) {
+        // Cada palavra entra no instante em que é falada; o layout já reserva o
+        // espaço da frase inteira, então nada se reposiciona.
+        const starts = [c.in, c.marks.w2.t, c.marks.w3.t, c.marks.w4.t, c.marks.w5.t];
+        qa('#c-final .w').forEach((w, i) => {
+          const kk = t - starts[i];
+          const p = prog(kk, 0, 0.42, ease.back);
+          w.style.opacity = clamp(kk / 0.12);
+          w.style.transform = `translateY(${(1 - p) * 60}px) scale(${0.7 + 0.3 * p})`;
+        });
+      },
     };
 
     function render(t, cues) {
@@ -179,7 +198,11 @@
         el.style.display = on ? 'block' : 'none';
         if (!on) continue;
         ANIM[c.id](el, t - c.in, c, t);
-        exit(el, prog(t, c.out - OUT_DUR, OUT_DUR, ease.in));
+        const o = prog(t, c.out - OUT_DUR, OUT_DUR, ease.in);
+        if (c.saida === 'fade') {
+          el.style.opacity = 1 - o;
+          el.style.transform = `translateY(${-o * 40}px)`;
+        } else exit(el, o);
       }
     }
 

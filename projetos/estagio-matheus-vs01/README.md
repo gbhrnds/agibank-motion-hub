@@ -1,6 +1,6 @@
 # VS01 · Programa de Estágio Agi (Matheus) — letterings
 
-Sete letterings animados sincronizados com a fala do Matheus em `MONTAGEM_VS01_1.mp4` (1920×1080, 23,976 fps).
+Oito letterings animados sincronizados com a fala do Matheus em `MONTAGEM_VS01_1.mp4` (1920×1080, 23,976 fps).
 O vídeo **não é versionado** (`*.mp4`/`*.mov` estão no `.gitignore`): coloque o arquivo nesta pasta para usar o player e o render.
 
 ## Gatilhos (timestamps por palavra)
@@ -16,8 +16,10 @@ Extraídos com faster-whisper (modelo `small`, timestamps por palavra) → `tran
 | 5 | Tags (uma a uma) | “**flexibilidade**” · “**mentoria**” (01:40.52) · “**aplicar** IA” (01:41.82) | 01:38.46 | 01:44.40 |
 | 6 | Requisito “Graduação a partir do 4º semestre” | “você **precisa** estar cursando” | 01:45.08 | 01:50.75 |
 | 7 | “100% Presencial · Campinas” | “**100**% presencial” | 01:50.94 | 01:54.20 |
+| 8 | Frase final “com inteligência, com a gente!” — uma palavra por vez | “**com**” (01:59.06) · “inteligência” (01:59.42) · “com” (02:00.30) · “a” (02:00.44) · “gente” (02:00.56) | 01:59.06 | 02:02.40 |
 
 Os cards 3 e 4 ficam empilhados (o 4 entra abaixo do 3) para dar tempo de leitura aos dois valores.
+A frase final é centralizada na horizontal e fica na altura do peito (`--final-y` em `letterings.css`), para não cobrir a boca do Matheus no close.
 
 ## Arquivos
 
@@ -25,7 +27,7 @@ Os cards 3 e 4 ficam empilhados (o 4 entra abaixo do 3) para dar tempo de leitur
 - `letterings.js` / `letterings.css` — motor único (função pura do tempo), usado pelo player e pelo render.
 - `overlay.html` — palco transparente 1920×1080 usado pelo render.
 - `render.mjs` — renderiza o overlay quadro a quadro (Playwright) e compõe sobre o vídeo (ffmpeg, áudio copiado sem recompressão).
-- `build-assets.mjs` → `assets.generated.js` — embute ícones/formas de `/assets` (rode de novo se trocar algum SVG).
+- `build-assets.mjs` → `assets.generated.js` — embute as formas de `/assets/shapes` (rode de novo se trocar algum SVG).
 
 ## Como usar
 
