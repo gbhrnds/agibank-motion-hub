@@ -1,68 +1,142 @@
-"icons": {
-  "basePath": "assets/icons/",
-  "totalCount": 128,
-  "note": "pasta-flat-sem-duplicatas-sem-subpastas",
-  "categories": {
-    "navigation": [
-      "chevron-up.svg","chevron-down.svg","chevron-left.svg","chevron-right.svg",
-      "triangle-up.svg","triangle-down.svg","arrow-up.svg","arrow-down.svg",
-      "arrow-left.svg","arrow-right.svg","arrows-up-down.svg","external-link.svg"
-    ],
-    "status-feedback": [
-      "check.svg","check-circle.svg","close.svg","close-circle.svg","warning.svg",
-      "alert-circle.svg","help-circle.svg","info-circle.svg","block.svg",
-      "star.svg","star-outline.svg"
-    ],
-    "money-finance": [
-      "money-wallet.svg","money-withdraw.svg","money-bag.svg","money-bag-lock.svg",
-      "money-bag-download.svg","money-bag-clock.svg","money-recurring.svg",
-      "money-receive.svg","money-send.svg","money-circle.svg","money-bill.svg",
-      "money-hand.svg","money-calendar.svg","money-idea.svg","money-refund-user.svg",
-      "money-user.svg","money-wallet-add.svg","money-refund-wallet.svg",
-      "cashback-wallet.svg","fgts.svg","discount.svg","receipt.svg","wallet.svg"
-    ],
-    "cards": [
-      "card.svg","card-alert.svg","card-add.svg","card-pix.svg","card-lock.svg",
-      "card-money.svg","card-settings.svg"
-    ],
-    "banking": [
-      "bank.svg","bank-money.svg","bank-to-wallet.svg","bank-refresh.svg",
-      "bank-transfer.svg","bank-to-money.svg","bank-document.svg","pix-transfer.svg",
-      "building-shield.svg"
-    ],
-    "calendar": [
-      "calendar.svg","calendar-add.svg","calendar-money.svg","calendar-clock.svg",
-      "calendar-edit.svg"
-    ],
-    "security": [
-      "lock.svg","lock-open.svg","shield-close.svg","shield-alert.svg","shield-check.svg",
-      "password.svg","password-help.svg","key.svg","face-scan.svg"
-    ],
-    "communication": [
-      "phone-ringing.svg","sms.svg","chat-message.svg","notification.svg",
-      "notification-off.svg"
-    ],
-    "devices": [
-      "smartphone.svg","smartphone-money.svg","smartphone-settings.svg",
-      "smartphone-check.svg","smartphone-add.svg","screen-click.svg","camera.svg",
-      "video.svg","wifi.svg","qr-code-scan.svg","barcode.svg"
-    ],
-    "user": [
-      "user.svg","user-add.svg","user-remove.svg","user-money.svg",
-      "id-card.svg","id-card-pix.svg"
-    ],
-    "actions": [
-      "add.svg","add-circle.svg","edit.svg","copy.svg","trash.svg","sync.svg",
-      "refresh.svg","settings.svg","filters.svg","slider.svg","clipboard-check.svg",
-      "contract-signed.svg"
-    ],
-    "transport": [
-      "car.svg","cars.svg","car-home.svg","car-money.svg","truck.svg"
-    ],
-    "misc": [
-      "home.svg","chart-growth.svg","idea.svg","clover.svg","heart.svg",
-      "heart-outline.svg","history.svg","clock.svg","eye.svg","eye-off.svg",
-      "service-off.svg","health-care.svg","cart.svg"
+{
+  "meta": {
+    "project": "agibank-motion-hub",
+    "version": "2.0.0",
+    "lastUpdated": "2025-01-29",
+    "repository": "https://github.com/gbhrnds/agibank-motion-hub",
+    "cdnBase": "https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main",
+    "visibility": "public"
+  },
+
+  "colors": {
+    "azulAgibank": "#0064F5",
+    "azulMedio": "#0033B0",
+    "azulEscuro": "#000F44",
+    "verde": "#77DF40",
+    "verdeClaro": "#C9FF90",
+    "amarelo": "#FFD600",
+    "branco": "#FFFFFF"
+  },
+
+  "pillars": {
+    "agirEmpreendedor": { "nome": "Agir como empreendedor", "cor": "#77DF40" },
+    "crescerJornada": { "nome": "Crescer na jornada", "cor": "#FFD600" },
+    "viverCliente": { "nome": "Viver pelo cliente", "cor": "#0033B0" }
+  },
+
+  "typography": {
+    "fontFamily": "Agibank Sans",
+    "fallback": "Arial",
+    "basePath": "assets/fonts/",
+    "format": "woff2",
+    "usageMap": {
+      "titulos": ["bold", "extraBold"],
+      "subtitulos": ["medium"],
+      "corpoTexto": ["regular"],
+      "legendas": ["regular"],
+      "ctaLinks": ["semiBold"]
+    }
+  },
+
+  "logos": {
+    "basePath": "assets/logos/",
+    "files": {
+      "agiNegativeRgb": "agi-negative-rgb.svg",
+      "agiNegativeCmyk": "agi-negative-cmyk.svg",
+      "agiPositiveRgb": "agi-positive-rgb.svg",
+      "agiPositiveCmyk": "agi-positive-cmyk.svg",
+      "agibankNegativeRgb": "agibank-negative-rgb.svg",
+      "agibankNegativeCmyk": "agibank-negative-cmyk.svg",
+      "agibankPositiveRgb": "agibank-positive-rgb.svg",
+      "agibankPositiveCmyk": "agibank-positive-cmyk.svg"
+    },
+    "usageMap": {
+      "digital": "rgb",
+      "impresso": "cmyk",
+      "fundoAzul": "negative",
+      "fundoBranco": "positive"
+    },
+    "clearSpace": {
+      "multiplier": 3,
+      "reference": "pingo-verde-do-i"
+    },
+    "stillPending": [
+      "correspondente-autorizado",
+      "monocromatico-positivo",
+      "monocromatico-negativo",
+      "monocromatico-sobre-verde-restrito-brindes",
+      "preto-branco-positivo-restrito",
+      "preto-branco-negativo-restrito",
+      "versao-polo-negativa-restrita",
+      "app-icon-favicon"
     ]
-  }
-}
+  },
+
+  "programs": {
+    "meetup": {
+      "basePath": "assets/meetup/",
+      "negative": "meetup-agibank-negative.svg",
+      "positive": "meetup-agibank-positive.svg"
+    },
+    "estagio": {
+      "basePath": "assets/programa-de-estagio/",
+      "negativeWithEdition": "internship-program-negative-with-edition.svg",
+      "negative": "internship-program-negative.svg",
+      "positiveWithEdition": "internship-program-positive-with-edition.svg",
+      "positive": "internship-program-positive.svg"
+    },
+    "formacaoDevs": { "status": "not_found" },
+    "temosVagas": { "status": "not_found" }
+  },
+
+  "textures": {
+    "basePath": "assets/texture/",
+    "blueWithBackground": "texture-blue.svg",
+    "greenWithBackground": "texture-green.svg",
+    "blueTransparent": "texture-blue-transparent.svg",
+    "greenTransparent": "texture-green-transparent.svg",
+    "rule": "nunca-aplicar-logo-ou-texto-sobre-textura-usar-apenas-como-mascara-ou-fundo"
+  },
+
+  "shapes": {
+    "basePath": "assets/shapes/",
+    "totalCount": 40,
+    "color": "azul-agibank",
+    "allowedTransforms": ["rotate", "mirror", "scale"],
+    "forbiddenTransforms": ["distort-proportions"],
+    "byType": {
+      "quadrilateral": [
+        "quadrilateral-01.svg","quadrilateral-02.svg","quadrilateral-03.svg","quadrilateral-04.svg",
+        "quadrilateral-05.svg","quadrilateral-06.svg","quadrilateral-07.svg","quadrilateral-08.svg",
+        "quadrilateral-09.svg","quadrilateral-10.svg","quadrilateral-11.svg","quadrilateral-12.svg",
+        "quadrilateral-13.svg","quadrilateral-14.svg","quadrilateral-15.svg","quadrilateral-16.svg",
+        "quadrilateral-17.svg","quadrilateral-18.svg","quadrilateral-19.svg","quadrilateral-20.svg",
+        "quadrilateral-21.svg","quadrilateral-22.svg","quadrilateral-23.svg"
+      ],
+      "triangle": [
+        "triangle-01.svg","triangle-02.svg","triangle-03.svg","triangle-04.svg","triangle-05.svg",
+        "triangle-06.svg","triangle-07.svg","triangle-08.svg","triangle-09.svg","triangle-10.svg"
+      ],
+      "pentagon": [
+        "pentagon-01.svg","pentagon-02.svg","pentagon-03.svg","pentagon-04.svg",
+        "pentagon-05.svg","pentagon-06.svg","pentagon-07.svg"
+      ]
+    }
+  },
+
+  "modules": {
+    "basePath": "assets/modulos/",
+    "geometryRules": {
+      "cornerRadius": { "min": 12, "max": 17 },
+      "gapPercent": { "min": 5, "max": 8 },
+      "edges": "sempre-horizontal-ou-vertical-nas-bordas",
+      "internalDivisions": "sempre-diagonal-nunca-paralelas"
+    },
+    "files": {
+      "verticalWhiteGreenWhite": "vertical-3-panels-white-green-white.svg",
+      "horizontalBlue2": "horizontal-2-panels-blue.svg",
+      "horizontalGreenBlue": "horizontal-2-panels-green-blue.svg",
+      "horizontalBlueBordered": "horizontal-2-panels-blue-bordered.svg",
+      "verticalBlue2": "vertical-2-panels-blue.svg",
+      "horizontalBlueGreenBlue3": "horizontal-3-panels-blue-green-blue.svg",
+      "whiteFrameOutlined":
