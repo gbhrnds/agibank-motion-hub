@@ -26,6 +26,13 @@
     "fallback": "Arial",
     "basePath": "assets/fonts/",
     "format": "woff2",
+    "weights": {
+      "regular":   { "file": "AgibankSans-Regular.woff2",   "value": 400 },
+      "medium":    { "file": "AgibankSans-Medium.woff2",    "value": 500 },
+      "semiBold":  { "file": "AgibankSans-SemiBold.woff2",  "value": 600 },
+      "bold":      { "file": "AgibankSans-Bold.woff2",      "value": 700 },
+      "extraBold": { "file": "AgibankSans-ExtraBold.woff2", "value": 800 }
+    },
     "usageMap": {
       "titulos": ["bold", "extraBold"],
       "subtitulos": ["medium"],

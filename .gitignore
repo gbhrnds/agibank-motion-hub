@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+
+# gerados por scripts/sync-assets.mjs
+public/assets/
+app/fonts.generated.css
