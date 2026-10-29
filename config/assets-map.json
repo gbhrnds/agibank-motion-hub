@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "agibank-motion-hub",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "lastUpdated": "2025-01-29",
     "repository": "https://github.com/gbhrnds/agibank-motion-hub",
     "cdnBase": "https://cdn.jsdelivr.net/gh/gbhrnds/agibank-motion-hub@main",
@@ -52,9 +52,22 @@
       "fundoAzul": "negative",
       "fundoBranco": "positive"
     },
+    "audienceRule": {
+      "interno": {
+        "logoFamily": "agi",
+        "description": "Comunicacao Interna, Marca Empregadora institucional, ferramentas e sistemas internos (Portal Sempre Juntos, e-mails internos, Teams, crachas, Agi Campus)",
+        "exemplos": ["alerta-sj", "alerta-teams", "card-materia", "popup-psj", "cracha", "matinal-sj"]
+      },
+      "externo": {
+        "logoFamily": "agibank",
+        "description": "Comunicacao voltada a clientes, midia, publico externo, materiais impressos externos, lojas, feiras e exposicoes",
+        "exemplos": ["material-impresso-externo", "linkedin-institucional", "banner-loja", "outdoor"]
+      }
+    },
     "clearSpace": {
       "multiplier": 3,
-      "reference": "pingo-verde-do-i"
+      "reference": "pingo-verde-do-i",
+      "note": "aplica-se-tanto-ao-logo-agi-quanto-ao-agibank-proporcional-ao-tamanho-de-cada-um"
     },
     "stillPending": [
       "correspondente-autorizado",
@@ -90,7 +103,8 @@
     "blueTransparent": "texture-blue-transparent.svg",
     "greenTransparent": "texture-green-transparent.svg",
     "rule": "nunca-aplicar-logo-ou-texto-sobre-textura-usar-apenas-como-mascara-ou-fundo"
-  },"shapes": {
+  },
+  "shapes": {
     "basePath": "assets/shapes/",
     "totalCount": 40,
     "color": "azul-agibank",
