@@ -1,0 +1,68 @@
+"icons": {
+  "basePath": "assets/icons/",
+  "totalCount": 128,
+  "note": "pasta-flat-sem-duplicatas-sem-subpastas",
+  "categories": {
+    "navigation": [
+      "chevron-up.svg","chevron-down.svg","chevron-left.svg","chevron-right.svg",
+      "triangle-up.svg","triangle-down.svg","arrow-up.svg","arrow-down.svg",
+      "arrow-left.svg","arrow-right.svg","arrows-up-down.svg","external-link.svg"
+    ],
+    "status-feedback": [
+      "check.svg","check-circle.svg","close.svg","close-circle.svg","warning.svg",
+      "alert-circle.svg","help-circle.svg","info-circle.svg","block.svg",
+      "star.svg","star-outline.svg"
+    ],
+    "money-finance": [
+      "money-wallet.svg","money-withdraw.svg","money-bag.svg","money-bag-lock.svg",
+      "money-bag-download.svg","money-bag-clock.svg","money-recurring.svg",
+      "money-receive.svg","money-send.svg","money-circle.svg","money-bill.svg",
+      "money-hand.svg","money-calendar.svg","money-idea.svg","money-refund-user.svg",
+      "money-user.svg","money-wallet-add.svg","money-refund-wallet.svg",
+      "cashback-wallet.svg","fgts.svg","discount.svg","receipt.svg","wallet.svg"
+    ],
+    "cards": [
+      "card.svg","card-alert.svg","card-add.svg","card-pix.svg","card-lock.svg",
+      "card-money.svg","card-settings.svg"
+    ],
+    "banking": [
+      "bank.svg","bank-money.svg","bank-to-wallet.svg","bank-refresh.svg",
+      "bank-transfer.svg","bank-to-money.svg","bank-document.svg","pix-transfer.svg",
+      "building-shield.svg"
+    ],
+    "calendar": [
+      "calendar.svg","calendar-add.svg","calendar-money.svg","calendar-clock.svg",
+      "calendar-edit.svg"
+    ],
+    "security": [
+      "lock.svg","lock-open.svg","shield-close.svg","shield-alert.svg","shield-check.svg",
+      "password.svg","password-help.svg","key.svg","face-scan.svg"
+    ],
+    "communication": [
+      "phone-ringing.svg","sms.svg","chat-message.svg","notification.svg",
+      "notification-off.svg"
+    ],
+    "devices": [
+      "smartphone.svg","smartphone-money.svg","smartphone-settings.svg",
+      "smartphone-check.svg","smartphone-add.svg","screen-click.svg","camera.svg",
+      "video.svg","wifi.svg","qr-code-scan.svg","barcode.svg"
+    ],
+    "user": [
+      "user.svg","user-add.svg","user-remove.svg","user-money.svg",
+      "id-card.svg","id-card-pix.svg"
+    ],
+    "actions": [
+      "add.svg","add-circle.svg","edit.svg","copy.svg","trash.svg","sync.svg",
+      "refresh.svg","settings.svg","filters.svg","slider.svg","clipboard-check.svg",
+      "contract-signed.svg"
+    ],
+    "transport": [
+      "car.svg","cars.svg","car-home.svg","car-money.svg","truck.svg"
+    ],
+    "misc": [
+      "home.svg","chart-growth.svg","idea.svg","clover.svg","heart.svg",
+      "heart-outline.svg","history.svg","clock.svg","eye.svg","eye-off.svg",
+      "service-off.svg","health-care.svg","cart.svg"
+    ]
+  }
+}
