@@ -1,8 +1,9 @@
 import type { CanvasLayout } from "./canvas-layout";
-import { getBackground, type Layer } from "./alerta-spec";
+import { getBackground, getLogo, type Layer } from "./alerta-spec";
 import { brandRules } from "./brand-tokens";
 import { validateColorUsage, validateContrast, type ValidationResult } from "./contrast-validator";
 import { validateLogoClearSpace } from "./layout-validator";
+import { validateLogoAudience } from "./logo-validator";
 
 export interface ValidationItem {
   id: string;
@@ -11,7 +12,7 @@ export interface ValidationItem {
 }
 
 /** Roda todas as validações de marca da peça. `layout` é null enquanto o canvas não terminou de medir. */
-export function validatePiece(layers: Layer[], layout: CanvasLayout | null): ValidationItem[] {
+export function validatePiece(layers: Layer[], channels: string[], layout: CanvasLayout | null): ValidationItem[] {
   const items: ValidationItem[] = [];
   const background = getBackground(layers);
 
@@ -31,6 +32,12 @@ export function validatePiece(layers: Layer[], layout: CanvasLayout | null): Val
       });
     }
   }
+
+  items.push({
+    id: "logo-audience",
+    label: "Logo — audiência",
+    result: validateLogoAudience(getLogo(layers), channels),
+  });
 
   if (layout) {
     items.push({

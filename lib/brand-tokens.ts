@@ -9,6 +9,8 @@ import assetsMap from "@/config/assets-map.json";
 export type ColorKey = keyof typeof assetsMap.colors;
 export type FontWeightKey = keyof typeof assetsMap.typography.weights;
 export type LogoKey = keyof typeof assetsMap.logos.files;
+/** Audiências de logos.audienceRule ("interno" | "externo"). */
+export type Audience = keyof typeof assetsMap.logos.audienceRule;
 /** Nome de arquivo listado em icons.categories (validado em runtime por iconPath). */
 export type IconFile = string;
 /** Nome de arquivo listado em shapes.byType (validado em runtime por shapePath). */
@@ -77,21 +79,30 @@ export function shapePath(file: ShapeFile): string {
 }
 
 /**
- * Escolhe a chave do logo a partir de logos.usageMap:
- * fundo azul → negative, fundo branco → positive; digital → rgb, impresso → cmyk.
+ * Escolhe a chave do logo em logos.files:
+ * - família pela audiência (logos.audienceRule: interno → "agi", externo → "agibank");
+ * - variante pelo fundo (logos.usageMap: fundo azul → negative, fundo branco → positive);
+ * - perfil de cor pela mídia (logos.usageMap: digital → rgb, impresso → cmyk).
  */
 export function pickLogoKey(
-  brand: "agi" | "agibank",
+  audience: Audience,
   fundo: "fundoAzul" | "fundoBranco",
   midia: "digital" | "impresso",
 ): LogoKey {
+  const family = assetsMap.logos.audienceRule[audience].logoFamily;
   const variant = assetsMap.logos.usageMap[fundo];
   const profile = assetsMap.logos.usageMap[midia];
-  const key = `${brand}${capitalize(variant)}${capitalize(profile)}`;
+  const key = `${family}${capitalize(variant)}${capitalize(profile)}`;
   if (!(key in assetsMap.logos.files)) {
     throw new Error(`Logo "${key}" não existe em assets-map.json → logos.files`);
   }
   return key as LogoKey;
+}
+
+/** Audiência em cujo logos.audienceRule.<audiencia>.exemplos o canal aparece (ex.: "alerta-sj" → "interno"). */
+export function audienceForChannel(channel: string): Audience | undefined {
+  const rules = assetsMap.logos.audienceRule as Record<Audience, { exemplos: string[] }>;
+  return (Object.keys(rules) as Audience[]).find((a) => rules[a].exemplos.includes(channel));
 }
 
 function capitalize(s: string) {

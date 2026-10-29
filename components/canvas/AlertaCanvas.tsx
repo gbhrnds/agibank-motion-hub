@@ -124,7 +124,13 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
               ) : null;
             case "logo":
               return background ? (
-                <LogoSmart key={layer.id} layer={layer} backgroundColor={background.color} onReady={onLogoReady} />
+                <LogoSmart
+                  key={layer.id}
+                  audience={layer.audience}
+                  layer={layer}
+                  backgroundColor={background.color}
+                  onReady={onLogoReady}
+                />
               ) : null;
           }
         })}

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Group, Image as KImage } from "react-konva";
-import { color, logoClearSpace, logoPath, pickLogoKey, type ColorKey } from "@/lib/brand-tokens";
+import { color, logoClearSpace, logoPath, pickLogoKey, type Audience, type ColorKey } from "@/lib/brand-tokens";
 import { CANVAS_SIZE, type LogoLayer } from "@/lib/alerta-spec";
 import { useSvgAsset } from "@/lib/use-svg-asset";
 
@@ -17,18 +17,28 @@ export interface LogoMeta {
 }
 
 interface LogoSmartProps {
-  layer: LogoLayer;
+  /**
+   * Para quem a peça fala — regra de marca em assets-map.json → logos.audienceRule:
+   * - "interno": Comunicação Interna, Marca Empregadora institucional, ferramentas internos
+   *   (Alerta SJ, Alerta Teams, Portal Sempre Juntos, crachás…) → logo REDUZIDO "Agi".
+   * - "externo": clientes, mídia, lojas, feiras, material impresso externo → logo COMPLETO "Agibank".
+   * Vem de fora (hoje fixo na spec da peça; no futuro, de um seletor na interface).
+   */
+  audience: Audience;
+  layer: Omit<LogoLayer, "audience">;
   backgroundColor: ColorKey;
   onReady?: (meta: LogoMeta) => void;
 }
 
 /**
- * Escolhe a versão do logo pelo fundo (logos.usageMap: fundo azul → negative, digital → rgb),
- * posiciona no canto inferior esquerdo e mede a área de proteção a partir do pingo verde do "i".
+ * Escolhe o arquivo do logo em logos.files a partir de audiência + fundo + mídia
+ * (interno/azul/digital → agi-negative-rgb; externo/branco/impresso → agibank-positive-cmyk; etc.),
+ * posiciona no canto inferior esquerdo e mede a área de proteção a partir do pingo verde do "i"
+ * do próprio logo renderizado — logo menor, área de proteção proporcionalmente menor.
  */
-export default function LogoSmart({ layer, backgroundColor, onReady }: LogoSmartProps) {
+export default function LogoSmart({ audience, layer, backgroundColor, onReady }: LogoSmartProps) {
   const fundo = backgroundColor.startsWith("azul") ? "fundoAzul" : "fundoBranco";
-  const src = logoPath(pickLogoKey(layer.brand, fundo, layer.midia));
+  const src = logoPath(pickLogoKey(audience, fundo, layer.midia));
   const referenceKey = CLEAR_SPACE_REFERENCE_COLOR[logoClearSpace.reference];
   const asset = useSvgAsset(src, { referenceFill: referenceKey ? color(referenceKey) : undefined });
 

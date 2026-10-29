@@ -1,4 +1,4 @@
-import type { ColorKey, FontWeightKey, IconFile, ShapeFile } from "./brand-tokens";
+import type { Audience, ColorKey, FontWeightKey, IconFile, ShapeFile } from "./brand-tokens";
 
 /**
  * Peça fixa do MVP: Alerta institucional de Comunicação Interna 600x600
@@ -9,6 +9,8 @@ import type { ColorKey, FontWeightKey, IconFile, ShapeFile } from "./brand-token
  */
 
 export const CANVAS_SIZE = 600;
+/** Canais onde a peça circula (chaves de logos.audienceRule.*.exemplos). */
+export const ALERTA_CHANNELS = ["alerta-sj", "alerta-teams"];
 export const EXPORT_FILE_NAME = "agibank-alerta-institucional.png";
 
 export interface Rect {
@@ -64,7 +66,8 @@ export interface ShapeLayer extends BaseLayer {
 
 export interface LogoLayer extends BaseLayer {
   type: "logo";
-  brand: "agi" | "agibank";
+  /** Define a família do logo via logos.audienceRule (interno → Agi, externo → Agibank). */
+  audience: Audience;
   midia: "digital" | "impresso";
   /** Distância da borda esquerda e da borda inferior. */
   margin: number;
@@ -93,7 +96,7 @@ export const ALERTA_LAYERS: Layer[] = [
     type: "shape",
     file: "quadrilateral-14.svg",
     color: "azulMedio",
-    x: 214,
+    x: 160,
     y: 506,
     width: 150,
   },
@@ -151,13 +154,18 @@ export const ALERTA_LAYERS: Layer[] = [
     id: "logo",
     label: "Logo",
     type: "logo",
-    brand: "agibank",
+    // Comunicação Interna (Alerta Sempre Juntos / Alerta Teams) → logo reduzido "Agi".
+    audience: "interno",
     midia: "digital",
     margin: MARGIN,
-    width: 140,
+    width: 80,
   },
 ];
 
 export function getBackground(layers: Layer[]): BackgroundLayer | undefined {
   return layers.find((l): l is BackgroundLayer => l.type === "background");
+}
+
+export function getLogo(layers: Layer[]): LogoLayer | undefined {
+  return layers.find((l): l is LogoLayer => l.type === "logo");
 }

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
 import ValidationPanel from "@/components/validation/ValidationPanel";
-import { ALERTA_LAYERS, CANVAS_SIZE, EXPORT_FILE_NAME } from "@/lib/alerta-spec";
+import { ALERTA_CHANNELS, ALERTA_LAYERS, CANVAS_SIZE, EXPORT_FILE_NAME } from "@/lib/alerta-spec";
 import { exportStageToPng } from "@/lib/export-png";
 import { validatePiece } from "@/lib/validate-piece";
 
@@ -16,7 +16,7 @@ export default function Page() {
   const [layout, setLayout] = useState<CanvasLayout | null>(null);
   const [showGuides, setShowGuides] = useState(false);
 
-  const items = useMemo(() => validatePiece(ALERTA_LAYERS, layout), [layout]);
+  const items = useMemo(() => validatePiece(ALERTA_LAYERS, ALERTA_CHANNELS, layout), [layout]);
 
   const handleExport = useCallback(() => {
     if (!stageRef.current) return;

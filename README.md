@@ -26,13 +26,14 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | --- | --- |
 | `app/page.tsx` | Página única: canvas + painel de validação + export |
 | `components/canvas/AlertaCanvas.tsx` | Stage Konva 600×600; mede o layout real para a validação |
-| `components/canvas/LogoSmart.tsx` | Escolhe o logo via `logos.usageMap` e mede a área de proteção (3× pingo verde do "i") |
+| `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/ShapeDecor.tsx` / `IconInline.tsx` | Shapes e ícones SVG recoloridos com tokens |
 | `components/validation/ValidationPanel.tsx` | Lista ✅/⚠️/❌ e bloqueia o export |
 | `lib/brand-tokens.ts` | Camada tipada sobre `assets-map.json` |
 | `lib/alerta-spec.ts` | Conteúdo/layout da peça (só referencia chaves do mapa) |
 | `lib/contrast-validator.ts` | `validateContrast()` e `validateColorUsage()` |
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
+| `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
 | `lib/export-png.ts` | Exporta o Stage como PNG 600×600 |
 
 ## Testando o bloqueio
