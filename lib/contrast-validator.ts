@@ -10,26 +10,38 @@ export interface ValidationResult {
 
 /**
  * Verifica o par fundo/texto contra brandRules.contrastMap.
- * - texto em "preferido"                           → ok
- * - fora de "preferido" e regra "obrigatorio: true" → blocking
- * - fora de "preferido" sem obrigatoriedade         → warning
+ * - texto em "preferido"                                    → ok
+ * - texto de destaque (título/palavra-chave) em "destaque"   → ok
+ * - fora de "preferido" e regra "obrigatorio: true"          → blocking
+ * - fora de "preferido" sem obrigatoriedade                  → warning
  */
 export function validateContrast(
   backgroundColorKey: ColorKey,
   textColorKey: ColorKey,
   brandRules: BrandRules,
+  { destaque = false }: { destaque?: boolean } = {},
 ): ValidationResult {
   const rule = brandRules.contrastMap[backgroundColorKey];
   const preferido = rule?.preferido ?? [];
+  const destaques = rule?.destaque ?? [];
 
   if (preferido.includes(textColorKey)) {
     return { valid: true, severity: "ok", message: `${textColorKey} sobre ${backgroundColorKey} é combinação preferida.` };
+  }
+  if (destaques.includes(textColorKey)) {
+    return destaque
+      ? { valid: true, severity: "ok", message: `${textColorKey} sobre ${backgroundColorKey} permitido como destaque.` }
+      : {
+          valid: false,
+          severity: "blocking",
+          message: `${textColorKey} sobre ${backgroundColorKey} só é permitido em títulos e palavras-chave, não em texto corrido.`,
+        };
   }
   if (rule?.obrigatorio) {
     return {
       valid: false,
       severity: "blocking",
-      message: `${textColorKey} sobre ${backgroundColorKey} não é permitido: a regra é obrigatória e exige ${preferido.join(" ou ")}.`,
+      message: `${textColorKey} sobre ${backgroundColorKey} não é permitido: a regra é obrigatória e exige ${preferido.join(" ou ")}${destaques.length ? ` (ou ${destaques.join("/")} em títulos e palavras-chave)` : ""}.`,
     };
   }
   return {

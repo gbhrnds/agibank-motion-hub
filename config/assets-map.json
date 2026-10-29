@@ -229,7 +229,7 @@
   "brandRules": {
     "contrastMap": {
       "branco":      { "preferido": ["azulEscuro", "azulMedio"] },
-      "azulAgibank": { "preferido": ["branco"], "obrigatorio": true },
+      "azulAgibank": { "preferido": ["branco"], "destaque": ["verde"], "destaqueUso": "apenas-titulos-e-palavras-chave-ver-composition-patterns-textHierarchyRules", "obrigatorio": true },
       "azulEscuro":  { "preferido": ["branco", "verdeClaro", "amarelo"] },
       "verde":       { "preferido": ["azulEscuro"], "obrigatorio": true },
       "amarelo":     { "preferido": ["azulEscuro"], "obrigatorio": true }

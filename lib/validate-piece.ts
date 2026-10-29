@@ -1,9 +1,16 @@
-import type { CanvasLayout } from "./canvas-layout";
 import { getBackground, getLogo, type Layer } from "./alerta-spec";
 import { brandRules } from "./brand-tokens";
+import type { CanvasLayout } from "./canvas-layout";
+import {
+  validateCtaStyle,
+  validateShapeFunction,
+  validateTextHierarchy,
+  validateTypographyScale,
+} from "./composition-validator";
 import { validateColorUsage, validateContrast, type ValidationResult } from "./contrast-validator";
 import { validateLogoClearSpace } from "./layout-validator";
 import { validateLogoAudience } from "./logo-validator";
+import { hasHighlight } from "./rich-text";
 
 export interface ValidationItem {
   id: string;
@@ -24,15 +31,35 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
 
   if (background) {
     for (const layer of layers) {
-      if (layer.type !== "text") continue;
-      items.push({
-        id: `contrast-${layer.id}`,
-        label: `Contraste — ${layer.label}`,
-        result: validateContrast(background.color, layer.color, brandRules),
-      });
+      if (layer.type === "text") {
+        items.push({
+          id: `contrast-${layer.id}`,
+          label: `Contraste — ${layer.label}`,
+          // Títulos são destaque por natureza (padrão "titulo-bicolor").
+          result: validateContrast(background.color, layer.color, brandRules, { destaque: layer.role === "titulo" }),
+        });
+        if (layer.highlight && hasHighlight(layer.text)) {
+          items.push({
+            id: `contrast-${layer.id}-destaque`,
+            label: `Contraste — ${layer.label} (palavra-chave)`,
+            result: validateContrast(background.color, layer.highlight.color, brandRules, { destaque: true }),
+          });
+        }
+      } else if (layer.type === "cta") {
+        // Texto do CTA é lido sobre a pílula quando ela existe.
+        const surface = layer.pill?.color ?? background.color;
+        items.push({
+          id: `contrast-${layer.id}`,
+          label: `Contraste — ${layer.label}${layer.pill ? " (sobre a pílula)" : ""}`,
+          result: validateContrast(surface, layer.color, brandRules),
+        });
+      }
     }
   }
 
+  items.push({ id: "text-hierarchy", label: "Hierarquia de cor no texto", result: validateTextHierarchy(layers) });
+  items.push({ id: "cta-style", label: "CTA com destaque visual", result: validateCtaStyle(layers) });
+  items.push({ id: "typography-scale", label: "Escala tipográfica", result: validateTypographyScale(layers) });
   items.push({
     id: "logo-audience",
     label: "Logo — audiência",
@@ -40,6 +67,11 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
   });
 
   if (layout) {
+    items.push({
+      id: "shape-function",
+      label: "Shapes com função",
+      result: validateShapeFunction(layers, layout.bounds),
+    });
     items.push({
       id: "logo-clear-space",
       label: "Área de proteção do logo",

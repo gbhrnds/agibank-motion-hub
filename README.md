@@ -1,7 +1,8 @@
 # agibank-motion-hub — Agibank Brand Studio
 
 Hub de marca do Agi. Este repositório contém os assets oficiais (`/assets`), o mapa de tokens
-(`/config/assets-map.json`, **única fonte de verdade** de cores, tipografia, paths e regras) e o
+(`/config/assets-map.json`, **única fonte de verdade** de cores, tipografia, paths e regras), os padrões
+de composição de peças aprovadas (`/config/composition-patterns.json`, com referências em `/references/popups`) e o
 **MVP do Brand Studio**: gerador do Alerta institucional de Comunicação Interna 600×600
 (canais "Alerta Sempre Juntos" e "Alerta Teams").
 
@@ -27,6 +28,9 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `app/page.tsx` | Página única: canvas + painel de validação + export |
 | `components/canvas/AlertaCanvas.tsx` | Stage Konva 600×600; mede o layout real para a validação |
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
+| `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
+| `components/canvas/CtaPill.tsx` | CTA em pílula sólida (`ctaRules`) |
+| `components/canvas/ConnectorLine.tsx` | Linha conectora orgânica entre dois elementos (`shapeUsageRules`) |
 | `components/canvas/ShapeDecor.tsx` / `IconInline.tsx` | Shapes e ícones SVG recoloridos com tokens |
 | `components/validation/ValidationPanel.tsx` | Lista ✅/⚠️/❌ e bloqueia o export |
 | `lib/brand-tokens.ts` | Camada tipada sobre `assets-map.json` |
@@ -34,10 +38,17 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/contrast-validator.ts` | `validateContrast()` e `validateColorUsage()` |
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
+| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: texto bicolor, CTA em pílula, shapes com função, escala tipográfica |
 | `lib/export-png.ts` | Exporta o Stage como PNG 600×600 |
 
 ## Testando o bloqueio
 
-Em `lib/alerta-spec.ts`, troque o `color` de qualquer camada de texto para `"azulMedio"` (ou o fundo
-para `"amarelo"`, ou mova um shape para cima do logo): o painel mostra ❌ blocking e o botão
-"Exportar PNG" é desabilitado.
+Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostra ❌ blocking, com o botão
+"Exportar PNG" desabilitado:
+
+- headline ou corpo em `"azulMedio"`, ou fundo em `"amarelo"`;
+- corpo inteiro em `"verde"` (verde sobre azul Agibank só em títulos e palavras-chave);
+- remover a `pill` do CTA;
+- texto todo numa cor só;
+- um shape sem `funcao`, ou o quadrilátero totalmente dentro do frame;
+- um shape em cima do logo.

@@ -18,6 +18,8 @@ export type ShapeFile = string;
 
 export interface ContrastRule {
   preferido: ColorKey[];
+  /** Cores liberadas só para destaque (títulos e palavras-chave), não para texto corrido. */
+  destaque?: ColorKey[];
   obrigatorio?: boolean;
 }
 

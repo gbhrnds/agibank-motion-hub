@@ -4,8 +4,9 @@ import type { Audience, ColorKey, FontWeightKey, IconFile, ShapeFile } from "./b
  * Peça fixa do MVP: Alerta institucional de Comunicação Interna 600x600
  * (canais "Alerta Sempre Juntos" e "Alerta Teams").
  *
- * Só referencia CHAVES de config/assets-map.json (cores, pesos, arquivos);
- * os valores concretos são resolvidos por lib/brand-tokens.ts.
+ * Só referencia CHAVES de config/assets-map.json (cores, pesos, arquivos) e nomes de
+ * padrões de config/composition-patterns.json; os valores concretos são resolvidos
+ * por lib/brand-tokens.ts e lib/composition-tokens.ts.
  */
 
 export const CANVAS_SIZE = 600;
@@ -20,6 +21,11 @@ export interface Rect {
   height: number;
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
 interface BaseLayer {
   id: string;
   label: string;
@@ -30,18 +36,26 @@ export interface BackgroundLayer extends BaseLayer {
   color: ColorKey;
 }
 
-export interface TextLayer extends BaseLayer {
-  type: "text";
-  text: string;
+/** Papel tipográfico — chaves de composition-patterns.json → typographyScale. */
+export type TextRole = "titulo" | "corpo";
+
+export interface TextStyle {
   color: ColorKey;
   weight: FontWeightKey;
+}
+
+export interface TextLayer extends BaseLayer, TextStyle {
+  type: "text";
+  role: TextRole;
+  /** Trechos entre **asteriscos** usam `highlight` (padrão "palavra-chave-destacada"). */
+  text: string;
+  highlight?: TextStyle;
   fontSize: number;
   lineHeight: number;
   x: number;
   y: number;
-  /** Largura máxima (quebra automática). Ausente = linha única com largura natural. */
-  width?: number;
-  trailingIcon?: { file: IconFile; size: number; gap: number };
+  /** Largura máxima; quebra automática por palavra. */
+  width: number;
 }
 
 export interface IconRowLayer extends BaseLayer {
@@ -54,14 +68,45 @@ export interface IconRowLayer extends BaseLayer {
   y: number;
 }
 
+export interface CtaLayer extends BaseLayer, TextStyle {
+  type: "cta";
+  text: string;
+  fontSize: number;
+  lineHeight: number;
+  x: number;
+  y: number;
+  /** Caixa sólida atrás do texto (composition-patterns.json → ctaRules). Ausente = texto solto. */
+  pill?: { color: ColorKey; paddingX: number; paddingY: number };
+  trailingIcon?: { file: IconFile; size: number; gap: number };
+}
+
+/** Função do shape — nomes de composition-patterns.json → shapeUsageRules.patterns. */
+export type ShapeFunction = "shape-sangrando-do-frame" | "linha-conectora-organica" | "moldura-organica-ao-redor-de-pessoa";
+
 export interface ShapeLayer extends BaseLayer {
   type: "shape";
   file: ShapeFile;
   color: ColorKey;
+  funcao?: ShapeFunction;
   x: number;
   y: number;
   width: number;
   rotation?: number;
+}
+
+/** Linha orgânica (stroke) ligando a borda direita de uma camada à de outra. */
+export interface ConnectorLayer extends BaseLayer {
+  type: "connector";
+  funcao: "linha-conectora-organica";
+  from: string;
+  to: string;
+  color: ColorKey;
+  strokeWidth: number;
+  /** Distância entre a borda da camada e a ponta da linha. */
+  offset: number;
+  /** Pontos intermediários da curva (suavizados com tension). */
+  via: Point[];
+  tension: number;
 }
 
 export interface LogoLayer extends BaseLayer {
@@ -74,44 +119,44 @@ export interface LogoLayer extends BaseLayer {
   width: number;
 }
 
-export type Layer = BackgroundLayer | TextLayer | IconRowLayer | ShapeLayer | LogoLayer;
+export type Layer =
+  | BackgroundLayer
+  | TextLayer
+  | IconRowLayer
+  | CtaLayer
+  | ShapeLayer
+  | ConnectorLayer
+  | LogoLayer;
 
 const MARGIN = 32;
+const TEXT_WIDTH = CANVAS_SIZE * 0.85;
 
 export const ALERTA_LAYERS: Layer[] = [
   { id: "fundo", label: "Fundo", type: "background", color: "azulAgibank" },
-  {
-    id: "shape-triangulo",
-    label: "Shape triângulo (sup. direito)",
-    type: "shape",
-    file: "triangle-03.svg",
-    color: "azulMedio",
-    x: 420,
-    y: -72,
-    width: 230,
-  },
   {
     id: "shape-quadrilatero",
     label: "Shape quadrilátero (inf. esquerdo)",
     type: "shape",
     file: "quadrilateral-14.svg",
     color: "azulMedio",
-    x: 160,
-    y: 506,
-    width: 150,
+    funcao: "shape-sangrando-do-frame",
+    x: 176,
+    y: 486,
+    width: 200,
   },
   {
     id: "headline",
     label: "Headline",
     type: "text",
+    role: "titulo",
     text: "Chega de complicar.",
-    color: "branco",
+    color: "verde",
     weight: "extraBold",
-    fontSize: 44,
+    fontSize: 48,
     lineHeight: 1.15,
     x: MARGIN,
-    y: 124,
-    width: CANVAS_SIZE * 0.85,
+    y: 116,
+    width: TEXT_WIDTH,
   },
   {
     id: "icones",
@@ -122,33 +167,54 @@ export const ALERTA_LAYERS: Layer[] = [
     size: 32,
     gap: 16,
     x: MARGIN,
-    y: 198,
+    y: 194,
   },
   {
     id: "corpo",
     label: "Corpo de texto",
     type: "text",
-    text: "Organize seus boletos em um só lugar e automatize pagamentos com Pix!",
+    role: "corpo",
+    text: "Organize seus boletos em um só lugar e automatize pagamentos com **Pix**!",
     color: "branco",
     weight: "regular",
+    highlight: { color: "verde", weight: "bold" },
     fontSize: 22,
     lineHeight: 1.35,
     x: MARGIN,
-    y: 258,
-    width: CANVAS_SIZE * 0.85,
+    y: 254,
+    width: TEXT_WIDTH,
   },
   {
     id: "cta",
     label: "CTA",
-    type: "text",
+    type: "cta",
     text: "Acesse o app do Agi e confira as funções",
     color: "branco",
     weight: "semiBold",
     fontSize: 18,
-    lineHeight: 1.3,
+    lineHeight: 1.2,
     x: MARGIN,
-    y: 448,
-    trailingIcon: { file: "chevron-right.svg", size: 20, gap: 8 },
+    y: 388,
+    pill: { color: "azulEscuro", paddingX: 24, paddingY: 16 },
+    trailingIcon: { file: "chevron-right.svg", size: 18, gap: 10 },
+  },
+  {
+    id: "conector",
+    label: "Linha conectora (ícones → CTA)",
+    type: "connector",
+    funcao: "linha-conectora-organica",
+    from: "icones",
+    to: "cta",
+    color: "verde",
+    strokeWidth: 2.5,
+    offset: 14,
+    via: [
+      { x: 340, y: 212 },
+      { x: 556, y: 230 },
+      { x: 566, y: 350 },
+      { x: 524, y: 414 },
+    ],
+    tension: 0.5,
   },
   {
     id: "logo",

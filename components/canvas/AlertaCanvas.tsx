@@ -1,14 +1,18 @@
 "use client";
 
-import Konva from "konva";
+import type Konva from "konva";
 import { useCallback, useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { Group, Layer as KLayer, Rect as KRect, Stage, Text as KText } from "react-konva";
-import { color, fontStack, fontWeight, type FontWeightKey } from "@/lib/brand-tokens";
-import { CANVAS_SIZE, getBackground, type Layer, type Rect, type TextLayer } from "@/lib/alerta-spec";
+import { Group, Layer as KLayer, Rect as KRect, Stage } from "react-konva";
+import { color, type FontWeightKey } from "@/lib/brand-tokens";
+import { CANVAS_SIZE, getBackground, type Layer, type Point, type Rect } from "@/lib/alerta-spec";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
+import { ctaGeometry, type CtaGeometry } from "@/lib/cta-geometry";
 import { useBrandFonts } from "@/lib/use-brand-fonts";
+import ConnectorLine from "./ConnectorLine";
+import CtaPill from "./CtaPill";
 import IconInline from "./IconInline";
 import LogoSmart, { type LogoMeta } from "./LogoSmart";
+import RichText from "./RichText";
 import ShapeDecor from "./ShapeDecor";
 
 interface AlertaCanvasProps {
@@ -27,7 +31,7 @@ function assetIds(layers: Layer[]): string[] {
         return [l.id];
       case "icons":
         return l.icons.map((_, i) => `${l.id}:${i}`);
-      case "text":
+      case "cta":
         return l.trailingIcon ? [`${l.id}:icon`] : [];
       default:
         return [];
@@ -35,12 +39,32 @@ function assetIds(layers: Layer[]): string[] {
   });
 }
 
+function fontWeightsUsed(layers: Layer[]): FontWeightKey[] {
+  return layers.flatMap((l) => {
+    if (l.type === "text") return l.highlight ? [l.weight, l.highlight.weight] : [l.weight];
+    if (l.type === "cta") return [l.weight];
+    return [];
+  });
+}
+
+/** Caixas conhecidas antes do render (para ancorar o conector). */
+function anchorBoxes(layers: Layer[], ctas: Record<string, CtaGeometry>): Record<string, Rect> {
+  const boxes: Record<string, Rect> = {};
+  for (const l of layers) {
+    if (l.type === "icons") {
+      boxes[l.id] = { x: l.x, y: l.y, width: l.icons.length * l.size + (l.icons.length - 1) * l.gap, height: l.size };
+    } else if (l.type === "cta" && ctas[l.id]) {
+      boxes[l.id] = ctas[l.id].box;
+    }
+  }
+  return boxes;
+}
+
+const rightCenter = (r: Rect, offset: number): Point => ({ x: r.x + r.width + offset, y: r.y + r.height / 2 });
+
 export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }: AlertaCanvasProps) {
   const background = getBackground(layers);
-  const weights = useMemo(
-    () => layers.flatMap((l) => (l.type === "text" ? [l.weight] : [])) as FontWeightKey[],
-    [layers],
-  );
+  const weights = useMemo(() => fontWeightsUsed(layers), [layers]);
   const fontsReady = useBrandFonts(weights);
 
   const [loaded, setLoaded] = useState<Record<string, true>>({});
@@ -63,6 +87,14 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
     },
     [logoId, markLoaded],
   );
+
+  // Geometria que depende da fonte carregada (largura do texto do CTA).
+  const ctas = useMemo(() => {
+    const map: Record<string, CtaGeometry> = {};
+    if (fontsReady) for (const l of layers) if (l.type === "cta") map[l.id] = ctaGeometry(l);
+    return map;
+  }, [fontsReady, layers]);
+  const anchors = useMemo(() => anchorBoxes(layers, ctas), [layers, ctas]);
 
   const allReady = fontsReady && assetIds(layers).every((id) => loaded[id]);
 
@@ -119,9 +151,28 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
                 </Group>
               );
             case "text":
-              return fontsReady ? (
-                <TextBlock key={layer.id} layer={layer} onIconReady={readyCallbacks[`${layer.id}:icon`]} />
+              return fontsReady ? <RichText key={layer.id} layer={layer} /> : null;
+            case "cta":
+              return ctas[layer.id] ? (
+                <CtaPill
+                  key={layer.id}
+                  layer={layer}
+                  geometry={ctas[layer.id]}
+                  onIconReady={readyCallbacks[`${layer.id}:icon`]}
+                />
               ) : null;
+            case "connector": {
+              const from = anchors[layer.from];
+              const to = anchors[layer.to];
+              return from && to ? (
+                <ConnectorLine
+                  key={layer.id}
+                  layer={layer}
+                  start={rightCenter(from, layer.offset)}
+                  end={rightCenter(to, layer.offset)}
+                />
+              ) : null;
+            }
             case "logo":
               return background ? (
                 <LogoSmart
@@ -148,45 +199,5 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
         )}
       </KLayer>
     </Stage>
-  );
-}
-
-function TextBlock({ layer, onIconReady }: { layer: TextLayer; onIconReady?: () => void }) {
-  const font = {
-    text: layer.text,
-    fontSize: layer.fontSize,
-    fontFamily: fontStack,
-    fontStyle: String(fontWeight(layer.weight)),
-    lineHeight: layer.lineHeight,
-  };
-  const naturalWidth = useMemo(
-    () => (layer.trailingIcon ? new Konva.Text(font).width() : 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layer.text, layer.fontSize, layer.weight, layer.lineHeight, layer.trailingIcon],
-  );
-  const lineBox = layer.fontSize * layer.lineHeight;
-  const icon = layer.trailingIcon;
-
-  return (
-    <Group name="brand-layer" id={layer.id}>
-      <KText
-        {...font}
-        x={layer.x}
-        y={layer.y}
-        fill={color(layer.color)}
-        wrap="word"
-        {...(layer.width !== undefined ? { width: layer.width } : {})}
-      />
-      {icon && (
-        <IconInline
-          file={icon.file}
-          color={layer.color}
-          size={icon.size}
-          x={layer.x + naturalWidth + icon.gap}
-          y={layer.y + (lineBox - icon.size) / 2}
-          onReady={onIconReady}
-        />
-      )}
-    </Group>
   );
 }
