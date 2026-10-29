@@ -55,7 +55,9 @@ export function fontShorthand(weight: FontWeightKey, sizePx: number): string {
 export const allFontWeights = Object.keys(assetsMap.typography.weights) as FontWeightKey[];
 
 // Paths — servidos a partir de /public/assets (ver scripts/sync-assets.mjs).
-const url = (basePath: string, file: string) => `/${basePath}${file}`;
+// O build estático (scripts/build-standalone.mjs) troca a base por "./".
+const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "/";
+const url = (basePath: string, file: string) => `${ASSET_BASE}${basePath}${file}`;
 
 export function logoPath(key: LogoKey): string {
   return url(assetsMap.logos.basePath, assetsMap.logos.files[key]);

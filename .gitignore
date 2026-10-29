@@ -8,3 +8,4 @@ next-env.d.ts
 # gerados por scripts/sync-assets.mjs
 public/assets/
 app/fonts.generated.css
+dist-standalone/
