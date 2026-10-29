@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração"
+  },
+
+  "textHierarchyRules": {
+    "neverSingleColor": true,
+    "rule": "Todo bloco de título ou corpo deve combinar pelo menos 2 cores da paleta (ex: verde+branco) para criar hierarquia visual e grifar palavra-chave",
+    "patterns": [
+      {
+        "name": "titulo-bicolor",
+        "description": "Título em 2 linhas, cada linha ou trecho em cor diferente",
+        "example": "Aqui, você tem voz. (verde) / Aqui, você tem vez. (branco)"
+      },
+      {
+        "name": "palavra-chave-destacada",
+        "description": "Dentro do corpo de texto, 1-3 palavras-chave em verde bold, resto em branco regular",
+        "example": "Viu alguma situação que vai contra o Jeito Agi? Utilize o Canal de Denúncias! (destaque verde)"
+      },
+      {
+        "name": "peso-diferenciado-mesma-palavra",
+        "description": "Mesma palavra/frase com pesos tipográficos diferentes para dar ritmo",
+        "example": "Janeiro (regular) / branco (extrabold, maior)"
+      }
+    ]
+  },
+
+  "ctaRules": {
+    "neverPlainText": true,
+    "rule": "CTA nunca é apenas texto solto — deve ter um elemento visual de contraste (pílula, botão, caixa sólida)",
+    "variants": [
+      {
+        "name": "pill-solid-dark",
+        "description": "Pílula arredondada em azul escuro/médio sobre fundo azul Agibank, texto branco",
+        "cornerRadius": "full-rounded"
+      },
+      {
+        "name": "pill-solid-accent",
+        "description": "Pílula/caixa sólida em verde ou amarelo, texto em azul escuro ou branco (seguindo contrastMap)",
+        "cornerRadius": "12-20px"
+      },
+      {
+        "name": "cta-bold-inline",
+        "description": "Sem caixa, mas com parte do texto em peso bold + cor de destaque, criando contraste tipográfico",
+        "usage": "quando o espaço é mais apertado ou a peça já tem elementos visuais fortes (foto, mockup)"
+      }
+    ],
+    "iconSupport": "opcional: chevron-right.svg ao final do texto do CTA, mesma cor do texto"
+  },
+
+  "shapeUsageRules": {
+    "neverDecorativeOnly": true,
+    "rule": "Shapes devem ter função: ancorar foto/produto, conectar elementos, ou sangrar para fora do frame. Evitar shapes 'soltos' sem relação com o conteúdo.",
+    "patterns": [
+      {
+        "name": "moldura-organica-ao-redor-de-pessoa",
+        "description": "Outline (contorno fino, não preenchido) de forma irregular contornando uma pessoa/foco da foto",
+        "color": "verde"
+      },
+      {
+        "name": "linha-conectora-organica",
+        "description": "Linha fina curva (tipo rabisco/cabo) conectando dois elementos da composição (ex: texto até mockup, canto até canto)",
+        "color": "verde ou azul claro",
+        "strokeWidth": "2-3px"
+      },
+      {
+        "name": "shape-sangrando-do-frame",
+        "description": "Shape grande posicionado para sair parcialmente da área visível, criando sensação de profundidade/movimento",
+        "position": "cantos, preferencialmente superior-direito ou inferior-esquerdo"
+      },
+      {
+        "name": "mockup-sangrando-da-base",
+        "description": "Imagem de produto/tela posicionada na base do frame, cortada propositalmente pela borda inferior",
+        "usage": "quando a peça divulga um produto/funcionalidade digital"
+      }
+    ]
+  },
+
+  "backgroundVariants": {
+    "rule": "Fundo não é sempre azul Agibank sólido — variar conforme o tom da mensagem",
+    "options": [
+      { "cor": "azulAgibank", "uso": "comunicados gerais, tom padrão" },
+      { "cor": "azulEscuro", "uso": "reconhecimento, conquistas, tom mais sério/premium" },
+      { "cor": "branco", "uso": "conteúdo editorial, eventos, tom mais leve" },
+      { "cor": "cinzaClaro", "uso": "bloco secundário abaixo de foto, contraste suave" }
+    ]
+  },
+
+  "typographyScale": {
+    "titulo": { "sizeRange": "32-48px", "weight": ["bold", "extraBold"], "maxLines": 3 },
+    "corpo": { "sizeRange": "18-24px", "weight": ["regular", "medium"] },
+    "cta": { "sizeRange": "16-20px", "weight": ["semiBold", "bold"] }
+  },
+
+  "layoutComposition": {
+    "withPhoto": {
+      "description": "Foto ocupa 40-55% superior do frame, bloco de texto sólido ocupa o restante",
+      "example": "ref-01, ref-07"
+    },
+    "textOnly": {
+      "description": "Fundo sólido, título grande no terço superior, corpo no meio, CTA destacado na base, shapes decorativos nos cantos",
+      "example": "ref-02, ref-03, ref-06"
+    },
+    "withMockup": {
+      "description": "Título e corpo no terço superior, mockup de produto sangrando na base, linha conectora entre texto e mockup",
+      "example": "ref-10, ref-11"
+    }
+  }
+}
