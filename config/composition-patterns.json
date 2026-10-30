@@ -1,106 +1,90 @@
 {
   "meta": {
-    "version": "1.4.0",
-    "lastUpdated": "2025-01-29",
-    "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração.",
-    "referenceImagesPath": "references/popups/"
+    "version": "2.0.0",
+    "purpose": "Motor de Arquétipos Visuais. Define as regras de randomização para a geração dinâmica de layouts, garantindo que as peças sigam o brandbook mas nunca fiquem idênticas."
   },
 
   "textHierarchyRules": {
-    "neverSingleColor": true,
-    "rule": "Todo bloco de título ou corpo deve combinar pelo menos 2 cores da paleta (ex: verde+branco) para criar hierarquia visual e grifar palavra-chave.",
-    "patterns": [
-      {
-        "name": "titulo-bicolor",
-        "description": "Título em 2 linhas, cada linha ou trecho em cor diferente",
-        "example": "Aqui, você tem voz. (verde) / Aqui, você tem vez. (branco)"
-      },
-      {
-        "name": "palavra-chave-destacada",
-        "description": "Dentro do corpo de texto, 1-3 palavras-chave em verde bold, resto em branco regular"
-      },
-      {
-        "name": "peso-diferenciado-mesma-palavra",
-        "description": "Mesma palavra/frase com pesos tipográficos diferentes para dar ritmo"
-      }
-    ]
+    "rule": "Nunca usar cor única no texto.",
+    "patterns": ["titulo-bicolor", "palavra-chave-destacada", "peso-diferenciado"]
   },
 
   "typographyLineBreakRules": {
-    "rule": "Nunca deixar artigos, preposições ou conjunções curtas isoladas no final de uma linha (viúvas/órfãs).",
-    "forbiddenTrailingWords": [
-      "a", "à", "ao", "aos", "as", "às", "o", "os", "e", "é", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "uns", "umas", "por", "pra", "pro", "pros", "para", "com", "sem", "que", "se", "ou"
-    ],
-    "algorithm": [
-      "1. Realizar a quebra de linha normal.",
-      "2. Verificar se a última palavra da linha pertence à lista forbiddenTrailingWords.",
-      "3. Se sim, forçar a quebra (\n) ANTES dessa palavra, movendo-a para a linha seguinte.",
-      "4. Repetir recursivamente."
-    ]
+    "rule": "Evitar viúvas tipográficas.",
+    "forbiddenTrailingWords": ["a", "à", "ao", "aos", "as", "às", "o", "os", "e", "é", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "uns", "umas", "por", "pra", "pro", "pros", "para", "com", "sem", "que", "se", "ou"]
   },
 
   "ctaRules": {
-    "neverPlainText": true,
-    "rule": "CTA deve ter contraste real (pílula, botão, caixa sólida) ou destaque tipográfico forte inline.",
+    "rule": "CTA deve ter contraste real.",
     "variants": [
-      {
-        "name": "pill-solid-accent",
-        "description": "Pílula verde ou amarela, texto azul escuro, cantos totalmente arredondados, sombra sutil."
-      },
-      {
-        "name": "cta-bold-inline",
-        "description": "Sem caixa, parte do texto em peso bold + cor de destaque. Usado com fotos/mockups."
-      }
+      { "name": "pill-solid-accent", "description": "Pílula verde ou amarela, texto azul escuro, cantos arredondados." },
+      { "name": "cta-bold-inline", "description": "Texto bold + cor de destaque, sem caixa. Ideal quando há fotos." }
     ]
   },
 
-  "shapeUsageRules": {
-    "neverDecorativeOnly": true,
-    "rule": "Shapes devem estruturar o layout. Proibido shapes pequenos flutuando sem intenção.",
-    "patterns": [
+  "dynamicShapeArrangements": {
+    "rule": "O motor de geração deve sortear um destes arquétipos a cada renderização para garantir variedade e dinamismo.",
+    "archetypes": [
       {
-        "name": "moldura-gigante-outline",
-        "description": "Um shape outline (stroke) muito grande que quase emoldura o texto principal, cruzando o canvas de um lado a outro.",
-        "color": "verde ou azulClaro"
+        "id": "estouro-de-canto",
+        "name": "Estouro de Canto (Massive Bleed)",
+        "description": "Um shape gigante estourando a tela, com pequenos pontos de apoio no lado oposto.",
+        "composition": {
+          "protagonista": {
+            "count": 1,
+            "scaleRange": [2.5, 5.0],
+            "position": "sangrando-extremo-canto-inferior-ou-superior"
+          },
+          "coadjuvantes": {
+            "count": [1, 2],
+            "scaleRange": [0.2, 0.4],
+            "position": "canto-oposto-ao-protagonista",
+            "overlap": false
+          }
+        }
       },
       {
-        "name": "fundo-faiscas-nas-bordas",
-        "description": "Shapes grandes (preenchidos ou outline) posicionados nas extremidades do canvas, cortados pela borda, criando uma textura de fundo sem invadir o texto central."
+        "id": "mosaico-dupla",
+        "name": "Mosaico em Dupla (Interlocking Pair)",
+        "description": "Apenas dois shapes de tamanhos médios. O código deve rotacioná-los para que uma de suas arestas fique paralela à do outro, com gap de 5%.",
+        "composition": {
+          "count": 2,
+          "scaleRange": [0.6, 1.2],
+          "position": "ancorando-titulo-ou-cta",
+          "gap": "5%",
+          "alignment": "arestas-paralelas"
+        }
       },
       {
-        "name": "mascara-de-foto-irregular",
-        "description": "Uma foto aplicada DENTRO de um shape irregular (como clipPath), em vez de um quadrado perfeito."
+        "id": "textura-espalhada",
+        "name": "Textura Espalhada (Confetti/Sparks)",
+        "description": "Nenhum shape grande. Vários shapes minúsculos espalhados pelas bordas do canvas.",
+        "composition": {
+          "count": [3, 5],
+          "scaleRange": [0.1, 0.25],
+          "position": "distribuidos-nas-bordas",
+          "overlap": false
+        }
+      },
+      {
+        "id": "mascara-de-foto",
+        "name": "Máscara Irregular para Foto",
+        "description": "Um shape grande centralizado atua como clip-path para uma imagem.",
+        "composition": {
+          "count": 1,
+          "scaleRange": [1.5, 2.0],
+          "position": "centro-topo-ou-centro-direita",
+          "isMask": true
+        }
       }
-    ]
-  },
-
-  "shapeClusterPattern": {
-    "name": "mosaico-de-cacos",
-    "description": "Agrupamento de 3 a 5 shapes que se encaixam perfeitamente como um quebra-cabeça, SEM sobreposição de preenchimento.",
-    "scaleHierarchy": {
-      "rule": "Sempre 1 shape protagonista grande + shapes coadjuvantes médios/pequenos."
-    },
+    ],
     "colorMix": {
-      "rule": "Combinar no mínimo 2 cores. Amarelo apenas em shapes pequenos."
-    },
-    "hardcodedPresets": [
-      {
-        "id": "mosaic-preset-01",
-        "description": "Baseado na referência visual fornecida: Pentágono verde em cima, triângulo azul em baixo na esquerda, quadrilátero branco em baixo na direita, triângulo amarelo pequeno na lateral.",
-        "arrangement": "As coordenadas (x,y) e rotações devem ser fixadas manualmente no código para garantir o encaixe perfeito, pois o cálculo automático de bounding box em SVGs irregulares falha."
-      }
-    ]
-  },
-
-  "layoutComposition": {
-    "textOnly": {
-      "description": "Fundo sólido, título bicolor grande, CTA pílula, cluster mosaico no canto superior direito."
-    },
-    "splitDiagonalPhoto": {
-      "description": "Uso de 'modulos'. Metade da tela com foto, divisão diagonal, outra metade fundo sólido com texto e CTA inline."
-    },
-    "maskedPhoto": {
-      "description": "Fundo sólido, foto dentro de shape irregular no centro/topo, texto abaixo."
+      "rule": "Misturar cores. Amarelo apenas em shapes com scale < 0.4.",
+      "allowedCombos": [
+        ["verde", "azulMedio"],
+        ["azulEscuro", "verde"],
+        ["branco-outline", "azulMedio", "amarelo-pequeno"]
+      ]
     }
   }
 }
