@@ -257,5 +257,27 @@
       "programs.temosVagas",
       "illustrations (nao existem no repo ainda)"
     ]
+  },
+  "exportRules": {
+    "formats": {
+      "png": {
+        "mimeType": "image/png",
+        "pixelRatio": 2,
+        "description": "Formato padrão para peças digitais únicas com alta fidelidade (Alerta, Card, Popup).",
+        "useCases": ["comunicacao-interna", "marca-empregadora-single"]
+      },
+      "jpg": {
+        "mimeType": "image/jpeg",
+        "quality": 0.9,
+        "pixelRatio": 2,
+        "description": "Formato otimizado para peças que exigem limite de peso (ex: Rodapé News < 900kb).",
+        "useCases": ["comunicacao-interna", "email", "news"]
+      },
+      "pdf": {
+        "description": "Formato para compilar múltiplas telas em um único arquivo slider (LinkedIn) ou para impressão em alta resolução.",
+        "useCases": ["linkedin-carousel", "material-impresso"],
+        "linkedinSpec": "Cada página do PDF deve ter a exata dimensão do frame (ex: 1080x1080px). O LinkedIn converterá em um slider nativo."
+      }
+    }
   }
 }
