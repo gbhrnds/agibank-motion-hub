@@ -1,80 +1,122 @@
 {
   "meta": {
-    "version": "1.0.0",
-    "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração"
+    "version": "1.1.0",
+    "lastUpdated": "2025-01-29",
+    "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração. Fonte complementar ao config/assets-map.json.",
+    "referenceImagesPath": "references/popups/"
   },
 
   "textHierarchyRules": {
     "neverSingleColor": true,
-    "rule": "Todo bloco de título ou corpo deve combinar pelo menos 2 cores da paleta (ex: verde+branco) para criar hierarquia visual e grifar palavra-chave",
+    "rule": "Todo bloco de título ou corpo deve combinar pelo menos 2 cores da paleta (ex: verde+branco) para criar hierarquia visual e grifar palavra-chave. Nunca usar uma única cor em todo o bloco de texto.",
     "patterns": [
       {
         "name": "titulo-bicolor",
         "description": "Título em 2 linhas, cada linha ou trecho em cor diferente",
-        "example": "Aqui, você tem voz. (verde) / Aqui, você tem vez. (branco)"
+        "example": "Aqui, você tem voz. (verde) / Aqui, você tem vez. (branco)",
+        "referenceImage": "ref-02-canal-denuncias.jpg"
       },
       {
         "name": "palavra-chave-destacada",
         "description": "Dentro do corpo de texto, 1-3 palavras-chave em verde bold, resto em branco regular",
-        "example": "Viu alguma situação que vai contra o Jeito Agi? Utilize o Canal de Denúncias! (destaque verde)"
+        "example": "Organize seus boletos e automatize pagamentos com Pix! (Pix em destaque)",
+        "referenceImage": "ref-08-indice-uso-produtos.jpg"
       },
       {
         "name": "peso-diferenciado-mesma-palavra",
         "description": "Mesma palavra/frase com pesos tipográficos diferentes para dar ritmo",
-        "example": "Janeiro (regular) / branco (extrabold, maior)"
+        "example": "Janeiro (regular) / branco (extrabold, maior)",
+        "referenceImage": "ref-03-janeiro-branco.jpg"
       }
     ]
   },
 
   "ctaRules": {
     "neverPlainText": true,
-    "rule": "CTA nunca é apenas texto solto — deve ter um elemento visual de contraste (pílula, botão, caixa sólida)",
+    "rule": "CTA nunca é apenas texto solto — deve ter um elemento visual de contraste real (pílula, botão, caixa sólida) em cor que se destaque claramente do fundo, nunca tons próximos (ex: azul escuro sobre azul Agibank é proibido por baixo contraste).",
     "variants": [
       {
-        "name": "pill-solid-dark",
-        "description": "Pílula arredondada em azul escuro/médio sobre fundo azul Agibank, texto branco",
-        "cornerRadius": "full-rounded"
+        "name": "pill-solid-accent",
+        "description": "Pílula/caixa sólida em verde ou amarelo, texto em azul escuro (conforme contrastMap), cantos totalmente arredondados",
+        "cornerRadius": "full-rounded",
+        "shadowRecommended": true,
+        "referenceImage": "ref-13-premio-reclameaqui.jpg"
       },
       {
-        "name": "pill-solid-accent",
-        "description": "Pílula/caixa sólida em verde ou amarelo, texto em azul escuro ou branco (seguindo contrastMap)",
-        "cornerRadius": "12-20px"
+        "name": "pill-solid-dark",
+        "description": "Pílula arredondada em azul escuro/médio, usada apenas sobre fundos claros ou quando já há forte contraste de cor em outro elemento da peça",
+        "cornerRadius": "full-rounded",
+        "restriction": "nao-usar-sobre-fundo-azul-agibank-baixo-contraste"
       },
       {
         "name": "cta-bold-inline",
-        "description": "Sem caixa, mas com parte do texto em peso bold + cor de destaque, criando contraste tipográfico",
-        "usage": "quando o espaço é mais apertado ou a peça já tem elementos visuais fortes (foto, mockup)"
+        "description": "Sem caixa, mas com parte do texto em peso bold + cor de destaque, usado quando o espaço já tem elementos visuais fortes (foto, mockup)",
+        "referenceImage": "ref-01-chega-de-complicar.jpg"
       }
     ],
-    "iconSupport": "opcional: chevron-right.svg ao final do texto do CTA, mesma cor do texto"
+    "iconSupport": "opcional: chevron-right.svg ao final do texto do CTA, recolorido para a mesma cor do texto do CTA"
   },
 
   "shapeUsageRules": {
     "neverDecorativeOnly": true,
-    "rule": "Shapes devem ter função: ancorar foto/produto, conectar elementos, ou sangrar para fora do frame. Evitar shapes 'soltos' sem relação com o conteúdo.",
+    "rule": "Shapes isolados sem função (linhas soltas, formas únicas flutuantes) são proibidos. Priorizar o padrão shapeClusterPattern definido abaixo.",
     "patterns": [
       {
         "name": "moldura-organica-ao-redor-de-pessoa",
         "description": "Outline (contorno fino, não preenchido) de forma irregular contornando uma pessoa/foco da foto",
-        "color": "verde"
-      },
-      {
-        "name": "linha-conectora-organica",
-        "description": "Linha fina curva (tipo rabisco/cabo) conectando dois elementos da composição (ex: texto até mockup, canto até canto)",
-        "color": "verde ou azul claro",
-        "strokeWidth": "2-3px"
-      },
-      {
-        "name": "shape-sangrando-do-frame",
-        "description": "Shape grande posicionado para sair parcialmente da área visível, criando sensação de profundidade/movimento",
-        "position": "cantos, preferencialmente superior-direito ou inferior-esquerdo"
+        "color": "verde",
+        "referenceImage": "ref-01-chega-de-complicar.jpg"
       },
       {
         "name": "mockup-sangrando-da-base",
         "description": "Imagem de produto/tela posicionada na base do frame, cortada propositalmente pela borda inferior",
-        "usage": "quando a peça divulga um produto/funcionalidade digital"
+        "usage": "quando a peça divulga um produto/funcionalidade digital",
+        "referenceImage": "ref-11-pdi.jpg"
       }
+    ],
+    "forbidden": [
+      "linha-decorativa-sem-conexao-logica",
+      "icone-solto-sem-contexto-apos-titulo",
+      "shape-unico-isolado-sem-cluster"
     ]
+  },
+
+  "shapeClusterPattern": {
+    "name": "montagem-de-cacos",
+    "description": "Agrupamento de 3 a 6 shapes irregulares (triangle/quadrilateral/pentagon) em tamanhos e rotações variadas, cores mistas, parcialmente sobrepostos, formando um bloco gráfico coeso com personalidade — recurso mais recorrente nas peças de maior impacto visual.",
+    "colorMix": {
+      "rule": "Combinar no mínimo 2 cores dentro do mesmo cluster",
+      "allowedCombos": [
+        ["azulMedio", "branco-outline"],
+        ["verde", "azulMedio"],
+        ["verde", "amarelo-accent-pequeno", "branco-outline"],
+        ["azulEscuro", "verde"]
+      ],
+      "amareloRule": "amarelo só pode aparecer em 1 shape pequeno do cluster, nunca dominante"
+    },
+    "positioning": [
+      {
+        "zone": "canto-superior-direito-sangrando",
+        "usage": "cluster parcialmente cortado pela borda do frame",
+        "referenceImage": "ref-04-pergunt-ai.jpg"
+      },
+      {
+        "zone": "ancorando-cta",
+        "usage": "cluster ao redor ou atrás do botão CTA para dar destaque extra",
+        "referenceImage": "ref-06-reconhecimento.jpg"
+      },
+      {
+        "zone": "base-do-frame",
+        "usage": "cluster como rodapé gráfico",
+        "referenceImage": "ref-12-plano-carreira.jpg"
+      }
+    ],
+    "transformRules": {
+      "allowed": ["rotate", "mirror", "scale"],
+      "forbidden": ["distort-proportions"],
+      "overlapAllowed": true,
+      "note": "shapes do mesmo cluster PODEM se sobrepor levemente entre si — regra exclusiva deste padrão, diferente da regra de módulos (modules.geometryRules) que exige 5-8% de gap e proíbe sobreposição"
+    }
   },
 
   "backgroundVariants": {
@@ -96,15 +138,15 @@
   "layoutComposition": {
     "withPhoto": {
       "description": "Foto ocupa 40-55% superior do frame, bloco de texto sólido ocupa o restante",
-      "example": "ref-01, ref-07"
+      "referenceImage": "ref-01-chega-de-complicar.jpg"
     },
     "textOnly": {
-      "description": "Fundo sólido, título grande no terço superior, corpo no meio, CTA destacado na base, shapes decorativos nos cantos",
-      "example": "ref-02, ref-03, ref-06"
+      "description": "Fundo sólido, título grande no terço superior, corpo no meio, CTA destacado na base, shape cluster nos cantos",
+      "referenceImage": "ref-02-canal-denuncias.jpg"
     },
     "withMockup": {
-      "description": "Título e corpo no terço superior, mockup de produto sangrando na base, linha conectora entre texto e mockup",
-      "example": "ref-10, ref-11"
+      "description": "Título e corpo no terço superior, mockup de produto sangrando na base, cluster de shapes próximo ao texto",
+      "referenceImage": "ref-11-pdi.jpg"
     }
   }
 }
