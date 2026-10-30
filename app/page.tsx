@@ -3,7 +3,14 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { localMirror, logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
-import { MENU_CONFIG, pieceContext, type FormatSpec, type FrenteId } from "@/lib/format-config";
+import {
+  DEFAULT_TEXTS,
+  MENU_CONFIG,
+  pieceContext,
+  type FormatSpec,
+  type FrenteId,
+  type PieceTexts,
+} from "@/lib/format-config";
 import { allShapeFiles, pickPieceRun, type PieceRun } from "@/lib/layout-engine";
 import { loadSilhouette, type Silhouette } from "@/lib/shape-silhouette";
 
@@ -30,6 +37,9 @@ const optionClass = (active: boolean) =>
       : "border-agi-gray-border bg-white text-slate-700 hover:border-agi-blue/50"
   }`;
 
+const fieldClass =
+  "rounded-lg border border-agi-gray-border px-3 py-2 text-sm font-normal text-agi-blue-dark focus:border-agi-blue focus:outline-none focus:ring-2 focus:ring-agi-blue/30";
+
 export default function Page() {
   const [selectedFrente, setSelectedFrente] = useState<FrenteId | null>(null);
   const [selectedSubtipo, setSelectedSubtipo] = useState<string | null>(null);
@@ -37,6 +47,9 @@ export default function Page() {
   const [run, setRun] = useState<PieceRun | null>(null);
   const [silhouettes, setSilhouettes] = useState<Record<string, Silhouette> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [texts, setTexts] = useState<PieceTexts>(DEFAULT_TEXTS);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isFrenteVerso, setIsFrenteVerso] = useState(false);
 
   // Silhuetas de todos os shapes do assets-map.json (usadas pelo motor para evitar textos e logo).
   useEffect(() => {
@@ -69,6 +82,25 @@ export default function Page() {
   }, [selectedFrente]);
 
   const generate = useCallback(() => setRun(pickPieceRun(BACKGROUND)), []);
+
+  const setText = useCallback(
+    (key: keyof PieceTexts) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setTexts((prev) => ({ ...prev, [key]: e.target.value })),
+    [],
+  );
+
+  const onUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setUploadedImage(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => setError("Não foi possível ler a imagem enviada.");
+    reader.readAsDataURL(file);
+    // Permite enviar o mesmo arquivo de novo depois de "Remover imagem".
+    e.target.value = "";
+  }, []);
+
+  const showVerso = selectedFrente === "impresso" && isFrenteVerso;
 
   return (
     <div className="flex w-full flex-col bg-agi-gray-bg font-sans lg:h-screen lg:flex-row lg:overflow-hidden">
@@ -120,6 +152,18 @@ export default function Page() {
             </div>
           </fieldset>
 
+          {selectedFrente === "impresso" && (
+            <label className="-mt-3 flex items-center gap-2 rounded-xl border border-agi-gray-border px-4 py-3 text-sm font-semibold text-agi-blue-dark">
+              <input
+                type="checkbox"
+                checked={isFrenteVerso}
+                onChange={(e) => setIsFrenteVerso(e.target.checked)}
+                className="h-4 w-4 accent-agi-blue"
+              />
+              Gerar Frente e Verso
+            </label>
+          )}
+
           {selectedFrente && (
             <fieldset>
               <StepTitle step={2}>Subtipo</StepTitle>
@@ -167,6 +211,62 @@ export default function Page() {
             </fieldset>
           )}
 
+          {selectedFrente && selectedSubtipo && (
+            <fieldset className="flex flex-col gap-3">
+              <StepTitle step={4}>Conteúdo</StepTitle>
+              {(
+                [
+                  ["headline", "Título (headline)", false],
+                  ["body", "Texto de apoio", true],
+                  ["highlight", "Palavra em destaque (fica verde)", false],
+                  ["cta", "Texto do botão (CTA)", false],
+                ] as const
+              ).map(([key, label, multiline]) => (
+                <label key={key} className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
+                  {label}
+                  {multiline ? (
+                    <textarea
+                      value={texts[key]}
+                      onChange={setText(key)}
+                      rows={3}
+                      className={fieldClass}
+                    />
+                  ) : (
+                    <input type="text" value={texts[key]} onChange={setText(key)} className={fieldClass} />
+                  )}
+                </label>
+              ))}
+              {texts.highlight.trim() && !texts.body.toLowerCase().includes(texts.highlight.trim().toLowerCase()) && (
+                <p className="text-xs text-slate-500">A palavra em destaque não aparece no texto de apoio.</p>
+              )}
+
+              <div className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
+                <span>Imagem</span>
+                <label className="flex w-fit cursor-pointer items-center rounded-full border border-agi-blue px-4 py-1.5 text-sm font-semibold text-agi-blue transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-agi-blue hover:bg-agi-blue hover:text-white">
+                  {uploadedImage ? "Trocar imagem" : "Escolher imagem"}
+                  <input id="upload-imagem" type="file" accept="image/*" onChange={onUpload} className="sr-only" />
+                </label>
+                <span className="text-xs font-normal text-slate-500">
+                  Aparece recortada por uma forma irregular em metade da peça.
+                </span>
+                {uploadedImage && (
+                  <div className="mt-1 flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={uploadedImage} alt="Imagem enviada" className="h-12 w-12 rounded-md object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setUploadedImage(null)}
+                      className="text-xs font-semibold text-agi-blue underline-offset-2 hover:underline"
+                    >
+                      Remover imagem
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </fieldset>
+          )}
+
           {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         </div>
 
@@ -185,15 +285,34 @@ export default function Page() {
       <main className="flex-1 overflow-auto bg-agi-gray-bg p-4 sm:p-6 lg:p-10" data-testid="preview">
         {ctx && selectedFormats.length > 0 ? (
           <div className="flex flex-wrap items-start justify-center gap-10">
-            {selectedFormats.map((format) => (
-              <FormatArtboard
-                key={`${format.id}:${ctx.audience}:${ctx.midia}`}
-                format={format}
-                ctx={ctx}
-                run={run}
-                silhouettes={silhouettes}
-              />
-            ))}
+            {selectedFormats.map((format) =>
+              showVerso ? (
+                <div key={`${format.id}:${ctx.audience}:fv`} className="flex flex-wrap items-start justify-center gap-6">
+                  {(["frente", "verso"] as const).map((side) => (
+                    <FormatArtboard
+                      key={side}
+                      format={format}
+                      ctx={ctx}
+                      texts={texts}
+                      image={uploadedImage}
+                      side={side}
+                      run={run}
+                      silhouettes={silhouettes}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <FormatArtboard
+                  key={`${format.id}:${ctx.audience}:${ctx.midia}`}
+                  format={format}
+                  ctx={ctx}
+                  texts={texts}
+                  image={uploadedImage}
+                  run={run}
+                  silhouettes={silhouettes}
+                />
+              ),
+            )}
           </div>
         ) : (
           <div className="flex h-full min-h-[50vh] items-center justify-center">

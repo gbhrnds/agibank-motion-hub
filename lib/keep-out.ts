@@ -1,4 +1,5 @@
-import { logoPosition, type Layer, type Rect, type Size } from "./piece-spec";
+import { effect } from "./brand-tokens";
+import { getImage, logoPosition, type Layer, type Rect, type Size } from "./piece-spec";
 import type { CanvasLayout } from "./canvas-layout";
 import { ctaGeometry } from "./cta-geometry";
 import type { KeepOutZone } from "./layout-engine";
@@ -11,6 +12,8 @@ export function keepOutZones(layers: Layer[], layout: CanvasLayout): KeepOutZone
     .filter((l) => (l.type === "text" || l.type === "cta") && layout.bounds[l.id])
     .map((l) => ({ label: l.label, rect: layout.bounds[l.id] }));
   if (layout.logoClearZone) zones.push({ label: "Área de proteção do logo", rect: layout.logoClearZone });
+  const image = getImage(layers);
+  if (image) zones.push({ label: image.label, rect: image.region });
   return zones;
 }
 
@@ -39,7 +42,17 @@ export function predictKeepOut(layers: Layer[], size: Size, logo: LogoMetrics, p
       const lines = breakText(l.text, l, l.highlight, l.fontSize, l.width).split("\n").length;
       zones.push({ label: l.label, rect: { x: l.x, y: l.y, width: l.width, height: lines * l.fontSize * l.lineHeight } });
     } else if (l.type === "cta") {
-      zones.push({ label: l.label, rect: ctaGeometry(l, size.width).box });
+      // A caixa medida no canvas inclui a sombra da pílula: a previsão também.
+      const box = ctaGeometry(l, size.width).box;
+      const shadow = l.pill?.shadow ? effect(l.pill.shadow) : null;
+      const blur = shadow ? shadow.blur : 0;
+      const dy = shadow ? shadow.offsetY : 0;
+      zones.push({
+        label: l.label,
+        rect: { x: box.x - blur, y: box.y - blur + Math.min(0, dy), width: box.width + blur * 2, height: box.height + blur * 2 + Math.abs(dy) },
+      });
+    } else if (l.type === "image") {
+      zones.push({ label: l.label, rect: l.region });
     } else if (l.type === "logo") {
       const { x, y } = logoPosition(l, size, logo.height);
       const r: Rect = { x: x - logo.clearSpace, y: y - logo.clearSpace, width: logo.width + logo.clearSpace * 2, height: logo.height + logo.clearSpace * 2 };

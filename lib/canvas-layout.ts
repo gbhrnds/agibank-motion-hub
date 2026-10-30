@@ -10,6 +10,6 @@ export interface CanvasLayout {
   logoClearZone: Rect | null;
   /** Fração dos pixels da peça (0-1) mais próximos de cada cor da paleta. */
   colorCoverage: Partial<Record<ColorKey, number>>;
-  /** Seed dos grafismos presentes na medição (null = medido sem grafismos). */
-  shapesSeed: number | null;
+  /** Identidade dos grafismos presentes na medição (lib/layout-engine.ts → shapesId). */
+  shapesId: string;
 }

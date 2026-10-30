@@ -129,62 +129,144 @@ export interface LogoLayer extends BaseLayer {
   align?: Alignment;
 }
 
-export type Layer = BackgroundLayer | TextLayer | CtaLayer | ShapesLayer | LogoLayer;
+/**
+ * Imagem enviada pelo usuário, recortada por um polígono irregular grande (arquétipo "máscara").
+ * Ocupa uma metade da peça (`region`); os textos vão para a outra metade.
+ */
+export interface ImageLayer extends BaseLayer {
+  type: "image";
+  /** Data URL da imagem enviada. */
+  src: string;
+  placement: ImagePlacement;
+  /** Metade da peça reservada para a imagem (os shapes e os textos ficam fora dela). */
+  region: Rect;
+}
 
-/** Texto da peça (o mesmo em todos os formatos do desdobramento). */
-const COPY = {
-  headline: "Chega de complicar.",
-  corpo: "Organize seus boletos em um só lugar e automatize pagamentos com **Pix**!",
-  cta: "Acesse o app do Agi e confira as funções",
-};
+export type ImagePlacement = "right" | "top";
+
+export type Layer = BackgroundLayer | TextLayer | CtaLayer | ShapesLayer | LogoLayer | ImageLayer;
+
+/** Conteúdo da peça (o mesmo em todos os formatos do desdobramento). */
+export interface PieceContent {
+  headline: string;
+  body: string;
+  /** Trecho do texto de apoio destacado em verde (padrão "palavra-chave-destacada"). */
+  highlight: string;
+  cta: string;
+}
+
+/** Marca com **…** cada ocorrência do destaque no texto (sem diferenciar maiúsculas). */
+export function markHighlight(body: string, highlight: string): string {
+  const clean = body.replace(/\*\*/g, "");
+  const word = highlight.replace(/\*\*/g, "").trim();
+  if (!word) return clean;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return clean.replace(new RegExp(escaped, "gi"), (m) => `**${m}**`);
+}
+
+/** Paisagem e quadrado: imagem na metade direita; retrato: na metade de cima. */
+export function imagePlacement({ width, height }: Size): ImagePlacement {
+  return width >= height * 0.9 ? "right" : "top";
+}
+
+export function imageRegion(size: Size, placement: ImagePlacement): Rect {
+  return placement === "right"
+    ? { x: Math.round(size.width / 2), y: 0, width: size.width - Math.round(size.width / 2), height: size.height }
+    : { x: 0, y: 0, width: size.width, height: Math.round(size.height / 2) };
+}
+
+/**
+ * Cores de cada lado. Frente: fundo azul Agibank (contrastMap.azulAgibank, verde só em título e
+ * palavra-chave). Verso: layout limpo em fundo branco (contrastMap.branco: azuis escuros).
+ */
+const SIDE_STYLE = {
+  frente: {
+    background: "azulAgibank",
+    headline: "verde",
+    body: "branco",
+    highlight: "verde",
+  },
+  verso: {
+    background: "branco",
+    headline: "azulMedio",
+    body: "azulEscuro",
+    highlight: "azulMedio",
+  },
+} as const;
+
+export interface BuildOptions {
+  audience: Audience;
+  midia: "digital" | "impresso";
+  content: PieceContent;
+  side?: "frente" | "verso";
+  /** Data URL da imagem enviada (só na frente). */
+  image?: string | null;
+}
 
 /**
  * Camadas da peça para um formato. As posições verticais são resolvidas depois, com o texto
  * medido (lib/piece-style.ts → composeLayers); aqui ficam tamanhos, larguras e margens.
+ * Campos de texto vazios não geram camada.
  */
-export function buildLayers(size: Size, ctx: { audience: Audience; midia: "digital" | "impresso" }): Layer[] {
+export function buildLayers(size: Size, opts: BuildOptions): Layer[] {
   const s = formatScale(size);
   const margin = frameMargins(size);
   const wide = isLandscape(size);
   const px = (v: number) => Math.round(v * s);
-  return [
-    { id: "fundo", label: "Fundo", type: "background", color: "azulAgibank" },
-    { id: "grafismo", label: "Grafismo gerado", type: "shapes" },
-    {
+  const side = opts.side ?? "frente";
+  const colors = SIDE_STYLE[side];
+  const placement = opts.image && side === "frente" ? imagePlacement(size) : null;
+  // Com imagem à direita, a coluna de texto fica na metade esquerda.
+  const column = placement === "right" ? size.width / 2 - margin.x - px(24) : Infinity;
+  const { content } = opts;
+
+  const layers: Layer[] = [
+    { id: "fundo", label: "Fundo", type: "background", color: colors.background },
+  ];
+  if (placement) {
+    layers.push({ id: "imagem", label: "Imagem", type: "image", src: opts.image!, placement, region: imageRegion(size, placement) });
+  }
+  layers.push({ id: "grafismo", label: "Grafismo gerado", type: "shapes" });
+  if (content.headline.trim()) {
+    layers.push({
       id: "headline",
       label: "Headline",
       type: "text",
       role: "titulo",
-      text: COPY.headline,
-      color: "verde",
+      text: content.headline.replace(/\*\*/g, ""),
+      color: colors.headline,
       weight: "extraBold",
       fontSize: px(48),
       lineHeight: 1.15,
       x: margin.x,
       y: 0,
-      width: Math.round(size.width * (wide ? 0.5 : 0.85)),
-    },
-    {
+      width: Math.round(Math.min(column, size.width * (wide ? 0.5 : 0.85))),
+    });
+  }
+  if (content.body.trim()) {
+    layers.push({
       id: "corpo",
       label: "Corpo de texto",
       type: "text",
       role: "corpo",
-      text: COPY.corpo,
-      color: "branco",
+      text: markHighlight(content.body, content.highlight),
+      color: colors.body,
       weight: "regular",
-      highlight: { color: "verde", weight: "bold" },
+      highlight: { color: colors.highlight, weight: "bold" },
       fontSize: px(22),
       lineHeight: 1.35,
       x: margin.x,
       y: 0,
       // Abaixo do máximo de 85% (400px no 600×600): quebra equilibrada "…um só lugar / e automatize…".
-      width: Math.round(size.width * (wide ? 0.5 : 2 / 3)),
-    },
-    {
+      width: Math.round(Math.min(column, size.width * (wide ? 0.5 : 2 / 3))),
+    });
+  }
+  if (content.cta.trim()) {
+    layers.push({
       id: "cta",
       label: "CTA",
       type: "cta",
-      text: COPY.cta,
+      text: content.cta,
       color: "azulEscuro",
       weight: "semiBold",
       fontSize: px(18),
@@ -195,19 +277,24 @@ export function buildLayers(size: Size, ctx: { audience: Audience; midia: "digit
       variant: "pill-solid-accent",
       pill: { fill: "verde", paddingX: px(28), paddingY: px(18), shadow: "shadowSubtle" },
       trailingIcon: { file: "chevron-right.svg", size: px(18), gap: px(10) },
-    },
-    {
-      id: "logo",
-      label: "Logo",
-      type: "logo",
-      // logos.audienceRule: interno → logo reduzido "Agi"; externo → "Agibank" completo (mais largo).
-      audience: ctx.audience,
-      midia: ctx.midia,
-      marginX: margin.x,
-      marginY: margin.y,
-      width: px(ctx.audience === "interno" ? 80 : 140),
-    },
-  ];
+    });
+  }
+  layers.push({
+    id: "logo",
+    label: "Logo",
+    type: "logo",
+    // logos.audienceRule: interno → logo reduzido "Agi"; externo → "Agibank" completo (mais largo).
+    audience: opts.audience,
+    midia: opts.midia,
+    marginX: margin.x,
+    marginY: margin.y,
+    width: px(opts.audience === "interno" ? 80 : 140),
+  });
+  return layers;
+}
+
+export function getImage(layers: Layer[]): ImageLayer | undefined {
+  return layers.find((l): l is ImageLayer => l.type === "image");
 }
 
 /** Posição do logo (canto inferior esquerdo, ou centro inferior quando centralizado). */

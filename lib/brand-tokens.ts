@@ -133,6 +133,19 @@ export function pickLogoKey(
   return key as LogoKey;
 }
 
+/**
+ * Arquivo do logo para a peça: fundo azul → negativo, senão positivo. Em peças impressas o perfil
+ * é OBRIGATORIAMENTE CMYK (arquivos "-cmyk.svg"), seja a audiência interna ou externa.
+ */
+export function logoSrcFor(audience: Audience, background: ColorKey, midia: "digital" | "impresso"): string {
+  const fundo = background.startsWith("azul") ? "fundoAzul" : "fundoBranco";
+  const key = pickLogoKey(audience, fundo, midia);
+  if (midia === "impresso" && !key.endsWith("Cmyk")) {
+    throw new Error(`Peça impressa precisa de logo CMYK, mas "${key}" foi escolhido.`);
+  }
+  return logoPath(key);
+}
+
 /** Audiência em cujo logos.audienceRule.<audiencia>.exemplos o canal aparece (ex.: "alerta-sj" → "interno"). */
 export function audienceForChannel(channel: string): Audience | undefined {
   const rules = assetsMap.logos.audienceRule as Record<Audience, { exemplos: string[] }>;

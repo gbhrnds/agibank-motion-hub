@@ -402,3 +402,9 @@ export function pickPieceRun(background: ColorKey, seed = Math.floor(Math.random
     archetype: pick(rng, archetypeIds),
   };
 }
+
+/** Identidade de um conjunto de shapes gerado (mesmo seed pode gerar posições novas quando o texto muda). */
+export function shapesId(piece: PieceLayout | null): string {
+  if (!piece) return "none";
+  return `${piece.seed}:${piece.shapes.map((s) => `${s.file}@${s.x},${s.y},${s.rotation},${s.scale},${s.color}`).join("|")}`;
+}

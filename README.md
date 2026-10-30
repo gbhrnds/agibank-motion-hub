@@ -3,8 +3,10 @@
 Hub de marca do Agi. Este repositório contém os assets oficiais (`/assets`), o mapa de tokens
 (`/config/assets-map.json`, **única fonte de verdade** de cores, tipografia, paths e regras), os padrões
 de composição de peças aprovadas (`/config/composition-patterns.json`, com referências em `/references/popups`) e o
-**Brand Studio**: escolha Frente → Subtipo → Formatos na barra lateral e gere o desdobramento da peça
-(Alerta institucional) em todos os formatos marcados de uma vez, cada um numa prancheta.
+**Brand Studio**: escolha Frente → Subtipo → Formatos na barra lateral, edite o conteúdo (título, texto
+de apoio, palavra em destaque, CTA e uma imagem opcional) e gere o desdobramento da peça em todos os
+formatos marcados de uma vez, cada um numa prancheta. Em Material Impresso há a opção "Gerar Frente e
+Verso" (duas pranchetas por formato) e o logo é sempre o arquivo CMYK.
 
 ## Rodando
 
@@ -33,12 +35,14 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `app/page.tsx` | Barra lateral em cascata (Frente → Subtipo → Formatos, botão "Gerar desdobramento") e área de preview com uma prancheta por formato |
 | `lib/format-config.ts` | `MENU_CONFIG` (frentes, subtipos, formatos com largura/altura) e o contexto de marca de cada frente (audiência e mídia do logo) |
 | `components/canvas/FormatArtboard.tsx` | Prancheta de um formato: compõe a peça, gera os shapes, valida (só no console) e exporta PNG/JPG/PDF |
+| `components/canvas/MaskedImage.tsx` | Imagem enviada recortada (`clipFunc`) por um polígono irregular grande, em metade da peça |
+| `lib/image-mask.ts` | Polígonos de máscara, posição da imagem (direita ou topo) e recorte "cover" |
 | `components/canvas/DesignCanvas.tsx` | Stage Konva com `width`/`height` do formato (preview reduzido); mede o layout real |
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
 | `components/canvas/CtaPill.tsx` | CTA nas variantes de `ctaRules`: pílula sólida, pílula outline ou texto com seta |
 | `components/canvas/ShapeCluster.tsx` | Desenha os grafismos do layout gerado (shapes recoloridos, escala e rotação) |
-| `lib/piece-spec.ts` | `buildLayers(size, …)`: peça base escalada do Alerta 600×600 para qualquer formato |
+| `lib/piece-spec.ts` | `buildLayers(size, …)`: peça escalada do Alerta 600×600 para qualquer formato, com o conteúdo da barra lateral, imagem e lado (frente azul / verso branco) |
 | `lib/piece-style.ts` | Aplica alinhamento e variante do CTA e empilha headline/corpo/CTA na vertical (`composeLayers`) |
 | `lib/layout-engine.ts` | `pickPieceRun()` sorteia o estado global do desdobramento; `generateRandomLayout()` posiciona os shapes em cada formato sem tocar textos, CTA e logo |
 | `lib/shape-silhouette.ts` | Silhueta real de cada SVG para testar colisão, sobreposição e vão entre shapes |

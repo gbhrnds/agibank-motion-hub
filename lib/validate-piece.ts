@@ -1,4 +1,4 @@
-import { getBackground, getLogo, type Layer } from "./piece-spec";
+import { getBackground, getImage, getLogo, type Layer } from "./piece-spec";
 import { brandRules } from "./brand-tokens";
 import type { CanvasLayout } from "./canvas-layout";
 import {
@@ -77,8 +77,26 @@ export function validatePiece(
     items.push({
       id: "shape-arrangement",
       label: "Grafismo gerado",
-      result: validateShapeArrangement(shapes, background?.color, keepOutZones(layers, layout)),
+      // Arquétipo máscara: a imagem recortada substitui os shapes.
+      result: getImage(layers)
+        ? { valid: true, severity: "ok", message: "Arquétipo máscara: imagem recortada por polígono irregular, textos na outra metade." }
+        : validateShapeArrangement(shapes, background?.color, keepOutZones(layers, layout)),
     });
+    const image = getImage(layers);
+    if (image) {
+      const r = image.region;
+      const over = layers.filter((l) => {
+        const b = (l.type === "text" || l.type === "cta") && layout.bounds[l.id];
+        return b && b.x < r.x + r.width && b.x + b.width > r.x && b.y < r.y + r.height && b.y + b.height > r.y;
+      });
+      items.push({
+        id: "image-clear",
+        label: "Textos fora da imagem",
+        result: over.length
+          ? { valid: false, severity: "blocking", message: `Sobre a imagem: ${over.map((l) => l.label).join(", ")}.` }
+          : { valid: true, severity: "ok", message: "Textos e CTA na metade livre." },
+      });
+    }
     items.push({
       id: "line-breaks",
       label: "Quebra de linha sem viúvas",

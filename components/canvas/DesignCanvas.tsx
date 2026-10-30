@@ -8,9 +8,12 @@ import { getBackground, type Layer, type Rect } from "@/lib/piece-spec";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
 import { measureColorCoverage } from "@/lib/color-coverage";
 import { ctaGeometry, type CtaGeometry } from "@/lib/cta-geometry";
-import type { PieceLayout } from "@/lib/layout-engine";
+import type { Side } from "@/lib/format-config";
+import { IMAGE_MASKS, type ImageMask } from "@/lib/image-mask";
+import { shapesId, type PieceLayout } from "@/lib/layout-engine";
 import CtaPill from "./CtaPill";
 import LogoSmart, { type LogoMeta } from "./LogoSmart";
+import MaskedImage from "./MaskedImage";
 import RichText from "./RichText";
 import ShapeCluster from "./ShapeCluster";
 
@@ -26,11 +29,15 @@ interface DesignCanvasProps {
   shapes: PieceLayout | null;
   stageRef: MutableRefObject<Konva.Stage | null>;
   showGuides?: boolean;
+  /** Máscara de recorte da imagem enviada (camada "image"). */
+  imageMask?: ImageMask;
+  /** Lado da peça impressa (frente/verso), exposto em data-side. */
+  side?: Side;
   onLayout: (layout: CanvasLayout | null) => void;
 }
 
 /** Id de carregamento dos grafismos: muda a cada layout gerado. */
-const shapesLoadId = (layerId: string, shapes: PieceLayout | null) => `${layerId}:${shapes?.seed ?? "none"}`;
+const shapesLoadId = (layerId: string, shapes: PieceLayout | null) => `${layerId}:${shapesId(shapes)}`;
 
 /** Ids dos assets assíncronos que precisam carregar antes de medir/exportar. */
 function assetIds(layers: Layer[], shapes: PieceLayout | null): string[] {
@@ -40,6 +47,8 @@ function assetIds(layers: Layer[], shapes: PieceLayout | null): string[] {
         // Sem grafismo gerado ainda, o canvas mede só textos/CTA/logo (o motor precisa dessa medição).
         return shapes ? [shapesLoadId(l.id, shapes)] : [];
       case "logo":
+        return [l.id];
+      case "image":
         return [l.id];
       case "cta":
         return l.trailingIcon ? [`${l.id}:icon`] : [];
@@ -61,6 +70,8 @@ export default function DesignCanvas({
   shapes,
   stageRef,
   showGuides = false,
+  imageMask = IMAGE_MASKS[0],
+  side = "frente",
   onLayout,
 }: DesignCanvasProps) {
   const background = getBackground(layers);
@@ -120,7 +131,7 @@ export default function DesignCanvas({
         bounds,
         logoClearZone: zone,
         colorCoverage: measureColorCoverage(stage, { width: stage.width(), height: stage.height() }, [GUIDES_LAYER_NAME]),
-        shapesSeed: shapes?.seed ?? null,
+        shapesId: shapesId(shapes),
       });
     });
     return () => cancelAnimationFrame(raf);
@@ -132,6 +143,7 @@ export default function DesignCanvas({
       height={Math.round(height * previewScale)}
       scaleX={previewScale}
       scaleY={previewScale}
+      className={`design-canvas side-${side}`}
       ref={stageRef}
     >
       <KLayer listening={false}>
@@ -141,6 +153,8 @@ export default function DesignCanvas({
               return (
                 <KRect key={layer.id} x={0} y={0} width={width} height={height} fill={color(layer.color)} />
               );
+            case "image":
+              return <MaskedImage key={`${layer.id}:${imageMask.id}`} layer={layer} mask={imageMask} onReady={readyCallbacks[layer.id]} />;
             case "shapes":
               return shapes ? (
                 <ShapeCluster

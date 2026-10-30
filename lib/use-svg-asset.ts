@@ -21,22 +21,21 @@ export function useSvgAsset(src: string, options: SvgAssetOptions = {}): SvgAsse
   return asset;
 }
 
-/** Carrega vários SVGs; devolve null até todos estarem prontos. */
+/** Carrega vários SVGs; devolve null até todos estarem prontos (e nunca a lista de um pedido anterior). */
 export function useSvgAssets(requests: { src: string; options?: SvgAssetOptions }[]): SvgAsset[] | null {
-  const [assets, setAssets] = useState<SvgAsset[] | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; assets: SvgAsset[] } | null>(null);
   const key = JSON.stringify(requests);
 
   useEffect(() => {
     let alive = true;
-    setAssets(null);
     const list = JSON.parse(key) as { src: string; options?: SvgAssetOptions }[];
     Promise.all(list.map((r) => loadSvgAsset(r.src, r.options)))
-      .then((a) => alive && setAssets(a))
+      .then((assets) => alive && setLoaded({ key, assets }))
       .catch((err) => console.error(err));
     return () => {
       alive = false;
     };
   }, [key]);
 
-  return assets;
+  return loaded?.key === key ? loaded.assets : null;
 }

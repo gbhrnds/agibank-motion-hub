@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Group, Image as KImage } from "react-konva";
-import { color, logoClearSpace, logoPath, pickLogoKey, type Audience, type ColorKey } from "@/lib/brand-tokens";
+import { color, logoClearSpace, logoSrcFor, type Audience, type ColorKey } from "@/lib/brand-tokens";
 import { logoPosition, type LogoLayer, type Size } from "@/lib/piece-spec";
 import { useSvgAsset } from "@/lib/use-svg-asset";
 
@@ -39,8 +39,8 @@ interface LogoSmartProps {
  * do próprio logo renderizado — logo menor, área de proteção proporcionalmente menor.
  */
 export default function LogoSmart({ audience, layer, size, backgroundColor, onReady }: LogoSmartProps) {
-  const fundo = backgroundColor.startsWith("azul") ? "fundoAzul" : "fundoBranco";
-  const src = logoPath(pickLogoKey(audience, fundo, layer.midia));
+  // Material Impresso → arquivos "-cmyk.svg" obrigatoriamente (logoSrcFor valida).
+  const src = logoSrcFor(audience, backgroundColor, layer.midia);
   const referenceKey = CLEAR_SPACE_REFERENCE_COLOR[logoClearSpace.reference];
   const asset = useSvgAsset(src, { referenceFill: referenceKey ? color(referenceKey) : undefined });
 
