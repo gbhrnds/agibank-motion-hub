@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.2.0",
+    "version": "1.3.0",
     "lastUpdated": "2025-01-29",
     "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração. Fonte complementar ao config/assets-map.json.",
     "referenceImagesPath": "references/popups/"
@@ -109,13 +109,27 @@
       "linha-decorativa-sem-conexao-logica",
       "icone-solto-sem-contexto-apos-titulo",
       "shape-unico-isolado-sem-cluster",
-      "shapes-sobrepostos-com-fill-cobrindo-outro-shape"
+      "shapes-sobrepostos-com-fill-cobrindo-outro-shape",
+      "shapes-todos-do-mesmo-tamanho-sem-hierarquia-de-escala"
     ]
   },
 
   "shapeClusterPattern": {
     "name": "mosaico-de-cacos",
-    "description": "Agrupamento de 3 a 6 shapes irregulares (triangle/quadrilateral/pentagon) em tamanhos e rotações variadas, cores mistas, posicionados ADJACENTES uns aos outros formando um mosaico — como cacos quebrados que se encaixam, SEM sobrepor preenchimento entre si.",
+    "description": "Agrupamento de 3 a 4 shapes irregulares (triangle/quadrilateral/pentagon) com HIERARQUIA DE ESCALA clara (1 forma protagonista grande + 1-2 formas coadjuvantes pequenas), posicionados ADJACENTES uns aos outros formando um mosaico — como cacos quebrados que se encaixam, SEM sobrepor preenchimento entre si e SEM ficarem todos do mesmo tamanho.",
+    "scaleHierarchy": {
+      "rule": "Definir sempre 1 shape protagonista (maior, mais visível) e 1-2 shapes coadjuvantes (consideravelmente menores, ~40-60% do tamanho do protagonista), nunca formas de tamanho homogêneo entre si.",
+      "referenceExamples": [
+        {
+          "image": "ref-04-pergunt-ai.jpg",
+          "composition": "1 triângulo grande azul médio (protagonista) + 1 triângulo pequeno verde (coadjuvante) + 1 triângulo pequeno amarelo no canto oposto"
+        },
+        {
+          "image": "ref-13-premio-reclameaqui.jpg",
+          "composition": "1 forma verde grande (protagonista) + 1 forma branca outline pequena sobreposta na borda + formas amarelas pequenas no canto oposto"
+        }
+      ]
+    },
     "colorMix": {
       "rule": "Combinar no mínimo 2 cores dentro do mesmo cluster",
       "allowedCombos": [
@@ -126,10 +140,11 @@
       ],
       "amareloRule": "amarelo só pode aparecer em 1 shape pequeno do cluster, nunca dominante"
     },
+    "maxShapesPerCluster": 3,
     "positioning": [
       {
         "zone": "canto-superior-direito-sangrando",
-        "usage": "cluster parcialmente cortado pela borda do frame",
+        "usage": "shape protagonista parcialmente cortado pela borda do frame, coadjuvantes próximos mas não sobrepostos",
         "referenceImage": "ref-04-pergunt-ai.jpg"
       },
       {
@@ -149,13 +164,12 @@
       "overlapAllowed": false,
       "arrangement": "mosaic-adjacent",
       "gapRule": {
-        "reuseFrom": "modules.geometryRules.gapPercent",
         "min": 0,
         "max": 6,
-        "note": "shapes devem ficar encostados ou com espaçamento mínimo entre si (0-6%), simulando peças de um mosaico quebrado que se encaixam. NUNCA um shape deve desenhar por cima da área preenchida de outro shape."
+        "note": "shapes devem ficar encostados ou com espaçamento mínimo entre si (0-6% do tamanho do shape maior), simulando peças de um mosaico quebrado que se encaixam. NUNCA um shape deve desenhar por cima da área preenchida de outro shape."
       },
-      "note": "Diferente de uma versão anterior deste documento, este padrão NÃO permite sobreposição de preenchimento entre shapes. Arranjo correto: posicionar cada shape lado a lado, ajustando rotação e escala para que as bordas se aproximem sem invadir a área uma da outra, formando um conjunto visualmente coeso (mosaico), e não uma pilha sobreposta."
-      }
+      "note": "Cada shape deve ter sua silhueta completamente legível e distinta das demais. Se ao final da composição não for possível contar visualmente quantas formas existem, a composição está incorreta."
+    }
   },
 
   "backgroundVariants": {
