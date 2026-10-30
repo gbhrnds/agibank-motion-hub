@@ -12,7 +12,7 @@ import { CAROUSEL_SIZE, nomeEstilizado, type Slide } from "@/lib/carousel";
 import type { LogoLayer, TextLayer } from "@/lib/piece-spec";
 import { breakText, measureText } from "@/lib/rich-text";
 import { fitShape, useShapeOutline } from "@/lib/shape-mask";
-import { temaEvento } from "@/lib/theme-config";
+import { temaEvento, type Grafismo } from "@/lib/theme-config";
 import { useBrandFonts } from "@/lib/use-brand-fonts";
 
 const W = CAROUSEL_SIZE.width;
@@ -73,25 +73,28 @@ function Tarja(props: { id: string; text: string; x: number; y: number; height: 
 }
 
 /**
- * Grafismo da capa e do encerramento: um shape real da marca (assets/shapes/) na cor dos shapes
- * (assets-map shapes.color = azul Agibank), sangrando pela borda. Sem formas nem cores inventadas.
+ * Grafismo da capa e do encerramento: shape geral da marca (assets-map → shapes.byType), sólido ou só
+ * contorno, na cor definida em temaEvento.grafismos. Sem formas nem cores inventadas.
  */
-const GRAFISMO = { capa: "quadrilateral-14.svg", encerramento: "triangle-06.svg" };
-
-function BrandShape({ file, box }: { file: string; box: { x: number; y: number; width: number; height: number } }) {
-  const shape = useShapeOutline(file);
+function BrandShape({ grafismo, box }: { grafismo: Grafismo; box: { x: number; y: number; width: number; height: number } }) {
+  const shape = useShapeOutline(grafismo.arquivo);
   if (!shape) return null;
   const { k, tx, ty } = fitShape(shape, box);
-  return <Path id="grafismo" data={shape.d} x={tx} y={ty} scaleX={k} scaleY={k} fill={color("azulAgibank")} />;
+  const paint =
+    grafismo.modo === "outline"
+      ? { stroke: color(grafismo.cor), strokeWidth: 8, strokeScaleEnabled: false }
+      : { fill: color(grafismo.cor) };
+  return <Path id="grafismo" data={shape.d} x={tx} y={ty} scaleX={k} scaleY={k} {...paint} />;
 }
 
 const logoLayer = (align: "left" | "center", width: number): LogoLayer => ({
   id: "logo",
   label: "Logo",
   type: "logo",
-  // temaEvento.logo = "agi" → audiência interna (logos.audienceRule.interno.logoFamily).
   audience: "interno",
   midia: "digital",
+  // Logo do programa (assets-map.json → programs.meetup), no lugar do logo institucional.
+  program: temaEvento.logo,
   marginX: M,
   marginY: 72,
   width,
@@ -107,7 +110,9 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
   const noop = useCallback(() => {}, []);
   const size = useMemo(() => ({ width: W, height: H }), []);
   const mascaraFile =
-    slide.tipo === "convidado" ? (temaEvento.mascaras.find((m) => m.id === slide.mascaraId) ?? temaEvento.mascaras[0]).arquivo : GRAFISMO.capa;
+    slide.tipo === "convidado"
+      ? (temaEvento.mascaras.find((m) => m.id === slide.mascaraId) ?? temaEvento.mascaras[0]).arquivo
+      : temaEvento.grafismos.capa.arquivo;
   const mascara = useShapeOutline(mascaraFile);
 
   const content = useMemo(() => {
@@ -117,13 +122,13 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
 
     if (slide.tipo === "capa") {
       const titulo = fitHeight(
-        textLayer("nome-evento", nome, { x: M, y: 150, width: 760, fontSize: 104, weight: "regular", color: cores.texto, highlight: nomeHighlight }),
+        textLayer("nome-evento", nome, { x: M, y: 120, width: 760, fontSize: 104, weight: "regular", color: cores.texto, highlight: nomeHighlight }),
         260,
       );
       const headline = fitHeight(
         textLayer("headline", slide.headline || "Headline do evento", {
           x: M,
-          y: titulo.y + heightOf(titulo) + 48,
+          y: titulo.y + heightOf(titulo) + 40,
           width: 820,
           fontSize: 76,
           weight: "extraBold",
@@ -131,11 +136,11 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
           color: cores.texto,
           role: "titulo",
         }),
-        260,
+        200,
       );
       const data = textLayer("data", slide.data || "Data do evento", {
         x: M,
-        y: headline.y + heightOf(headline) + 36,
+        y: headline.y + heightOf(headline) + 28,
         width: 820,
         fontSize: 44,
         weight: "bold",
@@ -178,19 +183,19 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
         <KRect x={0} y={0} width={W} height={H} fill={color(cores.fundo)} />
         {content?.kind === "capa" && (
           <>
-            <BrandShape file={GRAFISMO.capa} box={{ x: 760, y: 380, width: 420, height: 460 }} />
+            <BrandShape grafismo={temaEvento.grafismos.capa} box={{ x: 760, y: 380, width: 420, height: 460 }} />
             <RichText layer={content.titulo} />
             <RichText layer={content.headline} />
             <RichText layer={content.data} />
             <CtaButton
               text={content.cta}
               x={M}
-              y={Math.max(content.data.y + heightOf(content.data) + 64, 700)}
+              y={Math.max(content.data.y + heightOf(content.data) + 48, 640)}
               fill={cores.tarjaSecundaria}
               textColor={cores.texto}
               seta={content.seta}
             />
-            <LogoSmart audience="interno" layer={logoLayer("left", 150)} size={size} backgroundColor={cores.fundo} onReady={noop} />
+            <LogoSmart audience="interno" layer={logoLayer("left", 200)} size={size} backgroundColor={cores.fundo} onReady={noop} />
           </>
         )}
         {content?.kind === "convidado" && slide.tipo === "convidado" && (
@@ -229,7 +234,7 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
         )}
         {content?.kind === "encerramento" && (
           <>
-            <BrandShape file={GRAFISMO.encerramento} box={{ x: W - 300, y: H - 330, width: 380, height: 420 }} />
+            <BrandShape grafismo={temaEvento.grafismos.encerramento} box={{ x: W - 300, y: H - 330, width: 380, height: 420 }} />
             <RichText layer={content.titulo} />
             <CtaButton
               text={content.cta}
@@ -240,7 +245,7 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
               seta={content.seta}
             />
             <RichText layer={content.link} />
-            <LogoSmart audience="interno" layer={logoLayer("center", 150)} size={size} backgroundColor={cores.fundo} onReady={noop} />
+            <LogoSmart audience="interno" layer={logoLayer("center", 240)} size={size} backgroundColor={cores.fundo} onReady={noop} />
           </>
         )}
         {fontsReady && total > 1 && (

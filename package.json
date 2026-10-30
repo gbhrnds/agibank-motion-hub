@@ -17,14 +17,17 @@
   "dependencies": {
     "jspdf": "^2.5.2",
     "konva": "^9.3.22",
+    "mammoth": "^1.8.0",
     "next": "^14.2.35",
     "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-konva": "^18.2.16"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
+    "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.6.2",

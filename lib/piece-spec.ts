@@ -1,4 +1,4 @@
-import type { Audience, ColorKey, EffectKey, FontWeightKey, IconFile } from "./brand-tokens";
+import type { Audience, ColorKey, EffectKey, FontWeightKey, IconFile, ProgramKey } from "./brand-tokens";
 import type { Alignment, CtaStyle } from "./composition-tokens";
 
 /**
@@ -121,6 +121,8 @@ export interface LogoLayer extends BaseLayer {
   /** Define a família do logo via logos.audienceRule (interno → Agi, externo → Agibank). */
   audience: Audience;
   midia: "digital" | "impresso";
+  /** Logo de programa (programs.<chave>) no lugar do logo institucional, quando o tema pede. */
+  program?: ProgramKey;
   /** Distância da borda esquerda (alinhado à esquerda) e da borda inferior. */
   marginX: number;
   marginY: number;
@@ -203,6 +205,8 @@ export interface BuildOptions {
   side?: "frente" | "verso";
   /** Data URL da imagem enviada (só na frente). */
   image?: string | null;
+  /** Logo de programa do tema escolhido (ex.: Programa de Estágio). */
+  program?: ProgramKey;
 }
 
 /**
@@ -288,9 +292,11 @@ export function buildLayers(size: Size, opts: BuildOptions): Layer[] {
     // logos.audienceRule: interno → logo reduzido "Agi"; externo → "Agibank" completo (mais largo).
     audience: opts.audience,
     midia: opts.midia,
+    program: opts.program,
     marginX: margin.x,
     marginY: margin.y,
-    width: px(opts.audience === "interno" ? 80 : 140),
+    // Logos de programa (Meetup, Estágio) são assinaturas largas, como o "Agibank" completo.
+    width: px(opts.audience === "interno" && !opts.program ? 80 : 140),
   });
   return layers;
 }

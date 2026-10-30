@@ -7,7 +7,10 @@ de composição de peças aprovadas (`/config/composition-patterns.json`, com re
 de apoio, palavra em destaque, CTA e uma imagem opcional) e gere o desdobramento da peça em todos os
 formatos marcados de uma vez, cada um numa prancheta. Em Material Impresso há a opção "Gerar Frente e
 Verso" (duas pranchetas por formato), o logo é sempre o arquivo CMYK e o PDF sai em CMYK real.
-Em Marca Empregadora, o tema "Meetup / Evento" troca o desdobramento por um carrossel de LinkedIn com
+Em Marca Empregadora, os subtipos são Institucional, Temos Vagas, Eventos e Programas/Formações; os dois
+últimos têm o passo "Tema" (`lib/theme-config.ts → temasPorSubtipo`), que traz o logo do programa de
+`assets-map.json → programs` (Meetup; Programa de Estágio, versão sem edição). O tema "Meetup" troca o
+desdobramento por um carrossel de LinkedIn com
 N slides (capa, convidados com foto recortada por um shape real da marca, encerramento), exportado num
 PDF de N páginas. Nos outros temas, "LinkedIn Carrossel" é um formato comum (uma prancheta 1080×1080).
 Nenhum CTA leva seta por padrão: a seta só entra com "Incluir ícone de seta" marcado.
@@ -39,7 +42,8 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `app/page.tsx` | Barra lateral em cascata (Frente → Subtipo → Formatos, botão "Gerar desdobramento") e área de preview com uma prancheta por formato |
 | `lib/format-config.ts` | `MENU_CONFIG` (frentes, subtipos, formatos com largura/altura) e o contexto de marca de cada frente (audiência e mídia do logo) |
 | `components/canvas/FormatArtboard.tsx` | Prancheta de um formato: compõe a peça, gera os shapes, valida (só no console) e exporta PNG/JPG/PDF |
-| `lib/theme-config.ts` | Temas de template (`temaEvento`: cores como chaves do assets-map, logo "agi", máscaras = arquivos de `assets/shapes/`) |
+| `lib/theme-config.ts` | `temasPorSubtipo` (tema → `programs.<chave>`) e `temaEvento` (cores como chaves do assets-map, logo Meetup, máscaras e grafismos = shapes gerais de `shapes.byType`) |
+| `lib/briefing-parser.ts` / `app/api/parse-briefing` | Importação de redação: extração (.docx/.pdf) e heurística de campos/telas |
 | `lib/shape-mask.ts` | Lê o `<path>` de um shape da marca e o encaixa numa caixa com escala única (recorte da foto via `Path2D`) |
 | `lib/carousel.ts` | Slides do carrossel (capa / convidado / encerramento), máscara em round-robin, nome do evento estilizado |
 | `components/carousel/CarouselPanel.tsx` | Cards de slide editáveis (↑ ↓ ✕, tipo Convidado/Encerramento, "Incluir ícone de seta") e "+ Adicionar Tela" |
@@ -70,6 +74,22 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
 | `lib/composition-validator.ts` | Regras de `config/composition-patterns.json` e quebra sem viúvas |
 | `lib/export.ts` | PNG, JPG e PDF no tamanho real do formato (`exportRules`); PDF de várias páginas (carrossel) e PDF CMYK via pdf-lib (impressos) |
+
+## Importar redação
+
+Em todas as frentes, o bloco de conteúdo tem dois modos: "✍️ Desdobrar a partir de KV" (manual, padrão)
+e "📄 Importar Redação (arquivo)". O `.docx` (mammoth) ou `.pdf` (pdf-parse) vai para
+`app/api/parse-briefing`, que só extrai o texto; `lib/briefing-parser.ts → parseBriefingText` o
+interpreta no navegador:
+
+- conteúdo simples: rótulos `Título:`, `Texto:`, `Destaque:`, `CTA:` (ou a ordem das linhas);
+- tema Meetup: telas `TELA 01:` (capa: título, data, CTA), `TELA 02…` (convidado: nome, cargo/empresa,
+  bio) e a última de encerramento (CTA, link). O tipo também pode vir no cabeçalho (`TELA 03: ENCERRAMENTO`);
+- o bloco `LEGENDA:` é sempre descartado.
+
+Os campos aparecem numa tela de revisão editável e só chegam às peças em "Aplicar às Peças". Arquivo fora
+do padrão volta ao modo manual com os campos em branco. Na página estática (Artifact) não há servidor:
+lá só `.txt` é lido; `.docx`/`.pdf` exigem o app publicado.
 
 ## Publicação (Vercel)
 

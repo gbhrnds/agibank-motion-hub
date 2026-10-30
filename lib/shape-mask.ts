@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchAssetText } from "./asset-fetch";
 import { shapePath, type ShapeFile } from "./brand-tokens";
 import type { Rect } from "./piece-spec";
+import { fetchSvg } from "./svg-utils";
 
 /** Contorno de um shape da marca (assets/shapes/*.svg: um único <path>), em coordenadas do viewBox. */
 export interface ShapeOutline {
@@ -18,6 +18,11 @@ export function parseShapeSvg(file: string, svg: string): ShapeOutline {
   const d = svg.match(/<path[^>]*\sd="([^"]+)"/)?.[1];
   if (!viewBox || viewBox.length !== 4 || !d) throw new Error(`Shape "${file}" sem viewBox ou <path>.`);
   return { file, d, width: viewBox[2], height: viewBox[3] };
+}
+
+/** Mesmo contorno, a partir do <svg> já baixado por fetchSvg (CDN de meta.cdnBase). */
+export function outlineFromSvg(file: string, svg: SVGSVGElement): ShapeOutline {
+  return parseShapeSvg(file, new XMLSerializer().serializeToString(svg));
 }
 
 /**
@@ -38,8 +43,9 @@ export function useShapeOutline(file: string): ShapeOutline | null {
   useEffect(() => {
     let alive = true;
     setOutline(null);
-    fetchAssetText(shapePath(file as ShapeFile))
-      .then((svg) => alive && setOutline(parseShapeSvg(file, svg)))
+    // Mesmo fetch dos demais SVGs (lib/svg-utils.ts → fetchSvg): CDN do assets-map, cópia local de reserva.
+    fetchSvg(shapePath(file as ShapeFile))
+      .then((svg) => alive && setOutline(outlineFromSvg(file, svg)))
       .catch((err) => console.error(err));
     return () => {
       alive = false;

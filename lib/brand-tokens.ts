@@ -15,6 +15,8 @@ export type Audience = keyof typeof assetsMap.logos.audienceRule;
 export type IconFile = string;
 /** Nome de arquivo listado em shapes.byType (validado em runtime por shapePath). */
 export type ShapeFile = string;
+/** Programas com logo próprio em assets-map.json → programs (os que têm arquivo, não "not_found"). */
+export type ProgramKey = "meetup" | "estagio";
 
 export interface ContrastRule {
   preferido: ColorKey[];
@@ -142,7 +144,23 @@ export function pickLogoKey(
  * Arquivo do logo para a peça: fundo azul → negativo, senão positivo. Em peças impressas o perfil
  * é OBRIGATORIAMENTE CMYK (arquivos "-cmyk.svg"), seja a audiência interna ou externa.
  */
-export function logoSrcFor(audience: Audience, background: ColorKey, midia: "digital" | "impresso"): string {
+/**
+ * Logo de um programa (programs.<chave>): versão negativa no fundo azul, positiva no branco.
+ * Estágio usa a versão sem edição. Os arquivos de programa só existem em RGB (peças digitais).
+ */
+export function programLogoPath(program: ProgramKey, background: ColorKey): string {
+  const entry = assetsMap.programs[program];
+  const variant = background.startsWith("azul") ? entry.negative : entry.positive;
+  return url(entry.basePath, variant);
+}
+
+export function logoSrcFor(
+  audience: Audience,
+  background: ColorKey,
+  midia: "digital" | "impresso",
+  program?: ProgramKey,
+): string {
+  if (program && midia === "digital") return programLogoPath(program, background);
   const fundo = background.startsWith("azul") ? "fundoAzul" : "fundoBranco";
   const key = pickLogoKey(audience, fundo, midia);
   if (midia === "impresso" && !key.endsWith("Cmyk")) {

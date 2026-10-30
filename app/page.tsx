@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import type Konva from "konva";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CarouselPanel, { SetaCheckbox } from "@/components/carousel/CarouselPanel";
+import BriefingImport, { ContentModeSwitch, type ContentMode } from "@/components/content/BriefingImport";
+import type { ParsedBriefing } from "@/lib/briefing-parser";
 import { localMirror, logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
 import {
   DEFAULT_TEXTS,
@@ -16,7 +18,7 @@ import {
 import { CAROUSEL_SIZE, nomeDoEvento, novaCapa, type Slide } from "@/lib/carousel";
 import { exportPdfPages } from "@/lib/export";
 import { allShapeFiles, pickPieceRun, type PieceRun } from "@/lib/layout-engine";
-import { TEMAS, type ThemeId } from "@/lib/theme-config";
+import { temaPorId, temasPorSubtipo, type ThemeId } from "@/lib/theme-config";
 import { loadSilhouette, type Silhouette } from "@/lib/shape-silhouette";
 
 const FormatArtboard = dynamic(() => import("@/components/canvas/FormatArtboard"), { ssr: false });
@@ -58,9 +60,12 @@ export default function Page() {
   const [texts, setTexts] = useState<PieceTexts>(DEFAULT_TEXTS);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isFrenteVerso, setIsFrenteVerso] = useState(false);
-  const [tema, setTema] = useState<ThemeId>("institucional");
+  const [tema, setTema] = useState<ThemeId | null>(null);
   const [slides, setSlides] = useState<Slide[]>(() => [novaCapa()]);
   const [exportingCarousel, setExportingCarousel] = useState(false);
+  // Conteúdo: manual (padrão) ou importado de um arquivo de redação, com revisão antes de aplicar.
+  const [contentMode, setContentMode] = useState<ContentMode>("manual");
+  const [contentNotice, setContentNotice] = useState<string | null>(null);
   const slideStages = useRef(new Map<string, Konva.Stage>());
 
   // Silhuetas de todos os shapes do assets-map.json (usadas pelo motor para evitar textos e logo).
@@ -73,15 +78,29 @@ export default function Page() {
   // Primeiro estado global já sorteado: as pranchetas aparecem completas assim que o formato é marcado.
   useEffect(() => setRun(pickPieceRun(BACKGROUND)), []);
 
+  // Temas só existem para alguns subtipos (Eventos, Programas/Formações); nos demais, nenhum.
+  const temas = (selectedFrente === "me" && selectedSubtipo && temasPorSubtipo[selectedSubtipo]) || null;
+  const temaAtivo = temaPorId(temas ? selectedSubtipo : null, tema);
+
   const ctx = useMemo(
-    () => (selectedFrente && selectedSubtipo ? pieceContext(selectedFrente, selectedSubtipo) : null),
-    [selectedFrente, selectedSubtipo],
+    () =>
+      selectedFrente && selectedSubtipo ? pieceContext(selectedFrente, selectedSubtipo, temaAtivo?.assetsMapKey) : null,
+    [selectedFrente, selectedSubtipo, temaAtivo?.assetsMapKey],
+  );
+
+  const chooseSubtipo = useCallback(
+    (id: string) => {
+      setSelectedSubtipo(id);
+      // O primeiro tema do subtipo já vem marcado (ex.: Eventos → Meetup).
+      setTema(selectedFrente === "me" ? (temasPorSubtipo[id]?.[0]?.id ?? null) : null);
+    },
+    [selectedFrente],
   );
 
   const chooseFrente = useCallback((id: FrenteId) => {
     setSelectedFrente(id);
     setSelectedSubtipo(null);
-    setTema("institucional");
+    setTema(null);
     setSelectedFormats([]);
   }, []);
 
@@ -116,11 +135,46 @@ export default function Page() {
     e.target.value = "";
   }, []);
 
+  const applyBriefing = useCallback((parsed: ParsedBriefing) => {
+    if (parsed.kind === "meetup") setSlides(parsed.slides);
+    else setTexts((prev) => ({ ...prev, ...parsed.texts }));
+    setContentMode("manual");
+    setContentNotice("Redação aplicada às peças. Ajuste o que precisar abaixo.");
+  }, []);
+
+  // Arquivo fora do padrão: campos em branco no modo manual, sem travar o usuário.
+  const briefingFallback = useCallback(
+    (message: string) => {
+      if (temaAtivo?.id === "meetup") setSlides([novaCapa()]);
+      else setTexts({ headline: "", body: "", highlight: "", cta: "", ctaArrow: false });
+      setContentMode("manual");
+      setContentNotice(message);
+    },
+    [temaAtivo?.id],
+  );
+
+  const chooseContentMode = useCallback((mode: ContentMode) => {
+    setContentMode(mode);
+    setContentNotice(null);
+  }, []);
+
+  const contentHeader = (tema: string | null) => (
+    <>
+      <ContentModeSwitch mode={contentMode} setMode={chooseContentMode} />
+      {contentNotice && contentMode === "manual" && (
+        <p role="status" className="text-xs font-semibold text-agi-blue-dark">
+          {contentNotice}
+        </p>
+      )}
+      {contentMode === "upload" && <BriefingImport tema={tema} onApply={applyBriefing} onFallback={briefingFallback} />}
+    </>
+  );
+
   const showVerso = selectedFrente === "impresso" && isFrenteVerso;
-  // Tema "Evento" em Marca Empregadora: carrossel de LinkedIn com N slides no lugar do desdobramento.
-  const carouselMode = selectedFrente === "me" && !!selectedSubtipo && tema === "evento";
+  // Tema "Meetup": carrossel de LinkedIn com N slides no lugar do desdobramento.
+  const carouselMode = temaAtivo?.id === "meetup";
   const carouselFormat = MENU_CONFIG.formatos.me.find((f) => f.id === "linkedin_carrossel")!;
-  const stepFormatos = selectedFrente === "me" ? 4 : 3;
+  const stepFormatos = temas ? 4 : 3;
 
   const registerStage = useCallback((id: string, stage: Konva.Stage | null) => {
     if (stage) slideStages.current.set(id, stage);
@@ -223,7 +277,7 @@ export default function Page() {
                       name="subtipo"
                       value={s.id}
                       checked={selectedSubtipo === s.id}
-                      onChange={() => setSelectedSubtipo(s.id)}
+                      onChange={() => chooseSubtipo(s.id)}
                       className="h-4 w-4 accent-agi-blue"
                     />
                     {s.label}
@@ -233,11 +287,11 @@ export default function Page() {
             </fieldset>
           )}
 
-          {selectedFrente === "me" && selectedSubtipo && (
+          {temas && (
             <fieldset>
               <StepTitle step={3}>Tema</StepTitle>
               <div className="flex flex-wrap gap-2">
-                {TEMAS.map((t) => (
+                {temas.map((t) => (
                   <label key={t.id} className={optionClass(tema === t.id)}>
                     <input
                       type="radio"
@@ -247,7 +301,7 @@ export default function Page() {
                       onChange={() => setTema(t.id)}
                       className="h-4 w-4 accent-agi-blue"
                     />
-                    {t.nome}
+                    {t.label}
                   </label>
                 ))}
               </div>
@@ -264,15 +318,16 @@ export default function Page() {
                 </span>
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                O tema Evento gera o carrossel: capa, convidados e encerramento.
+                O tema Meetup gera o carrossel: capa, convidados e encerramento.
               </p>
             </fieldset>
           )}
 
           {carouselMode && (
-            <fieldset>
+            <fieldset className="flex flex-col gap-3">
               <StepTitle step={stepFormatos + 1}>Slides</StepTitle>
-              <CarouselPanel slides={slides} setSlides={setSlides} />
+              {contentHeader("meetup")}
+              {contentMode === "manual" && <CarouselPanel slides={slides} setSlides={setSlides} />}
             </fieldset>
           )}
 
@@ -305,54 +360,60 @@ export default function Page() {
           {!carouselMode && selectedFrente && selectedSubtipo && (
             <fieldset className="flex flex-col gap-3">
               <StepTitle step={stepFormatos + 1}>Conteúdo</StepTitle>
-              {(
-                [
-                  ["headline", "Título (headline)", false],
-                  ["body", "Texto de apoio", true],
-                  ["highlight", "Palavra em destaque (fica verde)", false],
-                  ["cta", "Texto do botão (CTA)", false],
-                ] as const
-              ).map(([key, label, multiline]) => (
-                <label key={key} className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
-                  {label}
-                  {multiline ? (
-                    <textarea value={texts[key]} onChange={setText(key)} rows={3} className={fieldClass} />
-                  ) : (
-                    <input type="text" value={texts[key]} onChange={setText(key)} className={fieldClass} />
-                  )}
-                </label>
-              ))}
-              {texts.highlight.trim() && !texts.body.toLowerCase().includes(texts.highlight.trim().toLowerCase()) && (
-                <p className="text-xs text-slate-500">A palavra em destaque não aparece no texto de apoio.</p>
-              )}
-              <SetaCheckbox
-                checked={texts.ctaArrow}
-                onChange={(ctaArrow) => setTexts((prev) => ({ ...prev, ctaArrow }))}
-              />
+              {contentHeader(null)}
+              {contentMode === "manual" && (
+                <>
+                  {(
+                    [
+                      ["headline", "Título (headline)", false],
+                      ["body", "Texto de apoio", true],
+                      ["highlight", "Palavra em destaque (fica verde)", false],
+                      ["cta", "Texto do botão (CTA)", false],
+                    ] as const
+                  ).map(([key, label, multiline]) => (
+                    <label key={key} className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
+                      {label}
+                      {multiline ? (
+                        <textarea value={texts[key]} onChange={setText(key)} rows={3} className={fieldClass} />
+                      ) : (
+                        <input type="text" value={texts[key]} onChange={setText(key)} className={fieldClass} />
+                      )}
+                    </label>
+                  ))}
+                  {texts.highlight.trim() &&
+                    !texts.body.toLowerCase().includes(texts.highlight.trim().toLowerCase()) && (
+                      <p className="text-xs text-slate-500">A palavra em destaque não aparece no texto de apoio.</p>
+                    )}
+                  <SetaCheckbox
+                    checked={texts.ctaArrow}
+                    onChange={(ctaArrow) => setTexts((prev) => ({ ...prev, ctaArrow }))}
+                  />
 
-              <div className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
-                <span>Imagem</span>
-                <label className="flex w-fit cursor-pointer items-center rounded-full border border-agi-blue px-4 py-1.5 text-sm font-semibold text-agi-blue transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-agi-blue hover:bg-agi-blue hover:text-white">
-                  {uploadedImage ? "Trocar imagem" : "Escolher imagem"}
-                  <input id="upload-imagem" type="file" accept="image/*" onChange={onUpload} className="sr-only" />
-                </label>
-                <span className="text-xs font-normal text-slate-500">
-                  Aparece recortada por uma forma irregular em metade da peça.
-                </span>
-                {uploadedImage && (
-                  <div className="mt-1 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={uploadedImage} alt="Imagem enviada" className="h-12 w-12 rounded-md object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setUploadedImage(null)}
-                      className="text-xs font-semibold text-agi-blue underline-offset-2 hover:underline"
-                    >
-                      Remover imagem
-                    </button>
+                  <div className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
+                    <span>Imagem</span>
+                    <label className="flex w-fit cursor-pointer items-center rounded-full border border-agi-blue px-4 py-1.5 text-sm font-semibold text-agi-blue transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-agi-blue hover:bg-agi-blue hover:text-white">
+                      {uploadedImage ? "Trocar imagem" : "Escolher imagem"}
+                      <input id="upload-imagem" type="file" accept="image/*" onChange={onUpload} className="sr-only" />
+                    </label>
+                    <span className="text-xs font-normal text-slate-500">
+                      Aparece recortada por uma forma irregular em metade da peça.
+                    </span>
+                    {uploadedImage && (
+                      <div className="mt-1 flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={uploadedImage} alt="Imagem enviada" className="h-12 w-12 rounded-md object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setUploadedImage(null)}
+                          className="text-xs font-semibold text-agi-blue underline-offset-2 hover:underline"
+                        >
+                          Remover imagem
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </fieldset>
           )}
 

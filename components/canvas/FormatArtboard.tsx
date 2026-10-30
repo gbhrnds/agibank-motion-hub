@@ -63,8 +63,8 @@ function fontWeightsUsed(layers: Layer[]) {
 export default function FormatArtboard({ format, ctx, texts, image, side = "frente", run, silhouettes }: FormatArtboardProps) {
   const size = useMemo(() => ({ width: format.width, height: format.height }), [format.width, format.height]);
   const base = useMemo(
-    () => buildLayers(size, { audience: ctx.audience, midia: ctx.midia, content: texts, side, image }),
-    [size, ctx.audience, ctx.midia, texts, side, image],
+    () => buildLayers(size, { audience: ctx.audience, midia: ctx.midia, program: ctx.program, content: texts, side, image }),
+    [size, ctx.audience, ctx.midia, ctx.program, texts, side, image],
   );
   // Os shapes se reposicionam quando o texto para de mudar (o texto em si atualiza na hora).
   const generationBase = useDebounced(base, 300);
@@ -200,7 +200,7 @@ export default function FormatArtboard({ format, ctx, texts, image, side = "fren
   const previewScale = Math.min(1, PREVIEW_MAX.width / format.width, PREVIEW_MAX.height / format.height);
   const ready = layout !== null && piece !== null;
   const logoLayer = getLogo(base);
-  const logoSrc = logoLayer ? logoSrcFor(logoLayer.audience, background, logoLayer.midia) : "";
+  const logoSrc = logoLayer ? logoSrcFor(logoLayer.audience, background, logoLayer.midia, logoLayer.program) : "";
 
   return (
     <figure

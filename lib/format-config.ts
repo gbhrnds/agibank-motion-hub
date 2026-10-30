@@ -1,4 +1,4 @@
-import type { Audience } from "./brand-tokens";
+import type { Audience, ProgramKey } from "./brand-tokens";
 
 /**
  * Cascata da barra lateral: Frente → Subtipo → Formatos (vários).
@@ -17,9 +17,12 @@ export const MENU_CONFIG = {
       { id: "jeito_agi_amarelo", label: "Jeito Agi - Crescer na jornada" },
       { id: "jeito_agi_azul", label: "Jeito Agi - Viver pelo cliente" },
     ],
+    // Programa de Estágio deixou de ser subtipo: é um tema de "programas" (lib/theme-config.ts).
     me: [
       { id: "institucional", label: "Institucional" },
-      { id: "estagio", label: "Programa de Estágio" },
+      { id: "vagas", label: "Temos Vagas" },
+      { id: "eventos", label: "Eventos" },
+      { id: "programas", label: "Programas/Formações" },
     ],
     impresso: [
       { id: "interno", label: "Uso Interno" },
@@ -68,11 +71,13 @@ export interface PieceContext {
   audience: Audience;
   /** logos.usageMap: Material Impresso usa OBRIGATORIAMENTE os logos CMYK (interno ou externo). */
   midia: "digital" | "impresso";
+  /** Logo de programa do tema (programs.<chave>); sem tema, o logo institucional. */
+  program?: ProgramKey;
 }
 
-export function pieceContext(frente: FrenteId, subtipo: string): PieceContext {
+export function pieceContext(frente: FrenteId, subtipo: string, program?: ProgramKey | null): PieceContext {
   const audience: Audience = frente === "ci" ? "interno" : frente === "me" ? "externo" : subtipo === "interno" ? "interno" : "externo";
-  return { frente, subtipo, audience, midia: frente === "impresso" ? "impresso" : "digital" };
+  return { frente, subtipo, audience, midia: frente === "impresso" ? "impresso" : "digital", ...(program ? { program } : {}) };
 }
 
 /** Canais de logos.audienceRule.*.exemplos em que cada formato circula (validação de audiência do logo). */
