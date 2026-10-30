@@ -26,6 +26,7 @@ export interface ContrastRule {
 export interface BrandRules {
   contrastMap: Partial<Record<ColorKey, ContrastRule>>;
   colorUsage: Partial<Record<ColorKey, string>>;
+  textHierarchy?: string;
 }
 
 export interface ClearSpaceRule {

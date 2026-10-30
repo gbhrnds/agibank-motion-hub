@@ -60,7 +60,7 @@ export default function LogoSmart({ audience, layer, backgroundColor, onReady }:
     <Group name="brand-layer" id={layer.id}>
       <KImage
         image={asset.image}
-        x={layer.margin}
+        x={layer.align === "center" ? (CANVAS_SIZE - layer.width) / 2 : layer.margin}
         y={CANVAS_SIZE - layer.margin - height}
         width={layer.width}
         height={height}

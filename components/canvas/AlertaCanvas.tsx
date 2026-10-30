@@ -8,7 +8,7 @@ import { CANVAS_SIZE, getBackground, type Layer, type Rect } from "@/lib/alerta-
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
 import { measureColorCoverage } from "@/lib/color-coverage";
 import { ctaGeometry, type CtaGeometry } from "@/lib/cta-geometry";
-import type { GeneratedLayout } from "@/lib/layout-engine";
+import type { PieceLayout } from "@/lib/layout-engine";
 import { useBrandFonts } from "@/lib/use-brand-fonts";
 import CtaPill from "./CtaPill";
 import LogoSmart, { type LogoMeta } from "./LogoSmart";
@@ -18,17 +18,17 @@ import ShapeCluster from "./ShapeCluster";
 interface AlertaCanvasProps {
   layers: Layer[];
   /** Grafismos gerados pelo motor (null = ainda não gerados). */
-  shapes: GeneratedLayout | null;
+  shapes: PieceLayout | null;
   stageRef: MutableRefObject<Konva.Stage | null>;
   showGuides: boolean;
   onLayout: (layout: CanvasLayout | null) => void;
 }
 
 /** Id de carregamento dos grafismos: muda a cada layout gerado. */
-const shapesLoadId = (layerId: string, shapes: GeneratedLayout | null) => `${layerId}:${shapes?.seed ?? "none"}`;
+const shapesLoadId = (layerId: string, shapes: PieceLayout | null) => `${layerId}:${shapes?.seed ?? "none"}`;
 
 /** Ids dos assets assíncronos que precisam carregar antes de medir/exportar. */
-function assetIds(layers: Layer[], shapes: GeneratedLayout | null): string[] {
+function assetIds(layers: Layer[], shapes: PieceLayout | null): string[] {
   return layers.flatMap((l) => {
     switch (l.type) {
       case "shapes":

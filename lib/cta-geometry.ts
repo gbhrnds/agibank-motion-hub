@@ -1,4 +1,4 @@
-import type { CtaLayer, Rect } from "./alerta-spec";
+import { CANVAS_SIZE, type CtaLayer, type Rect } from "./alerta-spec";
 import { measureText } from "./rich-text";
 
 export interface CtaGeometry {
@@ -9,7 +9,7 @@ export interface CtaGeometry {
   iconY: number;
 }
 
-/** Caixa da pílula do CTA (padding + texto + ícone), a partir do texto medido com a fonte de marca. */
+/** Caixa do CTA (padding + texto + ícone), a partir do texto medido com a fonte de marca; sem pílula, só texto + ícone. */
 export function ctaGeometry(layer: CtaLayer): CtaGeometry {
   const textWidth = measureText(layer.text, layer, layer.fontSize);
   const lineBox = layer.fontSize * layer.lineHeight;
@@ -18,10 +18,13 @@ export function ctaGeometry(layer: CtaLayer): CtaGeometry {
   const icon = layer.trailingIcon;
   const contentWidth = textWidth + (icon ? icon.gap + icon.size : 0);
   const contentHeight = Math.max(lineBox, icon?.size ?? 0);
-  const textX = layer.x + padX;
+  const width = contentWidth + padX * 2;
+  // Centralizado: acompanha o texto centralizado (textAndLayoutRules).
+  const x = layer.align === "center" ? Math.round((CANVAS_SIZE - width) / 2) : layer.x;
+  const textX = x + padX;
   const textY = layer.y + padY + (contentHeight - lineBox) / 2;
   return {
-    box: { x: layer.x, y: layer.y, width: contentWidth + padX * 2, height: contentHeight + padY * 2 },
+    box: { x, y: layer.y, width, height: contentHeight + padY * 2 },
     textX,
     textY,
     iconX: textX + textWidth + (icon?.gap ?? 0),

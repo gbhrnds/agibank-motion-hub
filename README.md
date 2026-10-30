@@ -31,11 +31,12 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `components/canvas/AlertaCanvas.tsx` | Stage Konva 600×600; mede o layout real para a validação |
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
-| `components/canvas/CtaPill.tsx` | CTA em pílula sólida com sombra (`ctaRules` "pill-solid-accent") |
+| `components/canvas/CtaPill.tsx` | CTA nas variantes de `ctaRules`: pílula sólida, pílula outline ou texto com seta |
 | `components/canvas/ShapeCluster.tsx` | Desenha os grafismos do layout gerado (shapes recoloridos, escala e rotação) |
-| `lib/layout-engine.ts` | `generateRandomLayout()`: sorteia arquétipo, shapes e cores (`dynamicShapeArrangements`) e posiciona sem tocar textos, CTA e logo |
+| `lib/layout-engine.ts` | `generateRandomLayout()`: sorteia alinhamento, estilo de CTA, arquétipo de shapes e paleta (`composition-patterns.json`) e posiciona os shapes sem tocar textos, CTA e logo |
+| `lib/piece-style.ts` | Aplica alinhamento (texto, CTA, logo) e variante do CTA às camadas da peça |
 | `lib/shape-silhouette.ts` | Silhueta real de cada SVG para testar colisão, sobreposição e vão entre shapes |
-| `lib/keep-out.ts` | Áreas que os grafismos não podem tocar (textos, CTA, área de proteção do logo) |
+| `lib/keep-out.ts` | Áreas que os grafismos não podem tocar (textos, CTA, área de proteção do logo), medidas ou previstas por alinhamento |
 | `lib/text-wrap.ts` | `preventWidows()` / `wrapWords()` / `breakIntoLines()`: quebra com `\n` explícito e sem viúvas (`typographyLineBreakRules`) |
 | `components/canvas/IconInline.tsx` | Ícones SVG recoloridos com tokens |
 | `lib/svg-utils.ts` | `recolorSvg()`: recolore um SVG (fill ou contorno) e devolve data URL base64 |
@@ -46,7 +47,7 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/contrast-validator.ts` | `validateContrast()` e `validateColorUsage()` |
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
-| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: texto bicolor, CTA em pílula verde/amarela, grafismo gerado, quebra sem viúvas |
+| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: variante do CTA, grafismo gerado (arquétipo, hierarquia de escala, paleta fechada) e, do `assets-map.json`, texto bicolor e quebra sem viúvas |
 | `lib/export-png.ts` | Exporta o Stage como PNG 600×600 |
 
 ## Testando o bloqueio
@@ -56,7 +57,6 @@ Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostr
 
 - headline ou corpo em `"azulMedio"`, ou fundo em `"amarelo"`;
 - corpo inteiro em `"verde"` (verde sobre azul Agibank só em títulos e palavras-chave);
-- remover a `pill` do CTA, ou trocá-la para uma cor que não seja verde ou amarelo;
 - texto branco sobre a pílula verde;
 - texto todo numa cor só;
 - um shape em cima do logo.

@@ -13,8 +13,9 @@ interface CtaPillProps {
 }
 
 /**
- * CTA como pílula sólida (composition-patterns.json → ctaRules), cantos totalmente arredondados,
- * sombra opcional (assets-map.json → effects) e ícone recolorido com a cor do texto.
+ * CTA nas variantes de composition-patterns.json → ctaRules: pílula sólida (com sombra opcional,
+ * assets-map.json → effects), pílula outline (só borda) ou texto com seta (sem caixa).
+ * Cantos totalmente arredondados; o ícone acompanha a cor do texto.
  */
 export default function CtaPill({ layer, geometry, onIconReady }: CtaPillProps) {
   const { box } = geometry;
@@ -24,7 +25,9 @@ export default function CtaPill({ layer, geometry, onIconReady }: CtaPillProps) 
       {layer.pill && (
         <KRect
           {...box}
-          fill={color(layer.pill.color)}
+          fill={layer.pill.fill ? color(layer.pill.fill) : undefined}
+          stroke={layer.pill.stroke ? color(layer.pill.stroke) : undefined}
+          strokeWidth={layer.pill.stroke ? (layer.pill.strokeWidth ?? 2) : 0}
           cornerRadius={box.height / 2}
           {...(shadow
             ? {

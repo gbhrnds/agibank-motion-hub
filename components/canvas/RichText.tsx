@@ -12,7 +12,7 @@ export default function RichText({ layer }: { layer: TextLayer }) {
     const base = { color: layer.color, weight: layer.weight };
     // A quebra (com a regra de viúvas) acontece antes do Konva; ele só desenha linha a linha.
     const broken = breakText(layer.text, base, layer.highlight, layer.fontSize, layer.width);
-    return layoutBrokenText(broken, base, layer.highlight, layer.fontSize);
+    return layoutBrokenText(broken, base, layer.highlight, layer.fontSize, layer.align ?? "left", layer.width);
   }, [layer]);
   const lineBox = layer.fontSize * layer.lineHeight;
 

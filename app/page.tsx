@@ -4,26 +4,32 @@ import type Konva from "konva";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ValidationPanel from "@/components/validation/ValidationPanel";
-import { ALERTA_CHANNELS, ALERTA_LAYERS, CANVAS_SIZE, EXPORT_FILE_NAME } from "@/lib/alerta-spec";
+import { ALERTA_CHANNELS, ALERTA_LAYERS, CANVAS_SIZE, EXPORT_FILE_NAME, getBackground } from "@/lib/alerta-spec";
 import { shapePath } from "@/lib/brand-tokens";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
-import { archetype } from "@/lib/composition-tokens";
+import { archetype, ctaVariant } from "@/lib/composition-tokens";
 import { exportStageToPng } from "@/lib/export-png";
-import { keepOutZones } from "@/lib/keep-out";
-import { allShapeFiles, generateRandomLayout, type GeneratedLayout, type KeepOutZone } from "@/lib/layout-engine";
+import { logoMetricsFrom, predictKeepOut, type LogoMetrics } from "@/lib/keep-out";
+import { allShapeFiles, generateRandomLayout, type PieceLayout } from "@/lib/layout-engine";
+import { applyPieceStyle } from "@/lib/piece-style";
 import { loadSilhouette, type Silhouette } from "@/lib/shape-silhouette";
 import { validatePiece } from "@/lib/validate-piece";
 
 const AlertaCanvas = dynamic(() => import("@/components/canvas/AlertaCanvas"), { ssr: false });
 
+const BACKGROUND = getBackground(ALERTA_LAYERS)!.color;
+
 export default function Page() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const [layout, setLayout] = useState<CanvasLayout | null>(null);
   const [showGuides, setShowGuides] = useState(false);
-  const [shapes, setShapes] = useState<GeneratedLayout | null>(null);
+  const [piece, setPiece] = useState<PieceLayout | null>(null);
   const [silhouettes, setSilhouettes] = useState<Record<string, Silhouette> | null>(null);
-  const [keepOut, setKeepOut] = useState<KeepOutZone[] | null>(null);
+  const [logoMetrics, setLogoMetrics] = useState<LogoMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Camadas da peça com o alinhamento e o estilo de CTA da composição atual.
+  const layers = useMemo(() => (piece ? applyPieceStyle(ALERTA_LAYERS, piece) : ALERTA_LAYERS), [piece]);
 
   // Silhuetas de todos os shapes do assets-map.json (usadas pelo motor para evitar textos e logo).
   useEffect(() => {
@@ -32,27 +38,33 @@ export default function Page() {
       .catch((err) => setError(String(err)));
   }, []);
 
-  // Textos, CTA e área do logo não dependem dos grafismos: guardamos a última medição.
+  // Tamanho do logo e da área de proteção: medidos uma vez no canvas.
   useEffect(() => {
-    if (layout) setKeepOut(keepOutZones(ALERTA_LAYERS, layout));
-  }, [layout]);
+    if (layout && !logoMetrics) setLogoMetrics(logoMetricsFrom(layers, layout));
+  }, [layout, layers, logoMetrics]);
 
   const generate = useCallback(() => {
-    if (!silhouettes || !keepOut) return;
+    if (!silhouettes || !logoMetrics) return;
     try {
-      setShapes(generateRandomLayout({ keepOut, silhouettes }));
+      setPiece(
+        generateRandomLayout({
+          background: BACKGROUND,
+          silhouettes,
+          keepOutFor: (p) => predictKeepOut(ALERTA_LAYERS, logoMetrics, p),
+        }),
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [silhouettes, keepOut]);
+  }, [silhouettes, logoMetrics]);
 
   // Primeira composição assim que o canvas foi medido.
   useEffect(() => {
-    if (!shapes && silhouettes && keepOut) generate();
-  }, [shapes, silhouettes, keepOut, generate]);
+    if (!piece && silhouettes && logoMetrics) generate();
+  }, [piece, silhouettes, logoMetrics, generate]);
 
-  const items = useMemo(() => validatePiece(ALERTA_LAYERS, ALERTA_CHANNELS, layout, shapes), [layout, shapes]);
+  const items = useMemo(() => validatePiece(layers, ALERTA_CHANNELS, layout, piece), [layers, layout, piece]);
 
   const handleExport = useCallback(() => {
     if (!stageRef.current) return;
@@ -63,7 +75,7 @@ export default function Page() {
     });
   }, []);
 
-  const canGenerate = !!silhouettes && !!keepOut;
+  const canGenerate = !!silhouettes && !!logoMetrics;
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6 lg:p-10">
@@ -82,32 +94,41 @@ export default function Page() {
             >
               🎲 Gerar Nova Composição
             </button>
-            <p className="text-sm text-slate-600" data-testid="archetype">
-              {shapes
-                ? `${archetype(shapes.archetype).name} · ${shapes.combo.join(" + ")} · seed ${shapes.seed}`
-                : canGenerate
-                  ? "Gerando…"
-                  : "Carregando shapes…"}
-            </p>
+            {!piece && <p className="text-sm text-slate-600">{canGenerate ? "Gerando…" : "Carregando shapes…"}</p>}
           </div>
+          {piece && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600 sm:grid-cols-4" data-testid="piece-state">
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-400">Alinhamento</dt>
+                <dd>{piece.alignment === "center" ? "Centralizado" : "Esquerda"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-400">CTA</dt>
+                <dd>{ctaVariant(piece.ctaStyle).name}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-400">Shapes</dt>
+                <dd>{archetype(piece.shapeArchetype).name.replace(/\s*\(.*\)/, "")}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-400">Paleta</dt>
+                <dd>{piece.shapePalette.name}</dd>
+              </div>
+            </dl>
+          )}
           {error && <p className="text-sm text-red-700">{error}</p>}
           <div
             className="shrink-0 overflow-hidden rounded-lg shadow-lg"
             style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
             data-testid="canvas-wrapper"
           >
-            <AlertaCanvas
-              layers={ALERTA_LAYERS}
-              shapes={shapes}
-              stageRef={stageRef}
-              showGuides={showGuides}
-              onLayout={setLayout}
-            />
+            <AlertaCanvas layers={layers} shapes={piece} stageRef={stageRef} showGuides={showGuides} onLayout={setLayout} />
           </div>
+          {piece && <p className="text-xs text-slate-400">seed {piece.seed}</p>}
         </div>
         <ValidationPanel
           items={items}
-          ready={layout !== null && shapes !== null}
+          ready={layout !== null && piece !== null}
           onExport={handleExport}
           showGuides={showGuides}
           onToggleGuides={setShowGuides}

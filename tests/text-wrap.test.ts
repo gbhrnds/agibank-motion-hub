@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import compositionPatterns from "../config/composition-patterns.json";
+import assetsMap from "../config/assets-map.json";
 import { breakIntoLines, preventWidows, wrapWords } from "../lib/text-wrap";
 
-const forbidden = compositionPatterns.typographyLineBreakRules.forbiddenTrailingWords;
+const forbidden = assetsMap.typography.lineBreak.forbiddenTrailingWords;
 const BODY = "Organize seus boletos em um só lugar e automatize pagamentos com Pix!";
 
 test("corpo da peça: 'e' no fim da 1ª linha desce para a 2ª", () => {

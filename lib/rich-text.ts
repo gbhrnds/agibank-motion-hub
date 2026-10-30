@@ -1,6 +1,5 @@
-import { fontShorthand } from "./brand-tokens";
 import type { TextStyle } from "./alerta-spec";
-import { composition } from "./composition-tokens";
+import { brandTokens, fontShorthand } from "./brand-tokens";
 import { wrapWords } from "./text-wrap";
 
 /**
@@ -48,7 +47,8 @@ interface Unit {
   space: { text: string; style: TextStyle } | null;
 }
 
-export const forbiddenTrailingWords: string[] = composition.typographyLineBreakRules.forbiddenTrailingWords;
+/** assets-map.json → typography.lineBreak.forbiddenTrailingWords. */
+export const forbiddenTrailingWords: string[] = brandTokens.typography.lineBreak.forbiddenTrailingWords;
 
 /**
  * Passo 1 — quebra ANTES do Konva: mede cada palavra com a fonte/peso reais, quebra pela largura,
@@ -124,14 +124,21 @@ export function layoutBrokenText(
   base: TextStyle,
   highlight: TextStyle | undefined,
   fontSize: number,
+  /** Com `boxWidth`, "center" centraliza cada linha na caixa. */
+  align: "left" | "center" = "left",
+  boxWidth = 0,
 ): PlacedPiece[] {
   const pieces: PlacedPiece[] = [];
   broken.split("\n").forEach((line, lineIndex) => {
-    let x = 0;
-    for (const span of parseHighlights(line)) {
+    const spans = parseHighlights(line).map((span) => {
       const style = span.highlighted && highlight ? highlight : base;
-      pieces.push({ text: span.text, style, x, line: lineIndex });
-      x += measureText(span.text, style, fontSize);
+      return { text: span.text, style, width: measureText(span.text, style, fontSize) };
+    });
+    const lineWidth = spans.reduce((w, s) => w + s.width, 0);
+    let x = align === "center" ? (boxWidth - lineWidth) / 2 : 0;
+    for (const s of spans) {
+      pieces.push({ text: s.text, style: s.style, x, line: lineIndex });
+      x += s.width;
     }
   });
   return pieces;

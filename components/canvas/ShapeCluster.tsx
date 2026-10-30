@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { Group, Image as KImage } from "react-konva";
 import { color, shapePath } from "@/lib/brand-tokens";
-import { SHAPE_UNIT, type GeneratedLayout } from "@/lib/layout-engine";
+import { SHAPE_UNIT, type PieceLayout } from "@/lib/layout-engine";
 import { useSvgAssets } from "@/lib/use-svg-asset";
 
 /** Espessura do contorno dos shapes em modo "stroke", em px da peça. */
@@ -11,7 +11,7 @@ const OUTLINE_PX = 2;
 
 interface ShapeClusterProps {
   id: string;
-  layout: GeneratedLayout;
+  layout: PieceLayout;
   onReady?: () => void;
 }
 

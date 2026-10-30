@@ -1,4 +1,5 @@
 import type { Audience, ColorKey, EffectKey, FontWeightKey, IconFile } from "./brand-tokens";
+import type { Alignment, CtaStyle } from "./composition-tokens";
 
 /**
  * Peça fixa do MVP: Alerta institucional de Comunicação Interna 600x600
@@ -51,6 +52,8 @@ export interface TextLayer extends BaseLayer, TextStyle {
   y: number;
   /** Largura máxima; quebra automática por palavra. */
   width: number;
+  /** Alinhamento das linhas dentro da caixa (textAndLayoutRules.alignments). */
+  align?: Alignment;
 }
 
 export interface CtaLayer extends BaseLayer, TextStyle {
@@ -60,8 +63,21 @@ export interface CtaLayer extends BaseLayer, TextStyle {
   lineHeight: number;
   x: number;
   y: number;
-  /** Caixa sólida atrás do texto (composition-patterns.json → ctaRules). Ausente = texto solto. */
-  pill?: { color: ColorKey; paddingX: number; paddingY: number; shadow?: EffectKey };
+  /** "center" centraliza o CTA no canvas (x é ignorado). */
+  align?: Alignment;
+  /** Variante de composition-patterns.json → ctaRules.variants. */
+  variant: CtaStyle;
+  /**
+   * Caixa da pílula: `fill` sólido e/ou `stroke` (outline). Ausente = sem caixa ("text-only-arrow").
+   */
+  pill?: {
+    fill?: ColorKey;
+    stroke?: ColorKey;
+    strokeWidth?: number;
+    paddingX: number;
+    paddingY: number;
+    shadow?: EffectKey;
+  };
   /** Ícone recolorido com a cor do texto (ctaRules.iconSupport). */
   trailingIcon?: { file: IconFile; size: number; gap: number };
 }
@@ -84,9 +100,11 @@ export interface LogoLayer extends BaseLayer {
   /** Define a família do logo via logos.audienceRule (interno → Agi, externo → Agibank). */
   audience: Audience;
   midia: "digital" | "impresso";
-  /** Distância da borda esquerda e da borda inferior. */
+  /** Distância da borda esquerda (alinhado à esquerda) e da borda inferior. */
   margin: number;
   width: number;
+  /** "center" põe o logo no centro inferior. */
+  align?: Alignment;
 }
 
 export type Layer = BackgroundLayer | TextLayer | CtaLayer | ShapesLayer | LogoLayer;
@@ -138,8 +156,10 @@ export const ALERTA_LAYERS: Layer[] = [
     lineHeight: 1.2,
     x: MARGIN,
     y: 364,
-    // Variante "pill-solid-accent": verde com texto azulEscuro (contrastMap.verde).
-    pill: { color: "verde", paddingX: 28, paddingY: 18, shadow: "shadowSubtle" },
+    // Variante padrão "pill-solid-accent": verde com texto azulEscuro (contrastMap.verde).
+    // O motor de layout troca a variante a cada composição (lib/piece-style.ts).
+    variant: "pill-solid-accent",
+    pill: { fill: "verde", paddingX: 28, paddingY: 18, shadow: "shadowSubtle" },
     trailingIcon: { file: "chevron-right.svg", size: 18, gap: 10 },
   },
   {

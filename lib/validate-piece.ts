@@ -12,7 +12,7 @@ import { validateColorUsage, validateContrast, type ValidationResult } from "./c
 import { validateLogoClearSpace } from "./layout-validator";
 import { validateLogoAudience } from "./logo-validator";
 import { keepOutZones } from "./keep-out";
-import type { GeneratedLayout } from "./layout-engine";
+import type { PieceLayout } from "./layout-engine";
 import { hasHighlight } from "./rich-text";
 
 export interface ValidationItem {
@@ -26,7 +26,7 @@ export function validatePiece(
   layers: Layer[],
   channels: string[],
   layout: CanvasLayout | null,
-  shapes: GeneratedLayout | null,
+  shapes: PieceLayout | null,
 ): ValidationItem[] {
   const items: ValidationItem[] = [];
   const background = getBackground(layers);
@@ -54,12 +54,12 @@ export function validatePiece(
           });
         }
       } else if (layer.type === "cta") {
-        // Texto do CTA é lido sobre a pílula quando ela existe.
-        const surface = layer.pill?.color ?? background.color;
+        // Pílula sólida: o texto é lido sobre ela. Outline/texto com seta: sobre o fundo, como destaque.
+        const surface = layer.pill?.fill ?? background.color;
         items.push({
           id: `contrast-${layer.id}`,
-          label: `Contraste — ${layer.label}${layer.pill ? " (sobre a pílula)" : ""}`,
-          result: validateContrast(surface, layer.color, brandRules),
+          label: `Contraste — ${layer.label}${layer.pill?.fill ? " (sobre a pílula)" : ""}`,
+          result: validateContrast(surface, layer.color, brandRules, { destaque: !layer.pill?.fill }),
         });
       }
     }
@@ -77,7 +77,7 @@ export function validatePiece(
     items.push({
       id: "shape-arrangement",
       label: "Grafismo gerado",
-      result: validateShapeArrangement(shapes, keepOutZones(layers, layout)),
+      result: validateShapeArrangement(shapes, background?.color, keepOutZones(layers, layout)),
     });
     items.push({
       id: "line-breaks",

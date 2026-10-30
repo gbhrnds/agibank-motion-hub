@@ -33,6 +33,10 @@
       "bold":      { "file": "AgibankSans-Bold.woff2",      "value": 700 },
       "extraBold": { "file": "AgibankSans-ExtraBold.woff2", "value": 800 }
     },
+    "lineBreak": {
+      "rule": "nunca-terminar-linha-com-artigo-preposicao-ou-conjuncao-curta-mover-para-a-linha-seguinte",
+      "forbiddenTrailingWords": ["a", "à", "ao", "aos", "as", "às", "o", "os", "e", "é", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "uns", "umas", "por", "pra", "pro", "pros", "para", "com", "sem", "que", "se", "ou"]
+    },
     "usageMap": {
       "titulos": ["bold", "extraBold"],
       "subtitulos": ["medium"],
@@ -239,7 +243,8 @@
     },
     "colorUsage": {
       "amarelo": "nunca-fundo-dominante-apenas-detalhe"
-    }
+    },
+    "textHierarchy": "nunca-cor-unica-no-texto-combinar-ao-menos-2-cores"
   },
   "status_summary": {
     "ready": [
