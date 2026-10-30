@@ -42,7 +42,11 @@ export default function LogoSmart({ audience, layer, size, backgroundColor, onRe
   // Material Impresso → arquivos "-cmyk.svg" obrigatoriamente (logoSrcFor valida).
   const src = logoSrcFor(audience, backgroundColor, layer.midia);
   const referenceKey = CLEAR_SPACE_REFERENCE_COLOR[logoClearSpace.reference];
-  const asset = useSvgAsset(src, { referenceFill: referenceKey ? color(referenceKey) : undefined });
+  // Logo CMYK: cores levadas às da marca, que o PDF impresso converte pela tabela central de CMYK.
+  const asset = useSvgAsset(src, {
+    referenceFill: referenceKey ? color(referenceKey) : undefined,
+    snapToBrand: layer.midia === "impresso",
+  });
 
   const scale = asset ? layer.width / asset.width : 0;
   const clearSpace =

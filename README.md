@@ -6,7 +6,9 @@ de composição de peças aprovadas (`/config/composition-patterns.json`, com re
 **Brand Studio**: escolha Frente → Subtipo → Formatos na barra lateral, edite o conteúdo (título, texto
 de apoio, palavra em destaque, CTA e uma imagem opcional) e gere o desdobramento da peça em todos os
 formatos marcados de uma vez, cada um numa prancheta. Em Material Impresso há a opção "Gerar Frente e
-Verso" (duas pranchetas por formato) e o logo é sempre o arquivo CMYK.
+Verso" (duas pranchetas por formato), o logo é sempre o arquivo CMYK e o PDF sai em CMYK real.
+Em Marca Empregadora, o tema "Meetup / Evento" troca o desdobramento por um carrossel de LinkedIn com
+N slides (capa, convidados com foto mascarada, encerramento), exportado num PDF de N páginas.
 
 ## Rodando
 
@@ -35,6 +37,13 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `app/page.tsx` | Barra lateral em cascata (Frente → Subtipo → Formatos, botão "Gerar desdobramento") e área de preview com uma prancheta por formato |
 | `lib/format-config.ts` | `MENU_CONFIG` (frentes, subtipos, formatos com largura/altura) e o contexto de marca de cada frente (audiência e mídia do logo) |
 | `components/canvas/FormatArtboard.tsx` | Prancheta de um formato: compõe a peça, gera os shapes, valida (só no console) e exporta PNG/JPG/PDF |
+| `lib/theme-config.ts` | Temas de template (`temaEvento`: cores como chaves do assets-map, logo "agi", máscaras dos convidados) |
+| `lib/carousel.ts` | Slides do carrossel (capa / convidado / encerramento), máscara em round-robin, nome do evento estilizado |
+| `components/carousel/CarouselPanel.tsx` | Cards de slide editáveis (↑ ↓ ✕), "+ Adicionar Convidado", legenda do post com "Copiar Legenda" |
+| `components/carousel/EventSlideCanvas.tsx` | Slide 1080×1080 do tema Evento |
+| `components/carousel/CarouselPreview.tsx` | Slides em sequência horizontal; o PDF segue essa ordem |
+| `lib/color-cmyk.ts` | Fonte única de CMYK: tabela das cores da marca, fórmula RGB→CMYK e `convertCanvasToCMYKBuffer()` |
+| `components/canvas/PolygonImage.tsx` | Foto recortada por polígono (`clipFunc`), usada pela imagem do Patch 12 e pelos convidados |
 | `components/canvas/MaskedImage.tsx` | Imagem enviada recortada (`clipFunc`) por um polígono irregular grande, em metade da peça |
 | `lib/image-mask.ts` | Polígonos de máscara, posição da imagem (direita ou topo) e recorte "cover" |
 | `components/canvas/DesignCanvas.tsx` | Stage Konva com `width`/`height` do formato (preview reduzido); mede o layout real |
@@ -57,10 +66,27 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
 | `lib/composition-validator.ts` | Regras de `config/composition-patterns.json` e quebra sem viúvas |
-| `lib/export.ts` | Exporta PNG, JPG e PDF no tamanho real do formato, conforme `assets-map.json → exportRules` |
+| `lib/export.ts` | PNG, JPG e PDF no tamanho real do formato (`exportRules`); PDF de várias páginas (carrossel) e PDF CMYK via pdf-lib (impressos) |
 
 ## Validação de marca
 
 As validações (contraste, uso de cor, área de proteção do logo, quebra de linha, grafismo…) rodam em
 cada prancheta e aparecem só no console do navegador (`console.warn` "[Validação de marca]"). Elas não
 bloqueiam a geração nem a exportação.
+
+## CMYK dos impressos
+
+O PDF de Material Impresso embute a peça como imagem `/DeviceCMYK` (verifique com `pdfimages -list`
+ou no Output Preview do Acrobat). Pixels das cores da marca (fundo, shapes, textos, logo) usam a
+tabela de `lib/color-cmyk.ts`; o resto (fotos, bordas suavizadas) usa a fórmula padrão
+`K = 1 − max(R,G,B)`, `C = (1 − R − K)/(1 − K)`…
+
+O `assets-map.json` ainda não tem os valores CMYK oficiais do brandbook, então hoje a tabela também é
+calculada pela fórmula a partir do HEX. Para usar os valores oficiais, adicione ao mapa:
+
+```json
+"colorsCmyk": { "azulAgibank": [100, 59, 0, 4], "verde": [47, 0, 71, 13] }
+```
+
+(C, M, Y, K de 0 a 100; os números acima são os derivados hoje — troque pelos do brandbook.)
+Cada cor declarada ali passa a valer em todo o app.

@@ -12,6 +12,14 @@ interface ExportOptions {
   baseName: string;
   size: Size;
   hideNames?: string[];
+  cmyk?: boolean;
+}
+
+const PDF_HINT = "Esta página publicada não permite downloads. Para baixar o PDF, use o app local (npm run dev).";
+
+/** Carrossel: o PDF de várias páginas também só baixa no app local. */
+export async function exportPdfPages(stages: Konva.Stage[], { baseName, size }: Omit<ExportOptions, "format">) {
+  return exportStage(stages[0], { format: "pdf", baseName: `${baseName} (${stages.length} páginas)`, size });
 }
 
 export async function exportStage(stage: Konva.Stage, { format, baseName, size, hideNames = [] }: ExportOptions) {
@@ -28,7 +36,7 @@ export async function exportStage(stage: Konva.Stage, { format, baseName, size, 
 
   if (format === "pdf") {
     title.textContent = `${baseName}.pdf`;
-    hint.textContent = "Esta página publicada não permite downloads. Para baixar o PDF, use o app local (npm run dev).";
+    hint.textContent = PDF_HINT;
     card.append(title, hint);
   } else {
     const url = renderStage(stage, format, size, hideNames);

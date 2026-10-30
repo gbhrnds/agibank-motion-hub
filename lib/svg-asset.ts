@@ -1,4 +1,6 @@
 import type { Rect } from "./piece-spec";
+import { colors } from "./brand-tokens";
+import { BRAND_COLOR_TOLERANCE, hexToRgb, nearestBrandColor } from "./color-cmyk";
 import { applyColorToSvg, fetchSvg, svgToDataUrl, type ColorMode, type RecolorOptions } from "./svg-utils";
 
 /**
@@ -20,13 +22,19 @@ export interface SvgAsset {
 export interface SvgAssetOptions {
   recolor?: { color: string; mode: ColorMode } & RecolorOptions;
   referenceFill?: string;
+  /**
+   * Troca cada preenchimento pela cor da marca mais próxima (lib/color-cmyk.ts). Usado nos logos CMYK:
+   * o arquivo traz uma prévia RGB do CMYK (#b2d33e); a peça desenha a cor da marca e o PDF impresso
+   * a converte pela tabela central de CMYK.
+   */
+  snapToBrand?: boolean;
 }
 
 const RASTER_MAX = 1024;
 const cache = new Map<string, Promise<SvgAsset>>();
 
 export function loadSvgAsset(src: string, options: SvgAssetOptions = {}): Promise<SvgAsset> {
-  const key = JSON.stringify([src, options.recolor ?? null, options.referenceFill ?? null]);
+  const key = JSON.stringify([src, options.recolor ?? null, options.referenceFill ?? null, options.snapToBrand ?? false]);
   let pending = cache.get(key);
   if (!pending) {
     pending = build(src, options);
@@ -36,7 +44,7 @@ export function loadSvgAsset(src: string, options: SvgAssetOptions = {}): Promis
   return pending;
 }
 
-async function build(src: string, { recolor, referenceFill }: SvgAssetOptions): Promise<SvgAsset> {
+async function build(src: string, { recolor, referenceFill, snapToBrand }: SvgAssetOptions): Promise<SvgAsset> {
   // Recolore o próprio <svg> baixado (sem buscar de novo um data URL).
   const svg = await fetchSvg(src);
   if (recolor) applyColorToSvg(svg, recolor.color, recolor.mode, recolor);
@@ -54,6 +62,13 @@ async function build(src: string, { recolor, referenceFill }: SvgAssetOptions): 
     const b = live.getBBox();
     const pad = maxStrokeWidth(live) / 2;
     box = { x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2 };
+    if (snapToBrand) {
+      live.querySelectorAll<SVGGraphicsElement>(DRAWABLE).forEach((el) => {
+        const rgb = parseCssRgb(getComputedStyle(el).fill);
+        const key = rgb && nearestBrandColor(...rgb);
+        if (key) el.style.fill = colors[key];
+      });
+    }
     if (referenceFill) {
       const el = findByFill(live, referenceFill);
       if (el) {
@@ -65,23 +80,21 @@ async function build(src: string, { recolor, referenceFill }: SvgAssetOptions): 
     host.remove();
   }
 
+  // Com snapToBrand, as cores ajustadas estão no clone renderizado.
+  const out = snapToBrand ? live : svg;
   const scale = RASTER_MAX / Math.max(box.width, box.height);
-  svg.setAttribute("viewBox", `${box.x} ${box.y} ${box.width} ${box.height}`);
-  svg.setAttribute("width", String(box.width * scale));
-  svg.setAttribute("height", String(box.height * scale));
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  out.setAttribute("viewBox", `${box.x} ${box.y} ${box.width} ${box.height}`);
+  out.setAttribute("width", String(box.width * scale));
+  out.setAttribute("height", String(box.height * scale));
+  out.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-  const image = await loadImage(svgToDataUrl(svg));
+  const image = await loadImage(svgToDataUrl(out));
   return { image, width: box.width, height: box.height, reference };
 }
 
 const DRAWABLE = "path, circle, ellipse, rect, polygon, polyline";
-/**
- * Distância RGB máxima para considerar "a mesma cor": o logo agibank RGB usa #76df40 (token verde
- * #77DF40) e os logos CMYK (impresso) trazem o verde convertido, #b2d33e (distância ~60).
- * Branco e azul ficam a mais de 150.
- */
-const FILL_TOLERANCE = 72;
+/** Mesma tolerância de cor da marca usada no export CMYK (lib/color-cmyk.ts). */
+const FILL_TOLERANCE = BRAND_COLOR_TOLERANCE;
 
 /** getBBox ignora contorno; somamos metade do maior stroke para não cortá-lo. */
 function maxStrokeWidth(svg: SVGSVGElement): number {
@@ -103,13 +116,6 @@ function findByFill(svg: SVGSVGElement, hex: string): SVGGraphicsElement | null 
     if (d <= FILL_TOLERANCE && (!best || d < best.d)) best = { el, d };
   });
   return best ? (best as { el: SVGGraphicsElement }).el : null;
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  const full = h.length === 3 ? [...h].map((c) => c + c).join("") : h;
-  const n = parseInt(full, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 function parseCssRgb(value: string): [number, number, number] | null {

@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type Konva from "konva";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import CarouselPanel from "@/components/carousel/CarouselPanel";
 import { localMirror, logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
 import {
   DEFAULT_TEXTS,
@@ -11,10 +13,14 @@ import {
   type FrenteId,
   type PieceTexts,
 } from "@/lib/format-config";
+import { CAROUSEL_SIZE, nomeDoEvento, novaCapa, type Slide } from "@/lib/carousel";
+import { exportPdfPages } from "@/lib/export";
 import { allShapeFiles, pickPieceRun, type PieceRun } from "@/lib/layout-engine";
+import { TEMAS, type ThemeId } from "@/lib/theme-config";
 import { loadSilhouette, type Silhouette } from "@/lib/shape-silhouette";
 
 const FormatArtboard = dynamic(() => import("@/components/canvas/FormatArtboard"), { ssr: false });
+const CarouselPreview = dynamic(() => import("@/components/carousel/CarouselPreview"), { ssr: false });
 
 /** Fundo da peça base (lib/piece-spec.ts → buildLayers). */
 const BACKGROUND = "azulAgibank" as const;
@@ -24,7 +30,9 @@ const UI_LOGO = logoPath(pickLogoKey("interno", "fundoBranco", "digital"));
 function StepTitle({ step, children }: { step: number; children: React.ReactNode }) {
   return (
     <legend className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-agi-blue text-[10px] text-white">{step}</span>
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-agi-blue text-[10px] text-white">
+        {step}
+      </span>
       {children}
     </legend>
   );
@@ -50,6 +58,11 @@ export default function Page() {
   const [texts, setTexts] = useState<PieceTexts>(DEFAULT_TEXTS);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isFrenteVerso, setIsFrenteVerso] = useState(false);
+  const [tema, setTema] = useState<ThemeId>("institucional");
+  const [slides, setSlides] = useState<Slide[]>(() => [novaCapa()]);
+  const [legenda, setLegenda] = useState("");
+  const [exportingCarousel, setExportingCarousel] = useState(false);
+  const slideStages = useRef(new Map<string, Konva.Stage>());
 
   // Silhuetas de todos os shapes do assets-map.json (usadas pelo motor para evitar textos e logo).
   useEffect(() => {
@@ -69,17 +82,21 @@ export default function Page() {
   const chooseFrente = useCallback((id: FrenteId) => {
     setSelectedFrente(id);
     setSelectedSubtipo(null);
+    setTema("institucional");
     setSelectedFormats([]);
   }, []);
 
-  const toggleFormat = useCallback((format: FormatSpec) => {
-    setSelectedFormats((prev) => {
-      const next = prev.some((f) => f.id === format.id) ? prev.filter((f) => f.id !== format.id) : [...prev, format];
-      // Mantém a ordem do menu.
-      const order = selectedFrente ? MENU_CONFIG.formatos[selectedFrente].map((f) => f.id) : [];
-      return next.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-    });
-  }, [selectedFrente]);
+  const toggleFormat = useCallback(
+    (format: FormatSpec) => {
+      setSelectedFormats((prev) => {
+        const next = prev.some((f) => f.id === format.id) ? prev.filter((f) => f.id !== format.id) : [...prev, format];
+        // Mantém a ordem do menu.
+        const order = selectedFrente ? MENU_CONFIG.formatos[selectedFrente].map((f) => f.id) : [];
+        return next.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      });
+    },
+    [selectedFrente],
+  );
 
   const generate = useCallback(() => setRun(pickPieceRun(BACKGROUND)), []);
 
@@ -101,6 +118,38 @@ export default function Page() {
   }, []);
 
   const showVerso = selectedFrente === "impresso" && isFrenteVerso;
+  // Tema "Evento" em Marca Empregadora: carrossel de LinkedIn com N slides no lugar do desdobramento.
+  const carouselMode = selectedFrente === "me" && !!selectedSubtipo && tema === "evento";
+  const carouselFormat = MENU_CONFIG.formatos.me.find((f) => f.id === "linkedin_carrossel")!;
+  const stepFormatos = selectedFrente === "me" ? 4 : 3;
+
+  const registerStage = useCallback((id: string, stage: Konva.Stage | null) => {
+    if (stage) slideStages.current.set(id, stage);
+    else slideStages.current.delete(id);
+  }, []);
+
+  // Uma página por slide, na ordem exibida na tela.
+  const exportCarousel = useCallback(async () => {
+    const stages = slides.map((s) => slideStages.current.get(s.id)).filter((s): s is Konva.Stage => !!s);
+    if (stages.length === 0) return;
+    setExportingCarousel(true);
+    try {
+      const slug = nomeDoEvento(slides)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      await exportPdfPages(stages, {
+        baseName: `agibank-me-carrossel${slug ? `-${slug}` : ""}`,
+        size: CAROUSEL_SIZE,
+      });
+    } catch (err) {
+      setError(`Falha ao exportar o carrossel: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setExportingCarousel(false);
+    }
+  }, [slides]);
 
   return (
     <div className="flex w-full flex-col bg-agi-gray-bg font-sans lg:h-screen lg:flex-row lg:overflow-hidden">
@@ -185,9 +234,52 @@ export default function Page() {
             </fieldset>
           )}
 
-          {selectedFrente && selectedSubtipo && (
+          {selectedFrente === "me" && selectedSubtipo && (
             <fieldset>
-              <StepTitle step={3}>Formatos</StepTitle>
+              <StepTitle step={3}>Tema</StepTitle>
+              <div className="flex flex-wrap gap-2">
+                {TEMAS.map((t) => (
+                  <label key={t.id} className={optionClass(tema === t.id)}>
+                    <input
+                      type="radio"
+                      name="tema"
+                      value={t.id}
+                      checked={tema === t.id}
+                      onChange={() => setTema(t.id)}
+                      className="h-4 w-4 accent-agi-blue"
+                    />
+                    {t.nome}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {carouselMode && (
+            <fieldset>
+              <StepTitle step={stepFormatos}>Formato</StepTitle>
+              <div className={optionClass(true)}>
+                <span className="flex-1">{carouselFormat.label}</span>
+                <span className="text-xs tabular-nums text-slate-500">
+                  {carouselFormat.width}×{carouselFormat.height}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                O tema Evento gera o carrossel: capa, convidados e encerramento.
+              </p>
+            </fieldset>
+          )}
+
+          {carouselMode && (
+            <fieldset>
+              <StepTitle step={stepFormatos + 1}>Slides</StepTitle>
+              <CarouselPanel slides={slides} setSlides={setSlides} legenda={legenda} setLegenda={setLegenda} />
+            </fieldset>
+          )}
+
+          {!carouselMode && selectedFrente && selectedSubtipo && (
+            <fieldset>
+              <StepTitle step={stepFormatos}>Formatos</StepTitle>
               <div className="flex flex-col gap-2">
                 {MENU_CONFIG.formatos[selectedFrente].map((f) => {
                   const checked = selectedFormats.some((s) => s.id === f.id);
@@ -211,9 +303,9 @@ export default function Page() {
             </fieldset>
           )}
 
-          {selectedFrente && selectedSubtipo && (
+          {!carouselMode && selectedFrente && selectedSubtipo && (
             <fieldset className="flex flex-col gap-3">
-              <StepTitle step={4}>Conteúdo</StepTitle>
+              <StepTitle step={stepFormatos + 1}>Conteúdo</StepTitle>
               {(
                 [
                   ["headline", "Título (headline)", false],
@@ -225,12 +317,7 @@ export default function Page() {
                 <label key={key} className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
                   {label}
                   {multiline ? (
-                    <textarea
-                      value={texts[key]}
-                      onChange={setText(key)}
-                      rows={3}
-                      className={fieldClass}
-                    />
+                    <textarea value={texts[key]} onChange={setText(key)} rows={3} className={fieldClass} />
                   ) : (
                     <input type="text" value={texts[key]} onChange={setText(key)} className={fieldClass} />
                   )}
@@ -263,7 +350,6 @@ export default function Page() {
                   </div>
                 )}
               </div>
-
             </fieldset>
           )}
 
@@ -271,23 +357,41 @@ export default function Page() {
         </div>
 
         <footer className="border-t border-agi-gray-border px-6 py-4">
-          <button
-            type="button"
-            onClick={generate}
-            disabled={selectedFormats.length === 0}
-            className="w-full rounded-full bg-agi-green px-6 py-3 text-lg font-bold text-agi-blue-dark shadow-md transition-colors hover:bg-agi-green-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Gerar desdobramento
-          </button>
+          {carouselMode ? (
+            <button
+              type="button"
+              onClick={exportCarousel}
+              disabled={slides.length === 0 || exportingCarousel}
+              className="w-full rounded-full bg-agi-green px-6 py-3 text-lg font-bold text-agi-blue-dark shadow-md transition-colors hover:bg-agi-green-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exportingCarousel
+                ? "Exportando…"
+                : `Exportar PDF (${slides.length} ${slides.length === 1 ? "página" : "páginas"})`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={generate}
+              disabled={selectedFormats.length === 0}
+              className="w-full rounded-full bg-agi-green px-6 py-3 text-lg font-bold text-agi-blue-dark shadow-md transition-colors hover:bg-agi-green-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Gerar desdobramento
+            </button>
+          )}
         </footer>
       </aside>
 
       <main className="flex-1 overflow-auto bg-agi-gray-bg p-4 sm:p-6 lg:p-10" data-testid="preview">
-        {ctx && selectedFormats.length > 0 ? (
+        {carouselMode ? (
+          <CarouselPreview slides={slides} registerStage={registerStage} />
+        ) : ctx && selectedFormats.length > 0 ? (
           <div className="flex flex-wrap items-start justify-center gap-10">
             {selectedFormats.map((format) =>
               showVerso ? (
-                <div key={`${format.id}:${ctx.audience}:fv`} className="flex flex-wrap items-start justify-center gap-6">
+                <div
+                  key={`${format.id}:${ctx.audience}:fv`}
+                  className="flex flex-wrap items-start justify-center gap-6"
+                >
                   {(["frente", "verso"] as const).map((side) => (
                     <FormatArtboard
                       key={side}
@@ -321,7 +425,7 @@ export default function Page() {
             </p>
           </div>
         )}
-        {run && selectedFormats.length > 0 && (
+        {!carouselMode && run && selectedFormats.length > 0 && (
           <p className="mt-8 text-center text-xs tabular-nums text-slate-400">seed {run.seed}</p>
         )}
       </main>

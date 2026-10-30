@@ -175,14 +175,20 @@ export default function FormatArtboard({ format, ctx, texts, image, side = "fren
       setExporting(kind);
       try {
         const suffix = ctx.frente === "impresso" && side === "verso" ? "-verso" : "";
-        await exportStage(stageRef.current, { format: kind, baseName: `agibank-${ctx.frente}-${format.id}${suffix}`, size });
+        // Material Impresso: PDF em CMYK real (lib/color-cmyk.ts).
+        await exportStage(stageRef.current, {
+          format: kind,
+          baseName: `agibank-${ctx.frente}-${format.id}${suffix}`,
+          size,
+          cmyk: ctx.midia === "impresso",
+        });
       } catch (err) {
         setError(`Falha ao exportar ${kind.toUpperCase()}: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         setExporting(null);
       }
     },
-    [ctx.frente, format.id, size, side],
+    [ctx.frente, ctx.midia, format.id, size, side],
   );
 
   const previewScale = Math.min(1, PREVIEW_MAX.width / format.width, PREVIEW_MAX.height / format.height);
@@ -206,6 +212,7 @@ export default function FormatArtboard({ format, ctx, texts, image, side = "fren
           <p className="text-xs tabular-nums text-slate-500">
             {format.width}×{format.height}px
             {previewScale < 1 && ` · prévia ${Math.round(previewScale * 100)}%`}
+            {ctx.midia === "impresso" && " · PDF em CMYK"}
           </p>
         </div>
         <div className="flex gap-1">
