@@ -13,7 +13,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Testes (quebra de linha e viúvas): `npm test`.
+Testes (quebra de linha, viúvas e motor de layout): `npm test`.
 
 `npm run dev` / `npm run build` executam antes `scripts/sync-assets.mjs`, que:
 
@@ -27,14 +27,15 @@ Ambos os arquivos gerados estão no `.gitignore`.
 
 | Caminho | Papel |
 | --- | --- |
-| `app/page.tsx` | Página única: canvas + painel de validação + export |
+| `app/page.tsx` | Página única: botão "Gerar Nova Composição", canvas, painel de validação e export |
 | `components/canvas/AlertaCanvas.tsx` | Stage Konva 600×600; mede o layout real para a validação |
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
 | `components/canvas/CtaPill.tsx` | CTA em pílula sólida com sombra (`ctaRules` "pill-solid-accent") |
-| `components/canvas/ShapeCluster.tsx` | Mosaico de shapes recoloridos num `Konva.Group`, a partir de um preset com posições fixas |
-| `lib/shape-presets.ts` | Presets do mosaico (`mosaic-preset-01`): arquivo, cor, escala, x, y e rotação de cada peça |
-| `lib/cluster-geometry.ts` | Mede o mosaico pela silhueta real: sobreposição e vão entre peças |
+| `components/canvas/ShapeCluster.tsx` | Desenha os grafismos do layout gerado (shapes recoloridos, escala e rotação) |
+| `lib/layout-engine.ts` | `generateRandomLayout()`: sorteia arquétipo, shapes e cores (`dynamicShapeArrangements`) e posiciona sem tocar textos, CTA e logo |
+| `lib/shape-silhouette.ts` | Silhueta real de cada SVG para testar colisão, sobreposição e vão entre shapes |
+| `lib/keep-out.ts` | Áreas que os grafismos não podem tocar (textos, CTA, área de proteção do logo) |
 | `lib/text-wrap.ts` | `preventWidows()` / `wrapWords()` / `breakIntoLines()`: quebra com `\n` explícito e sem viúvas (`typographyLineBreakRules`) |
 | `components/canvas/IconInline.tsx` | Ícones SVG recoloridos com tokens |
 | `lib/svg-utils.ts` | `recolorSvg()`: recolore um SVG (fill ou contorno) e devolve data URL base64 |
@@ -45,7 +46,7 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/contrast-validator.ts` | `validateContrast()` e `validateColorUsage()` |
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
-| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: texto bicolor, CTA em pílula verde/amarela, mosaico de shapes, quebra sem viúvas |
+| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: texto bicolor, CTA em pílula verde/amarela, grafismo gerado, quebra sem viúvas |
 | `lib/export-png.ts` | Exporta o Stage como PNG 600×600 |
 
 ## Testando o bloqueio
@@ -58,5 +59,4 @@ Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostr
 - remover a `pill` do CTA, ou trocá-la para uma cor que não seja verde ou amarelo;
 - texto branco sobre a pílula verde;
 - texto todo numa cor só;
-- no preset do mosaico (`lib/shape-presets.ts`), peças sobrepostas, de uma cor só, duas do tamanho máximo, ou cobrindo um texto;
 - um shape em cima do logo.

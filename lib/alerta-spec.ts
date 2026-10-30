@@ -72,18 +72,11 @@ export interface Point {
 }
 
 /**
- * Padrão "mosaico-de-cacos" (shapeClusterPattern): grupo de shapes encaixados como quebra-cabeça,
- * a partir de um preset com posições fixas (components/canvas/ShapeCluster.tsx → SHAPE_PRESETS).
+ * Lugar dos grafismos na pilha de camadas. Os shapes em si vêm do motor de geração
+ * (lib/layout-engine.ts → generateRandomLayout) e mudam a cada "Gerar Nova Composição".
  */
-export interface ShapeClusterLayer extends BaseLayer {
-  type: "cluster";
-  /** Id em shapeClusterPattern.hardcodedPresets. */
-  preset: string;
-  /** Origem do grupo (centro da peça protagonista), em px da peça. */
-  x: number;
-  y: number;
-  rotation?: number;
-  scale?: number;
+export interface ShapesLayer extends BaseLayer {
+  type: "shapes";
 }
 
 export interface LogoLayer extends BaseLayer {
@@ -96,21 +89,14 @@ export interface LogoLayer extends BaseLayer {
   width: number;
 }
 
-export type Layer = BackgroundLayer | TextLayer | CtaLayer | ShapeClusterLayer | LogoLayer;
+export type Layer = BackgroundLayer | TextLayer | CtaLayer | ShapesLayer | LogoLayer;
 
 const MARGIN = 32;
 const TEXT_WIDTH = CANVAS_SIZE * 0.85;
 
 export const ALERTA_LAYERS: Layer[] = [
   { id: "fundo", label: "Fundo", type: "background", color: "azulAgibank" },
-  {
-    id: "cluster",
-    label: "Mosaico de shapes (sup. direito)",
-    type: "cluster",
-    preset: "mosaic-preset-01",
-    x: 500,
-    y: 50,
-  },
+  { id: "grafismo", label: "Grafismo gerado", type: "shapes" },
   {
     id: "headline",
     label: "Headline",

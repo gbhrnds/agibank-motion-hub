@@ -2,86 +2,64 @@
 
 import { useEffect, useMemo } from "react";
 import { Group, Image as KImage } from "react-konva";
-import { CANVAS_SIZE, type ShapeClusterLayer } from "@/lib/alerta-spec";
 import { color, shapePath } from "@/lib/brand-tokens";
-import { analyzeCluster, buildMask, type ClusterReport } from "@/lib/cluster-geometry";
-import { pieceSize, presetPieces } from "@/lib/shape-presets";
+import { SHAPE_UNIT, type GeneratedLayout } from "@/lib/layout-engine";
 import { useSvgAssets } from "@/lib/use-svg-asset";
 
 /** Espessura do contorno dos shapes em modo "stroke", em px da peça. */
 const OUTLINE_PX = 2;
 
 interface ShapeClusterProps {
-  layer: ShapeClusterLayer;
-  onReady?: (report: ClusterReport) => void;
+  id: string;
+  layout: GeneratedLayout;
+  onReady?: () => void;
 }
 
 /**
- * Padrão "mosaico-de-cacos": um Konva.Group posicionado no canto da peça com as peças do preset
- * nas posições fixas, cada uma recolorida via recolorSvg() e girada em torno do próprio centro.
+ * Desenha os grafismos de um layout gerado (lib/layout-engine.ts): cada shape recolorido via
+ * recolorSvg() e posicionado pelo centro, com escala uniforme e rotação.
  */
-export default function ShapeCluster({ layer, onReady }: ShapeClusterProps) {
-  const pieces = presetPieces(layer.preset);
-  const groupScale = layer.scale ?? 1;
-  const groupRotation = layer.rotation ?? 0;
-
+export default function ShapeCluster({ id, layout, onReady }: ShapeClusterProps) {
   const requests = useMemo(
     () =>
-      pieces.map((p) => ({
-        src: shapePath(p.file),
-        options: { recolor: { color: color(p.color), mode: p.mode, strokeWidth: OUTLINE_PX, targetSize: pieceSize(p) } },
+      layout.shapes.map((s) => ({
+        src: shapePath(s.file),
+        options: {
+          recolor: { color: color(s.color), mode: s.mode, strokeWidth: OUTLINE_PX, targetSize: s.scale * SHAPE_UNIT },
+        },
       })),
-    [pieces],
+    [layout],
   );
   const assets = useSvgAssets(requests);
 
-  const items = useMemo(() => {
-    if (!assets) return null;
-    return pieces.map((p, i) => {
-      const a = assets[i];
-      const s = pieceSize(p) / Math.max(a.width, a.height);
-      return { image: a.image, width: a.width * s, height: a.height * s };
-    });
-  }, [assets, pieces]);
-
-  // Só medição (para o painel): silhuetas nas posições finais, já com a transformação do grupo.
   useEffect(() => {
-    if (!items) return;
-    const rad = (groupRotation * Math.PI) / 180;
-    const masks = items.map((it, i) =>
-      buildMask({
-        image: it.image,
-        width: it.width * groupScale,
-        height: it.height * groupScale,
-        rotation: pieces[i].rotation + groupRotation,
-        mirror: false,
-      }),
-    );
-    const positions = pieces.map((p) => ({
-      x: layer.x + (p.x * Math.cos(rad) - p.y * Math.sin(rad)) * groupScale,
-      y: layer.y + (p.x * Math.sin(rad) + p.y * Math.cos(rad)) * groupScale,
-    }));
-    onReady?.(analyzeCluster(masks, positions, pieces.map((p) => pieceSize(p) * groupScale), CANVAS_SIZE));
-  }, [items, pieces, layer.x, layer.y, groupRotation, groupScale, onReady]);
+    if (assets) onReady?.();
+  }, [assets, onReady]);
 
-  if (!items) return null;
+  if (!assets) return null;
   return (
-    <Group name="brand-layer" id={layer.id} x={layer.x} y={layer.y} rotation={groupRotation} scaleX={groupScale} scaleY={groupScale}>
-      {items.map((item, i) => (
-        <KImage
-          key={`${pieces[i].file}-${i}`}
-          name="cluster-item"
-          id={`${layer.id}:${i}`}
-          image={item.image}
-          x={pieces[i].x}
-          y={pieces[i].y}
-          width={item.width}
-          height={item.height}
-          offsetX={item.width / 2}
-          offsetY={item.height / 2}
-          rotation={pieces[i].rotation}
-        />
-      ))}
+    <Group name="brand-layer" id={id}>
+      {layout.shapes.map((s, i) => {
+        const a = assets[i];
+        const k = (s.scale * SHAPE_UNIT) / Math.max(a.width, a.height);
+        const width = a.width * k;
+        const height = a.height * k;
+        return (
+          <KImage
+            key={`${s.file}-${i}`}
+            name="shape-item"
+            id={`${id}:${i}`}
+            image={a.image}
+            x={s.x}
+            y={s.y}
+            width={width}
+            height={height}
+            offsetX={width / 2}
+            offsetY={height / 2}
+            rotation={s.rotation}
+          />
+        );
+      })}
     </Group>
   );
 }

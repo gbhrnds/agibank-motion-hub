@@ -2,14 +2,17 @@ import { getBackground, getLogo, type Layer } from "./alerta-spec";
 import { brandRules } from "./brand-tokens";
 import type { CanvasLayout } from "./canvas-layout";
 import {
+  shapesHittingZone,
   validateCtaStyle,
   validateLineBreaks,
-  validateShapeClusters,
+  validateShapeArrangement,
   validateTextHierarchy,
 } from "./composition-validator";
 import { validateColorUsage, validateContrast, type ValidationResult } from "./contrast-validator";
 import { validateLogoClearSpace } from "./layout-validator";
 import { validateLogoAudience } from "./logo-validator";
+import { keepOutZones } from "./keep-out";
+import type { GeneratedLayout } from "./layout-engine";
 import { hasHighlight } from "./rich-text";
 
 export interface ValidationItem {
@@ -19,7 +22,12 @@ export interface ValidationItem {
 }
 
 /** Roda todas as validações de marca da peça. `layout` é null enquanto o canvas não terminou de medir. */
-export function validatePiece(layers: Layer[], channels: string[], layout: CanvasLayout | null): ValidationItem[] {
+export function validatePiece(
+  layers: Layer[],
+  channels: string[],
+  layout: CanvasLayout | null,
+  shapes: GeneratedLayout | null,
+): ValidationItem[] {
   const items: ValidationItem[] = [];
   const background = getBackground(layers);
 
@@ -67,9 +75,9 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
 
   if (layout) {
     items.push({
-      id: "shape-cluster",
-      label: "Mosaico de shapes",
-      result: validateShapeClusters(layers, layout.bounds, layout.clusters),
+      id: "shape-arrangement",
+      label: "Grafismo gerado",
+      result: validateShapeArrangement(shapes, keepOutZones(layers, layout)),
     });
     items.push({
       id: "line-breaks",
@@ -79,7 +87,12 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
     items.push({
       id: "logo-clear-space",
       label: "Área de proteção do logo",
-      result: validateLogoClearSpace(layers, layout.bounds, layout.logoClearZone),
+      result: validateLogoClearSpace(
+        layers,
+        layout.bounds,
+        layout.logoClearZone,
+        shapesHittingZone(shapes, layout.logoClearZone),
+      ),
     });
   }
 

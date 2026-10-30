@@ -13,6 +13,8 @@ export function validateLogoClearSpace(
   layers: Layer[],
   bounds: Record<string, Rect>,
   clearZone: Rect | null,
+  /** Grafismos que invadem a área, medidos pela silhueta (a bbox de um shape gigante não serve). */
+  shapesInside: string[] = [],
 ): ValidationResult {
   if (!clearZone) {
     return {
@@ -21,14 +23,18 @@ export function validateLogoClearSpace(
       message: "Não foi possível medir a área de proteção do logo (referência não encontrada no SVG).",
     };
   }
-  const invasores = layers.filter(
-    (l) => l.type !== "background" && l.type !== "logo" && bounds[l.id] && intersects(bounds[l.id], clearZone),
-  );
+  const invasores = layers
+    .filter(
+      (l) =>
+        l.type !== "background" && l.type !== "logo" && l.type !== "shapes" && bounds[l.id] && intersects(bounds[l.id], clearZone),
+    )
+    .map((l) => l.label)
+    .concat(shapesInside);
   if (invasores.length > 0) {
     return {
       valid: false,
       severity: "blocking",
-      message: `Invadem a área de proteção do logo: ${invasores.map((l) => l.label).join(", ")}.`,
+      message: `Invadem a área de proteção do logo: ${invasores.join(", ")}.`,
     };
   }
   return {

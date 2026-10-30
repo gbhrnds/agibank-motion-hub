@@ -1,21 +1,18 @@
-import type { Layer, Rect, ShapeClusterLayer } from "./alerta-spec";
-import type { ClusterReport } from "./cluster-geometry";
-import { clusterPresetIds, clusterSizeRange, composition, ctaVariantNames } from "./composition-tokens";
+import type { Layer } from "./alerta-spec";
+import { amareloMaxScale, archetype, colorCombos, composition, ctaVariantNames, type Range } from "./composition-tokens";
 import type { ValidationResult } from "./contrast-validator";
+import { SHAPE_UNIT, type GeneratedLayout, type KeepOutZone } from "./layout-engine";
 import { breakText, forbiddenTrailingWords, hasHighlight } from "./rich-text";
-import { pieceSize, presetPieces } from "./shape-presets";
+import { gapBetween, getSilhouette, hitsRect, type PlacedShape } from "./shape-silhouette";
 import { normalizeWord } from "./text-wrap";
 
-/** Regras de config/composition-patterns.json. Regras "never*" e o mosaico sem sobreposição bloqueiam. */
+/** Regras de config/composition-patterns.json. */
 
 const block = (message: string): ValidationResult => ({ valid: false, severity: "blocking", message });
 const warn = (message: string): ValidationResult => ({ valid: true, severity: "warning", message });
 const ok = (message: string): ValidationResult => ({ valid: true, severity: "ok", message });
 
-const intersects = (a: Rect, b: Rect) =>
-  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-
-/** textHierarchyRules.neverSingleColor: o bloco de texto combina pelo menos 2 cores. */
+/** textHierarchyRules: "Nunca usar cor única no texto." */
 export function validateTextHierarchy(layers: Layer[]): ValidationResult {
   const colors = new Set<string>();
   for (const l of layers) {
@@ -23,8 +20,8 @@ export function validateTextHierarchy(layers: Layer[]): ValidationResult {
     colors.add(l.color);
     if (l.highlight && hasHighlight(l.text)) colors.add(l.highlight.color);
   }
-  if (composition.textHierarchyRules.neverSingleColor && colors.size < 2) {
-    return block(`Texto monocromático (${[...colors].join(", ")}). Use ao menos 2 cores: título bicolor ou palavra-chave destacada.`);
+  if (colors.size < 2) {
+    return block(`Texto monocromático (${[...colors].join(", ")}). ${composition.textHierarchyRules.rule}`);
   }
   return ok(`Texto em ${colors.size} cores: ${[...colors].join(" + ")}.`);
 }
@@ -32,82 +29,91 @@ export function validateTextHierarchy(layers: Layer[]): ValidationResult {
 /** ctaRules.variants "pill-solid-accent": "Pílula verde ou amarela, texto azul escuro". */
 const ACCENT_PILL_COLORS = ["verde", "amarelo"];
 
-/** ctaRules: nunca texto solto; pílula só na variante existente (verde/amarela). */
+/** ctaRules: contraste real — pílula verde/amarela; sem caixa só como "cta-bold-inline" (peças com foto). */
 export function validateCtaStyle(layers: Layer[]): ValidationResult {
-  const ctas = layers.filter((l) => l.type === "cta");
-  if (ctas.length === 0) return warn("A peça não tem CTA.");
-  for (const cta of ctas) {
-    if (cta.type !== "cta") continue;
-    if (!cta.pill) {
-      if (composition.ctaRules.neverPlainText) return block(`${cta.label} como texto solto. Use pílula ou caixa sólida.`);
-      continue;
-    }
-    if (!ACCENT_PILL_COLORS.includes(cta.pill.color) || !ctaVariantNames.includes("pill-solid-accent")) {
-      return block(
-        `Pílula ${cta.pill.color} não corresponde a nenhuma variante de ctaRules (${ctaVariantNames.join(", ")}). Use pílula verde ou amarela.`,
-      );
-    }
-    return ok(`Pílula "pill-solid-accent" em ${cta.pill.color}${cta.pill.shadow ? " com sombra sutil" : ""}.`);
+  const cta = layers.find((l) => l.type === "cta");
+  if (!cta || cta.type !== "cta") return warn("A peça não tem CTA.");
+  if (!cta.pill) {
+    return warn(`${cta.label} sem caixa: a variante "cta-bold-inline" é indicada para peças com foto.`);
   }
-  return ok("CTA com destaque visual.");
+  if (!ACCENT_PILL_COLORS.includes(cta.pill.color) || !ctaVariantNames.includes("pill-solid-accent")) {
+    return block(`Pílula ${cta.pill.color} sem contraste real; ctaRules pede pílula verde ou amarela.`);
+  }
+  return ok(`Pílula "pill-solid-accent" em ${cta.pill.color}${cta.pill.shadow ? " com sombra sutil" : ""}.`);
 }
 
+const inRange = (v: number, [a, b]: Range) => v >= a - 1e-6 && v <= b + 1e-6;
+
+/** Nome da cor do shape no vocabulário de colorMix.allowedCombos. */
+const comboName = (color: string, mode: string) =>
+  mode === "stroke" ? `${color}-outline` : color === "amarelo" ? "amarelo-pequeno" : color;
+
 /**
- * shapeClusterPattern ("mosaico-de-cacos"), sobre a geometria medida do preset:
- * preset existente, 3 a 5 peças, ≥2 cores, amarelo só em peça pequena, 1 protagonista maior que
- * as demais, nenhuma área sobreposta, nenhuma peça cobrindo textos/CTA.
+ * dynamicShapeArrangements, sobre a silhueta real de cada shape: arquétipo válido, contagens e
+ * escalas do arquétipo, cores de uma combinação permitida (amarelo só com scale < 0.4), shapes sem
+ * sobreposição entre si e sem tocar textos/CTA/área do logo.
  */
-export function validateShapeClusters(
-  layers: Layer[],
-  bounds: Record<string, Rect>,
-  reports: Record<string, ClusterReport>,
-): ValidationResult {
-  const clusters = layers.filter((l): l is ShapeClusterLayer => l.type === "cluster");
-  if (clusters.length === 0) return warn("A peça não tem mosaico de shapes (shapeClusterPattern).");
-  const { min, max } = clusterSizeRange();
-  const texts = layers.filter((l) => l.type === "text" || l.type === "cta");
-  const resumo: string[] = [];
+export function validateShapeArrangement(layout: GeneratedLayout | null, keepOut: KeepOutZone[]): ValidationResult {
+  if (!layout) return block("Nenhum grafismo gerado ainda.");
+  const spec = archetype(layout.archetype);
+  if (spec.isMask) return block(`O arquétipo "${spec.name}" precisa de foto, que ainda não é suportada.`);
+  const shapes = layout.shapes;
 
-  for (const c of clusters) {
-    if (!clusterPresetIds.includes(c.preset)) {
-      return block(`${c.label}: preset "${c.preset}" não está em shapeClusterPattern.hardcodedPresets.`);
-    }
-    const pieces = presetPieces(c.preset);
-    const n = pieces.length;
-    if (n < min || n > max) return block(`${c.label}: ${n} peças — o mosaico usa de ${min} a ${max}.`);
-
-    const sizes = pieces.map(pieceSize);
-    const largest = Math.max(...sizes);
-    const colors = new Set(pieces.map((p) => p.color));
-    if (colors.size < 2) return block(`${c.label}: mosaico de uma cor só; combine ao menos 2 (colorMix).`);
-    const amareloGrande = pieces.find((p) => p.color === "amarelo" && pieceSize(p) >= largest);
-    if (amareloGrande) return block(`${c.label}: amarelo só pode aparecer em peças pequenas (colorMix).`);
-    if (sizes.filter((s) => s === largest).length > 1) {
-      return block(`${c.label}: mais de uma peça do tamanho máximo; o mosaico precisa de 1 protagonista (scaleHierarchy).`);
-    }
-
-    const report = reports[c.id];
-    if (!report) return block(`${c.label}: geometria do mosaico não foi medida.`);
-    if (report.overlaps.length > 0) {
-      const o = report.overlaps[0];
-      return block(`${c.label}: ${pieces[o.a].file} e ${pieces[o.b].file} se sobrepõem (${o.pixels}px de área).`);
-    }
-
-    for (let i = 0; i < n; i++) {
-      const item = bounds[`${c.id}:${i}`];
-      const hit = item && texts.find((t) => bounds[t.id] && intersects(item, bounds[t.id]));
-      if (hit) return block(`${c.label}: ${pieces[i].file} cobre "${hit.label}".`);
-    }
-
-    // Vão de cada peça até a vizinha mais próxima.
-    const vaos = pieces.map((_, i) =>
-      Math.min(...report.gaps.filter((g) => g.a === i || g.b === i).map((g) => g.distance)),
-    );
-    resumo.push(
-      `preset ${c.preset}, ${n} peças (${[...colors].join(" + ")}); sem sobreposição; vão até a peça vizinha: ${vaos.map((v) => `${v.toFixed(1)}px`).join(", ")}`,
-    );
+  const byRole = (role: string) => shapes.filter((s) => s.role === role);
+  const checks: { label: string; list: typeof shapes; rule?: { count: Range; scale: Range } }[] = spec.shapes
+    ? [{ label: "shapes", list: shapes, rule: spec.shapes }]
+    : [
+        { label: "protagonista", list: byRole("protagonista"), rule: spec.protagonista },
+        { label: "coadjuvantes", list: byRole("coadjuvante"), rule: spec.coadjuvantes },
+      ];
+  for (const { label, list, rule } of checks) {
+    if (!rule) continue;
+    if (!inRange(list.length, rule.count)) return block(`${spec.name}: ${list.length} ${label}, esperado ${rule.count.join("-")}.`);
+    const fora = list.find((s) => !inRange(s.scale, rule.scale));
+    if (fora) return block(`${spec.name}: ${fora.file} com scale ${fora.scale}, esperado ${rule.scale.join("-")} (${label}).`);
   }
-  return ok(`Mosaico "${composition.shapeClusterPattern.name}": ${resumo.join("; ")}.`);
+
+  const names = new Set(shapes.map((s) => comboName(s.color, s.mode)));
+  if (!colorCombos.some((combo) => [...names].every((n) => combo.includes(n)))) {
+    return block(`Cores ${[...names].join(" + ")} não formam uma combinação de colorMix.allowedCombos.`);
+  }
+  const amareloGrande = shapes.find((s) => s.color === "amarelo" && s.scale >= amareloMaxScale());
+  if (amareloGrande) return block(`Amarelo em ${amareloGrande.file} com scale ${amareloGrande.scale}; só em shapes com scale < ${amareloMaxScale()}.`);
+
+  const placed: PlacedShape[] = shapes.map((s) => ({ file: s.file, x: s.x, y: s.y, size: s.scale * SHAPE_UNIT, rotation: s.rotation }));
+  const sils = shapes.map((s) => getSilhouette(s.file));
+  if (sils.some((s) => !s)) return block("Silhuetas dos shapes ainda não carregadas.");
+
+  for (let i = 0; i < shapes.length; i++) {
+    const zone = keepOut.find((z) => hitsRect(sils[i]!, placed[i], z.rect));
+    if (zone) return block(`${shapes[i].file} invade "${zone.label}".`);
+  }
+  const gaps: number[] = [];
+  for (let i = 0; i < shapes.length; i++) {
+    for (let j = i + 1; j < shapes.length; j++) {
+      const g = gapBetween(sils[i]!, placed[i], sils[j]!, placed[j]);
+      if (!spec.overlap && g === 0) return block(`${shapes[i].file} e ${shapes[j].file} se sobrepõem.`);
+      gaps.push(g);
+    }
+  }
+  const extra =
+    layout.archetype === "mosaico-dupla" && gaps.length
+      ? `; vão de ${gaps[0].toFixed(1)}px (${((gaps[0] / (Math.max(...shapes.map((s) => s.scale)) * SHAPE_UNIT)) * 100).toFixed(1)}% do maior)`
+      : "";
+  return ok(
+    `${spec.name}: ${shapes.length} shape(s) em ${[...names].join(" + ")}; nenhum sobre textos, CTA ou logo${extra}.`,
+  );
+}
+
+/** Shapes cuja silhueta cai num retângulo (ex.: área de proteção do logo). */
+export function shapesHittingZone(layout: GeneratedLayout | null, zone: KeepOutZone["rect"] | null): string[] {
+  if (!layout || !zone) return [];
+  return layout.shapes
+    .filter((s) => {
+      const sil = getSilhouette(s.file);
+      return sil && hitsRect(sil, { file: s.file, x: s.x, y: s.y, size: s.scale * SHAPE_UNIT, rotation: s.rotation }, zone);
+    })
+    .map((s) => s.file);
 }
 
 /** typographyLineBreakRules: nenhuma linha (exceto a última) termina em palavra proibida. */

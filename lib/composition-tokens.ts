@@ -1,17 +1,63 @@
 import compositionPatterns from "@/config/composition-patterns.json";
 
-/** Camada tipada sobre config/composition-patterns.json (padrões de peças aprovadas). */
+/** Camada tipada sobre config/composition-patterns.json (arquétipos visuais e regras de composição). */
 
 export const composition = compositionPatterns;
 
-const cluster = compositionPatterns.shapeClusterPattern;
+export type ArchetypeId = "estouro-de-canto" | "mosaico-dupla" | "textura-espalhada" | "mascara-de-foto";
 
-/** "3 a 5 shapes" em shapeClusterPattern.description. */
-export function clusterSizeRange(): { min: number; max: number } {
-  const m = cluster.description.match(/(\d+)\s*a\s*(\d+)\s*shapes/);
-  return m ? { min: Number(m[1]), max: Number(m[2]) } : { min: 3, max: 5 };
+export type Range = [number, number];
+
+export interface ArchetypeSpec {
+  id: ArchetypeId;
+  name: string;
+  /** Contagens/escalas normalizadas: um número vira [n, n]. */
+  protagonista?: { count: Range; scale: Range };
+  coadjuvantes?: { count: Range; scale: Range };
+  shapes?: { count: Range; scale: Range };
+  /** "5%" → 0.05 */
+  gap?: number;
+  overlap: boolean;
+  isMask: boolean;
 }
 
-export const clusterPresetIds: string[] = cluster.hardcodedPresets.map((p) => p.id);
+const range = (v: number | number[]): Range => (Array.isArray(v) ? [v[0], v[v.length - 1]] : [v, v]);
+
+type RawComposition = {
+  count?: number | number[];
+  scaleRange?: number[];
+  gap?: string;
+  overlap?: boolean;
+  isMask?: boolean;
+  protagonista?: { count: number | number[]; scaleRange: number[] };
+  coadjuvantes?: { count: number | number[]; scaleRange: number[]; overlap?: boolean };
+};
+
+export function archetype(id: ArchetypeId): ArchetypeSpec {
+  const raw = compositionPatterns.dynamicShapeArrangements.archetypes.find((a) => a.id === id);
+  if (!raw) throw new Error(`Arquétipo "${id}" não existe em dynamicShapeArrangements.archetypes`);
+  const c = raw.composition as RawComposition;
+  return {
+    id,
+    name: raw.name,
+    protagonista: c.protagonista && { count: range(c.protagonista.count), scale: range(c.protagonista.scaleRange) },
+    coadjuvantes: c.coadjuvantes && { count: range(c.coadjuvantes.count), scale: range(c.coadjuvantes.scaleRange) },
+    shapes: c.count !== undefined && c.scaleRange ? { count: range(c.count), scale: range(c.scaleRange) } : undefined,
+    gap: c.gap ? parseFloat(c.gap) / 100 : undefined,
+    overlap: c.overlap ?? c.coadjuvantes?.overlap ?? false,
+    isMask: !!c.isMask,
+  };
+}
+
+export const archetypeIds = compositionPatterns.dynamicShapeArrangements.archetypes.map((a) => a.id as ArchetypeId);
+
+/** Combinações de colorMix: "branco-outline" → branco em contorno; "amarelo-pequeno" → amarelo só em shape pequeno. */
+export const colorCombos: string[][] = compositionPatterns.dynamicShapeArrangements.colorMix.allowedCombos;
+
+/** "Amarelo apenas em shapes com scale < 0.4." */
+export function amareloMaxScale(): number {
+  const m = compositionPatterns.dynamicShapeArrangements.colorMix.rule.match(/scale\s*<\s*([\d.]+)/);
+  return m ? Number(m[1]) : 0.4;
+}
 
 export const ctaVariantNames: string[] = compositionPatterns.ctaRules.variants.map((v) => v.name);
