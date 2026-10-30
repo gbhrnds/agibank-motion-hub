@@ -16,6 +16,11 @@
     "amarelo": "#FFD600",
     "branco": "#FFFFFF"
   },
+  "uiColors": {
+    "grayBg": "#F3F3F3",
+    "grayBorder": "#E1E1E1",
+    "uso": "neutros-da-interface-da-plataforma-nunca-usar-nas-pecas"
+  },
   "pillars": {
     "agirEmpreendedor": { "nome": "Agir como empreendedor", "cor": "#77DF40" },
     "crescerJornada": { "nome": "Crescer na jornada", "cor": "#FFD600" },
@@ -26,6 +31,17 @@
     "fallback": "Arial",
     "basePath": "assets/fonts/",
     "format": "woff2",
+    "weights": {
+      "regular":   { "file": "AgibankSans-Regular.woff2",   "value": 400 },
+      "medium":    { "file": "AgibankSans-Medium.woff2",    "value": 500 },
+      "semiBold":  { "file": "AgibankSans-SemiBold.woff2",  "value": 600 },
+      "bold":      { "file": "AgibankSans-Bold.woff2",      "value": 700 },
+      "extraBold": { "file": "AgibankSans-ExtraBold.woff2", "value": 800 }
+    },
+    "lineBreak": {
+      "rule": "nunca-terminar-linha-com-artigo-preposicao-ou-conjuncao-curta-mover-para-a-linha-seguinte",
+      "forbiddenTrailingWords": ["a", "à", "ao", "aos", "as", "às", "o", "os", "e", "é", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "uns", "umas", "por", "pra", "pro", "pros", "para", "com", "sem", "que", "se", "ou"]
+    },
     "usageMap": {
       "titulos": ["bold", "extraBold"],
       "subtitulos": ["medium"],
@@ -219,17 +235,21 @@
       ]
     }
   },
+  "effects": {
+    "shadowSubtle": { "color": "#000000", "blur": 10, "opacity": 0.2, "offsetY": 4, "uso": "cta-pill-solid-accent (composition-patterns ctaRules shadowRecommended)" }
+  },
   "brandRules": {
     "contrastMap": {
       "branco":      { "preferido": ["azulEscuro", "azulMedio"] },
-      "azulAgibank": { "preferido": ["branco"], "obrigatorio": true },
+      "azulAgibank": { "preferido": ["branco"], "destaque": ["verde"], "destaqueUso": "apenas-titulos-e-palavras-chave-ver-composition-patterns-textHierarchyRules", "obrigatorio": true },
       "azulEscuro":  { "preferido": ["branco", "verdeClaro", "amarelo"] },
       "verde":       { "preferido": ["azulEscuro"], "obrigatorio": true },
       "amarelo":     { "preferido": ["azulEscuro"], "obrigatorio": true }
     },
     "colorUsage": {
       "amarelo": "nunca-fundo-dominante-apenas-detalhe"
-    }
+    },
+    "textHierarchy": "nunca-cor-unica-no-texto-combinar-ao-menos-2-cores"
   },
   "status_summary": {
     "ready": [

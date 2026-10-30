@@ -1,0 +1,25 @@
+@import "./fonts.generated.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-agi-gray-bg font-sans text-agi-blue-dark antialiased;
+  }
+}
+
+/* Prancheta: largura/proporção do formato (inline); encolhe em telas estreitas (o export não muda). */
+@layer components {
+  .artboard {
+    max-width: 100%;
+    height: auto;
+  }
+  .artboard > div,
+  .artboard .konvajs-content,
+  .artboard canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}

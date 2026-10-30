@@ -1,0 +1,206 @@
+"use client";
+
+import type Konva from "konva";
+import { useCallback, useEffect, useMemo, useState, type MutableRefObject } from "react";
+import { Group, Layer as KLayer, Rect as KRect, Stage } from "react-konva";
+import { color } from "@/lib/brand-tokens";
+import { getBackground, type Layer, type Rect } from "@/lib/piece-spec";
+import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
+import { measureColorCoverage } from "@/lib/color-coverage";
+import { ctaGeometry, type CtaGeometry } from "@/lib/cta-geometry";
+import type { Side } from "@/lib/format-config";
+import { IMAGE_MASKS, type ImageMask } from "@/lib/image-mask";
+import { shapesId, type PieceLayout } from "@/lib/layout-engine";
+import CtaPill from "./CtaPill";
+import LogoSmart, { type LogoMeta } from "./LogoSmart";
+import MaskedImage from "./MaskedImage";
+import RichText from "./RichText";
+import ShapeCluster from "./ShapeCluster";
+
+interface DesignCanvasProps {
+  /** Dimensões reais da peça (px do arquivo exportado). */
+  width: number;
+  height: number;
+  /** Escala do preview na tela (o export volta ao tamanho real). */
+  previewScale?: number;
+  /** Camadas já compostas para o formato (lib/piece-style.ts → composeLayers); exige fontes carregadas. */
+  layers: Layer[];
+  /** Grafismos gerados pelo motor (null = ainda não gerados). */
+  shapes: PieceLayout | null;
+  stageRef: MutableRefObject<Konva.Stage | null>;
+  showGuides?: boolean;
+  /** Máscara de recorte da imagem enviada (camada "image"). */
+  imageMask?: ImageMask;
+  /** Lado da peça impressa (frente/verso), exposto em data-side. */
+  side?: Side;
+  onLayout: (layout: CanvasLayout | null) => void;
+}
+
+/** Id de carregamento dos grafismos: muda a cada layout gerado. */
+const shapesLoadId = (layerId: string, shapes: PieceLayout | null) => `${layerId}:${shapesId(shapes)}`;
+
+/** Ids dos assets assíncronos que precisam carregar antes de medir/exportar. */
+function assetIds(layers: Layer[], shapes: PieceLayout | null): string[] {
+  return layers.flatMap((l) => {
+    switch (l.type) {
+      case "shapes":
+        // Sem grafismo gerado ainda, o canvas mede só textos/CTA/logo (o motor precisa dessa medição).
+        return shapes ? [shapesLoadId(l.id, shapes)] : [];
+      case "logo":
+        return [l.id];
+      case "image":
+        return [l.id];
+      case "cta":
+        return l.trailingIcon ? [`${l.id}:icon`] : [];
+      default:
+        return [];
+    }
+  });
+}
+
+/**
+ * Canvas de uma peça em qualquer formato: fundo, grafismos, textos, CTA e logo nas posições
+ * compostas para width×height. O Stage é desenhado reduzido por `previewScale`.
+ */
+export default function DesignCanvas({
+  width,
+  height,
+  previewScale = 1,
+  layers,
+  shapes,
+  stageRef,
+  showGuides = false,
+  imageMask = IMAGE_MASKS[0],
+  side = "frente",
+  onLayout,
+}: DesignCanvasProps) {
+  const background = getBackground(layers);
+  const size = useMemo(() => ({ width, height }), [width, height]);
+
+  const [loaded, setLoaded] = useState<Record<string, true>>({});
+  const [logoMeta, setLogoMeta] = useState<LogoMeta | null>(null);
+  const [clearZone, setClearZone] = useState<Rect | null>(null);
+
+  const markLoaded = useCallback((id: string) => {
+    setLoaded((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+  }, []);
+  const readyCallbacks = useMemo(() => {
+    const map: Record<string, () => void> = {};
+    assetIds(layers, shapes).forEach((id) => (map[id] = () => markLoaded(id)));
+    return map;
+  }, [layers, shapes, markLoaded]);
+  const logoId = layers.find((l) => l.type === "logo")?.id;
+  const onLogoReady = useCallback(
+    (meta: LogoMeta) => {
+      setLogoMeta(meta);
+      if (logoId) markLoaded(logoId);
+    },
+    [logoId, markLoaded],
+  );
+
+  // Geometria do CTA (largura do texto medida com a fonte de marca, já carregada por quem compõe as camadas).
+  const ctas = useMemo(() => {
+    const map: Record<string, CtaGeometry> = {};
+    for (const l of layers) if (l.type === "cta") map[l.id] = ctaGeometry(l, width);
+    return map;
+  }, [layers, width]);
+
+  const allReady = assetIds(layers, shapes).every((id) => loaded[id]);
+
+  // Mede o layout real renderizado pelo Konva (usado pela validação de área de proteção).
+  useEffect(() => {
+    if (!allReady) {
+      onLayout(null);
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const bounds: Record<string, Rect> = {};
+      stage.find(".brand-layer, .cluster-item").forEach((node) => {
+        bounds[node.id()] = node.getClientRect({ relativeTo: stage });
+      });
+      const logo = logoId ? bounds[logoId] : undefined;
+      const pad = logoMeta?.clearSpace ?? null;
+      const zone =
+        logo && pad !== null
+          ? { x: logo.x - pad, y: logo.y - pad, width: logo.width + pad * 2, height: logo.height + pad * 2 }
+          : null;
+      setClearZone(zone);
+      onLayout({
+        bounds,
+        logoClearZone: zone,
+        colorCoverage: measureColorCoverage(stage, { width: stage.width(), height: stage.height() }, [GUIDES_LAYER_NAME]),
+        shapesId: shapesId(shapes),
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [allReady, shapes, layers, logoId, logoMeta, onLayout, stageRef, previewScale]);
+
+  return (
+    <Stage
+      width={Math.round(width * previewScale)}
+      height={Math.round(height * previewScale)}
+      scaleX={previewScale}
+      scaleY={previewScale}
+      className={`design-canvas side-${side}`}
+      ref={stageRef}
+    >
+      <KLayer listening={false}>
+        {layers.map((layer) => {
+          switch (layer.type) {
+            case "background":
+              return (
+                <KRect key={layer.id} x={0} y={0} width={width} height={height} fill={color(layer.color)} />
+              );
+            case "image":
+              return <MaskedImage key={`${layer.id}:${imageMask.id}`} layer={layer} mask={imageMask} onReady={readyCallbacks[layer.id]} />;
+            case "shapes":
+              return shapes ? (
+                <ShapeCluster
+                  key={shapesLoadId(layer.id, shapes)}
+                  id={layer.id}
+                  layout={shapes}
+                  onReady={readyCallbacks[shapesLoadId(layer.id, shapes)]}
+                />
+              ) : null;
+            case "text":
+              return <RichText key={layer.id} layer={layer} />;
+            case "cta":
+              return ctas[layer.id] ? (
+                <CtaPill
+                  key={layer.id}
+                  layer={layer}
+                  geometry={ctas[layer.id]}
+                  onIconReady={readyCallbacks[`${layer.id}:icon`]}
+                />
+              ) : null;
+            case "logo":
+              return background ? (
+                <LogoSmart
+                  key={layer.id}
+                  audience={layer.audience}
+                  layer={layer}
+                  size={size}
+                  backgroundColor={background.color}
+                  onReady={onLogoReady}
+                />
+              ) : null;
+          }
+        })}
+      </KLayer>
+      <KLayer name={GUIDES_LAYER_NAME} listening={false} visible={showGuides}>
+        {clearZone && (
+          <KRect
+            {...clearZone}
+            stroke={color("verde")}
+            strokeWidth={1}
+            dash={[4, 4]}
+            fill={color("verde")}
+            opacity={0.25}
+          />
+        )}
+      </KLayer>
+    </Stage>
+  );
+}
