@@ -1,0 +1,8 @@
+{
+  "name": "agibank-motion",
+  "private": true,
+  "description": "Dependências locais dos templates de motion (GSAP é copiado para cada slot; renders não buscam rede).",
+  "dependencies": {
+    "gsap": "3.14.2"
+  }
+}

@@ -1,0 +1,24 @@
+# Segredos
+.env
+studio/.env
+
+# Dependências
+node_modules/
+__pycache__/
+*.pyc
+
+# Projetos: o vídeo bruto e os renders ficam fora do git (pesados).
+# Versionamos só as decisões de edição (EDL, cortes, memória, slots de motion).
+projetos/**/*.mp4
+projetos/**/*.MP4
+projetos/**/*.mov
+projetos/**/*.MOV
+projetos/**/*.mkv
+projetos/**/*.m4v
+projetos/**/*.webm
+projetos/**/*.wav
+projetos/**/*.png
+projetos/**/clips_*/
+projetos/**/.hyperframes/
+projetos/**/renders/
+projetos/**/animations/*/assets/

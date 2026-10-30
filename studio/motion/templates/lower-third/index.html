@@ -1,0 +1,55 @@
+<!doctype html>
+<html
+  lang="pt-BR"
+  data-composition-variables='[{"id":"nome","type":"string","label":"Nome","default":"{{nome}}"},{"id":"cargo","type":"string","label":"Cargo / descrição","default":"{{cargo}}"}]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=__W__, height=__H__" />
+    <!-- Lower third Agibank: nome em caixa azul + cargo em caixa azul-escura. Fundo transparente (overlay). -->
+    <script src="assets/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/brand.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: __W__px; height: __H__px; overflow: hidden; background: transparent; }
+      #root { position: relative; width: 100%; height: 100%; font-family: var(--agi-font); }
+      #lt { position: absolute; left: 6%; bottom: 20%; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+      .portrait #lt { left: 7%; bottom: 38%; }
+      #lt-nome-box {
+        display: flex; align-items: center; gap: 20px;
+        background: var(--agi-azul); border-radius: var(--agi-raio);
+        padding: 22px 40px 24px 32px;
+      }
+      #lt-pingo { width: 22px; height: 22px; border-radius: 50%; background: var(--agi-verde); flex: none; }
+      #lt-nome { color: var(--agi-branco); font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; }
+      #lt-cargo-box { background: var(--agi-azul-escuro); border-radius: var(--agi-raio); padding: 14px 32px 16px 32px; }
+      #lt-cargo { color: var(--agi-verde-claro); font-weight: 400; font-size: 34px; line-height: 1.1; white-space: nowrap; }
+    </style>
+  </head>
+  <body class="__ORIENT__">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="__DUR__" data-width="__W__" data-height="__H__">
+      <div id="lt" class="clip" data-start="0" data-duration="__DUR__" data-track-index="0" data-track-kind="graphics">
+        <div id="lt-nome-box">
+          <div id="lt-pingo"></div>
+          <div id="lt-nome" data-var-text="nome">{{nome}}</div>
+        </div>
+        <div id="lt-cargo-box">
+          <div id="lt-cargo" data-var-text="cargo">{{cargo}}</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const D = __DUR__;
+      const tl = gsap.timeline({ paused: true });
+      // Entrada: a caixa abre por máscara, o texto entra com blur; o cargo entra com sobreposição.
+      tl.fromTo("#lt-nome-box", { clipPath: "inset(0 100% 0 0 round 14px)" }, { clipPath: "inset(0 0% 0 0 round 14px)", duration: 0.55, ease: "expo.out" }, 0.1);
+      tl.fromTo("#lt-pingo", { scale: 0 }, { scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.3);
+      tl.fromTo("#lt-nome", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0.32);
+      tl.fromTo("#lt-cargo-box", { clipPath: "inset(0 100% 0 0 round 14px)" }, { clipPath: "inset(0 0% 0 0 round 14px)", duration: 0.5, ease: "expo.out" }, 0.38);
+      tl.fromTo("#lt-cargo", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0.55);
+      // Saída: um único movimento, mais curto que a entrada.
+      tl.to("#lt-nome-box, #lt-cargo-box", { opacity: 0, filter: "blur(8px)", x: -24, duration: 0.3, ease: "power3.in", stagger: 0.05 }, D - 0.45);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

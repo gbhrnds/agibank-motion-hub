@@ -1,0 +1,6 @@
+# Helpers de edição (adaptados de browser-use/video-use)
+requests
+numpy
+pillow
+# Transcrição local (sem conta): faster-whisper baixa o modelo do Hugging Face no 1º uso
+faster-whisper
