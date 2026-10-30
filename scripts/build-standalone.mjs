@@ -23,7 +23,7 @@ await build({
   tsconfig: join(root, "tsconfig.json"),
   alias: {
     "next/dynamic": join(root, "scripts/standalone/next-dynamic.tsx"),
-    "@/lib/export-png": join(root, "scripts/standalone/export-png.ts"),
+    "@/lib/export": join(root, "scripts/standalone/export.ts"),
     canvas: join(root, "scripts/standalone/empty.js"),
   },
   define: {
@@ -42,7 +42,11 @@ const faces = Object.values(weights)
   })
   .join("\n");
 const twInput = join(out, "tw-input.css");
-writeFileSync(twInput, "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n");
+// Mesmo CSS base do app (app/globals.css), sem o @import das fontes (aqui embutidas).
+writeFileSync(
+  twInput,
+  readFileSync(join(root, "app/globals.css"), "utf8").replace(/^@import[^\n]*\n/m, ""),
+);
 const tw = execFileSync("npx", ["tailwindcss", "-c", join(root, "tailwind.config.ts"), "-i", twInput, "--minify"], {
   cwd: root,
   encoding: "utf8",

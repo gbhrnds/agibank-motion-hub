@@ -4,11 +4,11 @@ import type Konva from "konva";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ValidationPanel from "@/components/validation/ValidationPanel";
-import { ALERTA_CHANNELS, ALERTA_LAYERS, CANVAS_SIZE, EXPORT_FILE_NAME, getBackground } from "@/lib/alerta-spec";
-import { shapePath } from "@/lib/brand-tokens";
+import { ALERTA_CHANNELS, ALERTA_LAYERS, CANVAS_SIZE, EXPORT_BASE_NAME, getBackground } from "@/lib/alerta-spec";
+import { logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
 import { archetype, ctaVariant } from "@/lib/composition-tokens";
-import { exportStageToPng } from "@/lib/export-png";
+import { exportStage, type ExportFormat } from "@/lib/export";
 import { logoMetricsFrom, predictKeepOut, type LogoMetrics } from "@/lib/keep-out";
 import { allShapeFiles, generateRandomLayout, type PieceLayout } from "@/lib/layout-engine";
 import { applyPieceStyle } from "@/lib/piece-style";
@@ -18,6 +18,13 @@ import { validatePiece } from "@/lib/validate-piece";
 const AlertaCanvas = dynamic(() => import("@/components/canvas/AlertaCanvas"), { ssr: false });
 
 const BACKGROUND = getBackground(ALERTA_LAYERS)!.color;
+/** Logo da interface: Agi reduzido (uso interno), versão positiva sobre o branco da barra lateral. */
+const UI_LOGO = logoPath(pickLogoKey("interno", "fundoBranco", "digital"));
+const EXPORT_FORMATS: { format: ExportFormat; label: string }[] = [
+  { format: "png", label: "PNG" },
+  { format: "jpg", label: "JPG" },
+  { format: "pdf", label: "PDF" },
+];
 
 export default function Page() {
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -27,6 +34,7 @@ export default function Page() {
   const [silhouettes, setSilhouettes] = useState<Record<string, Silhouette> | null>(null);
   const [logoMetrics, setLogoMetrics] = useState<LogoMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
 
   // Camadas da peça com o alinhamento e o estilo de CTA da composição atual.
   const layers = useMemo(() => (piece ? applyPieceStyle(ALERTA_LAYERS, piece) : ALERTA_LAYERS), [piece]);
@@ -65,75 +73,111 @@ export default function Page() {
   }, [piece, silhouettes, logoMetrics, generate]);
 
   const items = useMemo(() => validatePiece(layers, ALERTA_CHANNELS, layout, piece), [layers, layout, piece]);
+  const ready = layout !== null && piece !== null;
+  const blocked = items.some((i) => i.result.severity === "blocking");
+  const exportDisabled = !ready || blocked || exporting !== null;
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async (format: ExportFormat) => {
     if (!stageRef.current) return;
-    exportStageToPng(stageRef.current, {
-      fileName: EXPORT_FILE_NAME,
-      size: CANVAS_SIZE,
-      hideNames: [GUIDES_LAYER_NAME],
-    });
+    setExporting(format);
+    try {
+      await exportStage(stageRef.current, { format, baseName: EXPORT_BASE_NAME, size: CANVAS_SIZE, hideNames: [GUIDES_LAYER_NAME] });
+    } catch (err) {
+      setError(`Falha ao exportar ${format.toUpperCase()}: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setExporting(null);
+    }
   }, []);
 
   const canGenerate = !!silhouettes && !!logoMetrics;
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6 lg:p-10">
-      <header>
-        <h1 className="text-2xl font-extrabold">Agibank Brand Studio</h1>
-        <p className="text-slate-600">Alerta institucional · Comunicação Interna · 600×600 (Alerta Sempre Juntos / Alerta Teams)</p>
-      </header>
-      <div className="flex flex-col items-start gap-6 lg:flex-row">
-        <div className="flex w-full max-w-[600px] shrink-0 flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={generate}
-              disabled={!canGenerate}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 shadow-sm transition hover:border-brand-azulAgibank hover:text-brand-azulAgibank disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              🎲 Gerar Nova Composição
-            </button>
-            {!piece && <p className="text-sm text-slate-600">{canGenerate ? "Gerando…" : "Carregando shapes…"}</p>}
+    <div className="flex w-full flex-col overflow-hidden bg-agi-gray-bg font-sans lg:h-screen lg:flex-row">
+      <aside className="z-10 order-2 flex w-full flex-col border-agi-gray-border bg-white shadow-lg lg:order-none lg:w-96 lg:border-r">
+        <header className="flex items-center gap-3 border-b border-agi-gray-border px-6 py-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={UI_LOGO} alt="agi" className="h-7 w-auto" />
+          <div className="leading-tight">
+            <h1 className="text-lg font-extrabold text-agi-blue-dark">Brand Studio</h1>
+            <p className="text-xs text-slate-500">Alerta institucional · 600×600</p>
           </div>
-          {piece && (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600 sm:grid-cols-4" data-testid="piece-state">
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-400">Alinhamento</dt>
-                <dd>{piece.alignment === "center" ? "Centralizado" : "Esquerda"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-400">CTA</dt>
-                <dd>{ctaVariant(piece.ctaStyle).name}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-400">Shapes</dt>
-                <dd>{archetype(piece.shapeArchetype).name.replace(/\s*\(.*\)/, "")}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-400">Paleta</dt>
-                <dd>{piece.shapePalette.name}</dd>
-              </div>
+        </header>
+
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          <button
+            type="button"
+            onClick={generate}
+            disabled={!canGenerate}
+            className="w-full rounded-full bg-agi-green px-6 py-3 text-lg font-bold text-agi-blue-dark shadow-md transition-colors hover:bg-agi-green-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            🎲 Gerar Nova Composição
+          </button>
+
+          {piece ? (
+            <dl className="grid grid-cols-2 gap-2 text-sm" data-testid="piece-state">
+              {[
+                ["Alinhamento", piece.alignment === "center" ? "Centralizado" : "Esquerda"],
+                ["CTA", ctaVariant(piece.ctaStyle).name],
+                ["Shapes", archetype(piece.shapeArchetype).name.replace(/\s*\(.*\)/, "")],
+                ["Paleta", piece.shapePalette.name],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-lg bg-agi-gray-bg px-3 py-2">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{k}</dt>
+                  <dd className="font-semibold text-agi-blue-dark">{v}</dd>
+                </div>
+              ))}
             </dl>
+          ) : (
+            <p className="text-sm text-slate-500">{canGenerate ? "Gerando composição…" : "Carregando shapes…"}</p>
           )}
-          {error && <p className="text-sm text-red-700">{error}</p>}
+          {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+          <ValidationPanel items={items} ready={ready} />
+
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              id="show-guides"
+              type="checkbox"
+              className="h-4 w-4 accent-agi-blue"
+              checked={showGuides}
+              onChange={(e) => setShowGuides(e.target.checked)}
+            />
+            Mostrar área de proteção do logo
+          </label>
+        </div>
+
+        <footer className="border-t border-agi-gray-border px-6 py-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Exportar</p>
+          <div className="flex gap-2">
+            {EXPORT_FORMATS.map(({ format, label }) => (
+              <button
+                key={format}
+                type="button"
+                onClick={() => handleExport(format)}
+                disabled={exportDisabled}
+                aria-label={`Exportar ${label}`}
+                className="flex-1 rounded-full border-2 border-agi-blue px-4 py-2 text-sm font-semibold text-agi-blue transition-colors hover:bg-agi-blue hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:border-agi-gray-border disabled:text-slate-400 disabled:hover:bg-transparent"
+              >
+                {exporting === format ? "…" : label}
+              </button>
+            ))}
+          </div>
+          {blocked && <p className="mt-2 text-xs text-red-700">Corrija os itens que bloqueiam para liberar a exportação.</p>}
+        </footer>
+      </aside>
+
+      <main className="relative order-1 flex flex-1 items-center justify-center p-4 sm:p-6 lg:order-none lg:p-10">
+        <div className="flex w-full flex-col items-center gap-3">
           <div
-            className="shrink-0 overflow-hidden rounded-lg shadow-lg"
+            className="artboard overflow-hidden rounded-md bg-white shadow-2xl"
             style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
             data-testid="canvas-wrapper"
           >
             <AlertaCanvas layers={layers} shapes={piece} stageRef={stageRef} showGuides={showGuides} onLayout={setLayout} />
           </div>
-          {piece && <p className="text-xs text-slate-400">seed {piece.seed}</p>}
+          {piece && <p className="text-xs tabular-nums text-slate-400">seed {piece.seed}</p>}
         </div>
-        <ValidationPanel
-          items={items}
-          ready={layout !== null && piece !== null}
-          onExport={handleExport}
-          showGuides={showGuides}
-          onToggleGuides={setShowGuides}
-        />
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

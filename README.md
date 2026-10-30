@@ -27,7 +27,7 @@ Ambos os arquivos gerados estão no `.gitignore`.
 
 | Caminho | Papel |
 | --- | --- |
-| `app/page.tsx` | Página única: botão "Gerar Nova Composição", canvas, painel de validação e export |
+| `app/page.tsx` | Ferramenta em tela dividida: barra lateral (logo, "Gerar Nova Composição", estado da peça, validação, exportação) e prancheta com o canvas |
 | `components/canvas/AlertaCanvas.tsx` | Stage Konva 600×600; mede o layout real para a validação |
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
@@ -41,19 +41,19 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `components/canvas/IconInline.tsx` | Ícones SVG recoloridos com tokens |
 | `lib/svg-utils.ts` | `recolorSvg()`: recolore um SVG (fill ou contorno) e devolve data URL base64 |
 | `lib/color-coverage.ts` | Mede a fração de pixels de cada cor da paleta na peça renderizada |
-| `components/validation/ValidationPanel.tsx` | Lista ✅/⚠️/❌ e bloqueia o export |
+| `components/validation/ValidationPanel.tsx` | Cards ✅/⚠️/❌ da validação de marca (bloqueios primeiro) |
 | `lib/brand-tokens.ts` | Camada tipada sobre `assets-map.json` |
 | `lib/alerta-spec.ts` | Conteúdo/layout da peça (só referencia chaves do mapa) |
 | `lib/contrast-validator.ts` | `validateContrast()` e `validateColorUsage()` |
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
 | `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: variante do CTA, grafismo gerado (arquétipo, hierarquia de escala, paleta fechada) e, do `assets-map.json`, texto bicolor e quebra sem viúvas |
-| `lib/export-png.ts` | Exporta o Stage como PNG 600×600 |
+| `lib/export.ts` | Exporta PNG, JPG e PDF conforme `assets-map.json → exportRules` |
 
 ## Testando o bloqueio
 
-Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostra ❌ blocking, com o botão
-"Exportar PNG" desabilitado:
+Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostra ❌ blocking, com os
+botões de exportação (PNG, JPG, PDF) desabilitados:
 
 - headline ou corpo em `"azulMedio"`, ou fundo em `"amarelo"`;
 - corpo inteiro em `"verde"` (verde sobre azul Agibank só em títulos e palavras-chave);

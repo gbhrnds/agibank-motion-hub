@@ -13,7 +13,8 @@ import type { Alignment, CtaStyle } from "./composition-tokens";
 export const CANVAS_SIZE = 600;
 /** Canais onde a peça circula (chaves de logos.audienceRule.*.exemplos). */
 export const ALERTA_CHANNELS = ["alerta-sj", "alerta-teams"];
-export const EXPORT_FILE_NAME = "agibank-alerta-institucional.png";
+/** Nome base dos arquivos exportados (a extensão vem do formato). */
+export const EXPORT_BASE_NAME = "agibank-alerta-institucional";
 
 export interface Rect {
   x: number;

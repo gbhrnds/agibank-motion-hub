@@ -16,6 +16,11 @@
     "amarelo": "#FFD600",
     "branco": "#FFFFFF"
   },
+  "uiColors": {
+    "grayBg": "#F3F3F3",
+    "grayBorder": "#E1E1E1",
+    "uso": "neutros-da-interface-da-plataforma-nunca-usar-nas-pecas"
+  },
   "pillars": {
     "agirEmpreendedor": { "nome": "Agir como empreendedor", "cor": "#77DF40" },
     "crescerJornada": { "nome": "Crescer na jornada", "cor": "#FFD600" },
