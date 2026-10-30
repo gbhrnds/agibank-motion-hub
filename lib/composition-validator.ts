@@ -1,17 +1,22 @@
 import type { ClusterShape, Layer, Rect, ShapeClusterLayer } from "./alerta-spec";
 import { CANVAS_SIZE, getBackground } from "./alerta-spec";
 import type { ColorKey } from "./brand-tokens";
+import type { ClusterReport } from "./cluster-geometry";
 import {
   clusterColorCombos,
+  clusterGapRule,
+  clusterOverlapAllowed,
   clusterSizeRange,
   clusterZones,
   composition,
   ctaVariant,
+  supportingScaleRange,
   typographyRange,
   type ScaleRole,
 } from "./composition-tokens";
 import type { ValidationResult } from "./contrast-validator";
-import { hasHighlight } from "./rich-text";
+import { forbiddenTrailingWords, hasHighlight, layoutRichText, parseHighlights } from "./rich-text";
+import { normalizeWord } from "./text-wrap";
 
 /**
  * Regras de config/composition-patterns.json. As regras "never*", "forbidden" e "restriction"
@@ -77,18 +82,19 @@ function clusterColorName(shape: ClusterShape, largest: number): string {
   return shape.color;
 }
 
-function bleeds(zone: string, r: Rect): boolean {
-  if (zone === "canto-superior-direito-sangrando") return r.y < 0 || r.x + r.width > CANVAS_SIZE;
-  if (zone === "base-do-frame") return r.y + r.height > CANVAS_SIZE;
-  return true;
-}
+const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /**
- * shapeUsageRules + shapeClusterPattern ("montagem-de-cacos"):
- * 3-6 shapes, ≥2 cores numa combinação permitida, amarelo só em 1 shape pequeno,
- * zona válida (e sangrando, quando a zona pede), sem cobrir textos/CTA.
+ * shapeUsageRules + shapeClusterPattern ("mosaico-de-cacos"), sobre a geometria medida:
+ * quantidade (3 a maxShapesPerCluster), ≥2 cores em combinação permitida, amarelo só pequeno,
+ * hierarquia de escala (1 protagonista + coadjuvantes menores), shapes adjacentes sem
+ * sobreposição (gap 0-6% do maior), zona válida com o protagonista sangrando, sem cobrir textos.
  */
-export function validateShapeClusters(layers: Layer[], bounds: Record<string, Rect>): ValidationResult {
+export function validateShapeClusters(
+  layers: Layer[],
+  bounds: Record<string, Rect>,
+  reports: Record<string, ClusterReport>,
+): ValidationResult {
   const clusters = layers.filter((l): l is ShapeClusterLayer => l.type === "cluster");
   if (clusters.length === 0) return warn("A peça não tem cluster de shapes (shapeClusterPattern).");
   const { min, max } = clusterSizeRange();
@@ -98,7 +104,7 @@ export function validateShapeClusters(layers: Layer[], bounds: Record<string, Re
   for (const c of clusters) {
     const n = c.shapes.length;
     if (n < min) return block(`${c.label}: ${n} shape(s) — "shape-unico-isolado-sem-cluster" é proibido; use de ${min} a ${max}.`);
-    if (n > max) return block(`${c.label}: ${n} shapes — o cluster aceita no máximo ${max}.`);
+    if (n > max) return block(`${c.label}: ${n} shapes — maxShapesPerCluster é ${max}.`);
 
     const largest = Math.max(...c.shapes.map((s) => s.size));
     const names = new Set(c.shapes.map((s) => clusterColorName(s, largest)));
@@ -111,18 +117,77 @@ export function validateShapeClusters(layers: Layer[], bounds: Record<string, Re
       return block(`${c.label}: amarelo só pode aparecer em 1 shape pequeno do cluster (colorMix.amareloRule).`);
     }
 
+    // Hierarquia de escala: exatamente 1 protagonista; coadjuvantes bem menores.
+    const scale = supportingScaleRange();
+    const protagonistas = c.shapes.filter((s) => s.size === largest);
+    const ratios = c.shapes.filter((s) => s.size !== largest).map((s) => s.size / largest);
+    if (protagonistas.length > 1 || ratios.some((r) => r > scale.max)) {
+      return block(
+        `${c.label}: tamanhos homogêneos (${c.shapes.map((s) => `${s.size}px`).join(", ")}). Use 1 protagonista e coadjuvantes com até ${pct(scale.max)} do tamanho dele.`,
+      );
+    }
+
     if (!clusterZones.includes(c.zone)) return block(`${c.label}: zona "${c.zone}" não existe em shapeClusterPattern.positioning.`);
-    const box = bounds[c.id];
-    if (box && !bleeds(c.zone, box)) return block(`${c.label}: a zona "${c.zone}" pede que o cluster sangre pela borda.`);
+
+    const report = reports[c.id];
+    if (!report) return block(`${c.label}: geometria do cluster não foi medida.`);
+    if (!clusterOverlapAllowed && report.overlaps.length > 0) {
+      const o = report.overlaps[0];
+      return block(`${c.label}: ${c.shapes[o.a].file} e ${c.shapes[o.b].file} se sobrepõem (${o.pixels}px de área). O mosaico não permite sobreposição.`);
+    }
+    // Cada shape precisa encostar (gap ≤ máx.) em ao menos um vizinho; nenhum par adjacente abaixo do mín.
+    const maxGap = (clusterGapRule.max / 100) * largest;
+    const minGap = (clusterGapRule.min / 100) * largest;
+    const vizinhos: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const own = report.gaps.filter((g) => g.a === i || g.b === i);
+      const nearest = own.reduce((best, g) => (g.distance < best.distance ? g : best));
+      if (nearest.distance > maxGap + 1) {
+        return block(`${c.label}: ${c.shapes[i].file} está solto (${nearest.distance.toFixed(1)}px do vizinho; máximo ${maxGap.toFixed(1)}px = ${clusterGapRule.max}% do maior).`);
+      }
+      if (nearest.distance < minGap) {
+        return block(`${c.label}: ${c.shapes[i].file} está a ${nearest.distance.toFixed(1)}px do vizinho; mínimo ${minGap.toFixed(1)}px.`);
+      }
+    }
+    for (const g of report.gaps) {
+      if (g.distance <= maxGap + 1) vizinhos.push(`${g.distance.toFixed(1)}px`);
+    }
+
+    const prot = c.shapes.findIndex((s) => s.size === largest);
+    if (c.zone === "canto-superior-direito-sangrando" && report.bleed[prot] <= 0) {
+      return block(`${c.label}: o protagonista deve sangrar pelo canto superior direito.`);
+    }
 
     for (let i = 0; i < n; i++) {
       const item = bounds[`${c.id}:${i}`];
       const hit = item && texts.find((t) => bounds[t.id] && intersects(item, bounds[t.id]));
       if (hit) return block(`${c.label}: ${c.shapes[i].file} cobre "${hit.label}".`);
     }
-    resumo.push(`${n} shapes (${[...names].join(" + ")}) em ${c.zone}`);
+
+    resumo.push(
+      `${n} shapes (${[...names].join(" + ")}); protagonista ${largest}px com ${pct(report.bleed[prot])} fora do frame; ` +
+        `coadjuvantes ${ratios.map((r) => `${(1 / r).toFixed(1)}x menores`).join(" e ")}; sem sobreposição; encaixes a ${vizinhos.join(", ")}`,
+    );
   }
-  return ok(`Cluster "${composition.shapeClusterPattern.name}": ${resumo.join("; ")}.`);
+  return ok(`Mosaico "${composition.shapeClusterPattern.name}": ${resumo.join("; ")}.`);
+}
+
+/** typographyLineBreakRules: nenhuma linha (exceto a última) termina em palavra proibida. */
+export function validateLineBreaks(layers: Layer[]): ValidationResult {
+  const forbidden = new Set(forbiddenTrailingWords.map(normalizeWord));
+  const viuvas: string[] = [];
+  const quebras: string[] = [];
+  for (const l of layers) {
+    if (l.type !== "text") continue;
+    const { lines } = layoutRichText(parseHighlights(l.text), l, l.highlight, l.fontSize, l.width);
+    lines.slice(0, -1).forEach((line) => {
+      const last = line.split(" ").pop() ?? "";
+      if (forbidden.has(normalizeWord(last))) viuvas.push(`${l.label}: "…${last}"`);
+    });
+    quebras.push(`${l.label} em ${lines.length} linha(s)`);
+  }
+  if (viuvas.length) return block(`Linha terminando em artigo/preposição/conjunção: ${viuvas.join("; ")}.`);
+  return ok(`Sem viúvas. ${quebras.join(", ")}.`);
 }
 
 /** typographyScale: tamanho e peso por papel (titulo, corpo, cta). */

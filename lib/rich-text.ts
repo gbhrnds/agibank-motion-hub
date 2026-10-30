@@ -1,5 +1,7 @@
 import { fontShorthand } from "./brand-tokens";
 import type { TextStyle } from "./alerta-spec";
+import { composition } from "./composition-tokens";
+import { wrapWords } from "./text-wrap";
 
 /**
  * Texto com trechos destacados (**assim**) e quebra de linha por palavra.
@@ -48,14 +50,19 @@ interface Unit {
   space: { text: string; style: TextStyle } | null;
 }
 
-/** Quebra gulosa por palavra; uma "palavra" pode atravessar estilos (ex.: "**Pix**!"). */
+export const forbiddenTrailingWords: string[] = composition.typographyLineBreakRules.forbiddenTrailingWords;
+
+/**
+ * Quebra por palavra sem viúvas (typographyLineBreakRules); uma "palavra" pode atravessar
+ * estilos (ex.: "**Pix**!").
+ */
 export function layoutRichText(
   spans: RichSpan[],
   base: TextStyle,
   highlight: TextStyle | undefined,
   fontSize: number,
   maxWidth: number,
-): { pieces: PlacedPiece[]; lines: number } {
+): { pieces: PlacedPiece[]; lines: string[] } {
   const units: Unit[] = [];
   let pendingSpace: Unit["space"] = null;
   let current: Unit | null = null;
@@ -77,31 +84,37 @@ export function layoutRichText(
     }
   }
 
+  const measured = units.map((u) => ({
+    ...u,
+    widths: u.pieces.map((p) => measureText(p.text, p.style, fontSize)),
+    spaceWidth: u.space ? measureText(u.space.text, u.space.style, fontSize) : 0,
+    word: u.pieces.map((p) => p.text).join(""),
+  }));
+  const lines = wrapWords(measured, {
+    maxWidth,
+    widthOf: (u) => u.widths.reduce((a, b) => a + b, 0),
+    spaceBefore: (u) => u.spaceWidth,
+    wordOf: (u) => u.word,
+    forbiddenWords: forbiddenTrailingWords,
+  });
+
   const pieces: PlacedPiece[] = [];
-  let line = 0;
-  let x = 0;
-  for (const unit of units) {
-    const widths = unit.pieces.map((p) => measureText(p.text, p.style, fontSize));
-    const unitWidth = widths.reduce((a, b) => a + b, 0);
-    const spaceWidth = unit.space ? measureText(unit.space.text, unit.space.style, fontSize) : 0;
-    let joinWithSpace = false;
-    if (x > 0 && x + spaceWidth + unitWidth > maxWidth) {
-      line += 1;
-      x = 0;
-    } else {
-      x += spaceWidth;
-      joinWithSpace = unit.space !== null;
-    }
-    unit.pieces.forEach((p, i) => {
-      const prev = pieces[pieces.length - 1];
-      // Junta palavras vizinhas do mesmo estilo num único nó (menos Konva.Text).
-      if (i === 0 && joinWithSpace && prev && prev.line === line && sameStyle(prev.style, p.style) && sameStyle(unit.space!.style, p.style)) {
-        prev.text += ` ${p.text}`;
-      } else {
-        pieces.push({ text: p.text, style: p.style, x, line });
-      }
-      x += widths[i];
+  lines.forEach((lineUnits, line) => {
+    let x = 0;
+    lineUnits.forEach((unit, u) => {
+      const joinWithSpace = u > 0 && unit.space !== null;
+      if (u > 0) x += unit.spaceWidth;
+      unit.pieces.forEach((p, i) => {
+        const prev = pieces[pieces.length - 1];
+        // Junta palavras vizinhas do mesmo estilo num único nó (menos Konva.Text).
+        if (i === 0 && joinWithSpace && prev && prev.line === line && sameStyle(prev.style, p.style) && sameStyle(unit.space!.style, p.style)) {
+          prev.text += ` ${p.text}`;
+        } else {
+          pieces.push({ text: p.text, style: p.style, x, line });
+        }
+        x += unit.widths[i];
+      });
     });
-  }
-  return { pieces, lines: line + 1 };
+  });
+  return { pieces, lines: lines.map((l) => l.map((u) => u.word).join(" ")) };
 }

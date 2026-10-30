@@ -3,6 +3,7 @@ import { brandRules } from "./brand-tokens";
 import type { CanvasLayout } from "./canvas-layout";
 import {
   validateCtaStyle,
+  validateLineBreaks,
   validateShapeClusters,
   validateTextHierarchy,
   validateTypographyScale,
@@ -70,7 +71,12 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
     items.push({
       id: "shape-cluster",
       label: "Cluster de shapes",
-      result: validateShapeClusters(layers, layout.bounds),
+      result: validateShapeClusters(layers, layout.bounds, layout.clusters),
+    });
+    items.push({
+      id: "line-breaks",
+      label: "Quebra de linha sem viúvas",
+      result: validateLineBreaks(layers),
     });
     items.push({
       id: "logo-clear-space",

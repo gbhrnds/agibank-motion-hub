@@ -13,6 +13,8 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
+Testes (algoritmo de viúvas): `npm test`.
+
 `npm run dev` / `npm run build` executam antes `scripts/sync-assets.mjs`, que:
 
 - copia `/assets` → `/public/assets` (o Next.js só serve estáticos de `/public`);
@@ -30,7 +32,9 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
 | `components/canvas/CtaPill.tsx` | CTA em pílula sólida com sombra (`ctaRules` "pill-solid-accent") |
-| `components/canvas/ShapeCluster.tsx` | Cluster de 3-6 shapes recoloridos, girados e sobrepostos (`shapeClusterPattern`) |
+| `components/canvas/ShapeCluster.tsx` | Mosaico de shapes recoloridos, encaixados lado a lado sem sobreposição (`shapeClusterPattern`) |
+| `lib/cluster-geometry.ts` | Máscaras de silhueta, encaixe dos shapes com gap 0-6% e medição de sobreposição/gaps |
+| `lib/text-wrap.ts` | `preventWidows()` / `wrapWords()`: quebra de linha sem viúvas (`typographyLineBreakRules`) |
 | `components/canvas/IconInline.tsx` | Ícones SVG recoloridos com tokens |
 | `lib/svg-utils.ts` | `recolorSvg()`: recolore um SVG (fill ou contorno) e devolve data URL base64 |
 | `lib/color-coverage.ts` | Mede a fração de pixels de cada cor da paleta na peça renderizada |
@@ -53,5 +57,5 @@ Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostr
 - remover a `pill` do CTA, ou trocá-la para `"azulEscuro"` (baixo contraste sobre azul Agibank);
 - texto branco sobre a pílula verde;
 - texto todo numa cor só;
-- cluster com menos de 3 shapes, de uma cor só, todo dentro do frame ou cobrindo um texto;
+- cluster com menos de 3 ou mais de 3 shapes, de uma cor só, com tamanhos parecidos, com shapes sobrepostos ou soltos, ou cobrindo um texto;
 - um shape em cima do logo.

@@ -6,6 +6,7 @@ import { Group, Layer as KLayer, Rect as KRect, Stage } from "react-konva";
 import { color, type FontWeightKey } from "@/lib/brand-tokens";
 import { CANVAS_SIZE, getBackground, type Layer, type Rect } from "@/lib/alerta-spec";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
+import type { ClusterReport } from "@/lib/cluster-geometry";
 import { measureColorCoverage } from "@/lib/color-coverage";
 import { ctaGeometry, type CtaGeometry } from "@/lib/cta-geometry";
 import { useBrandFonts } from "@/lib/use-brand-fonts";
@@ -50,6 +51,7 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
   const fontsReady = useBrandFonts(weights);
 
   const [loaded, setLoaded] = useState<Record<string, true>>({});
+  const [clusterReports, setClusterReports] = useState<Record<string, ClusterReport>>({});
   const [logoMeta, setLogoMeta] = useState<LogoMeta | null>(null);
   const [clearZone, setClearZone] = useState<Rect | null>(null);
 
@@ -59,6 +61,17 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
   const readyCallbacks = useMemo(() => {
     const map: Record<string, () => void> = {};
     assetIds(layers).forEach((id) => (map[id] = () => markLoaded(id)));
+    return map;
+  }, [layers, markLoaded]);
+  const clusterCallbacks = useMemo(() => {
+    const map: Record<string, (report: ClusterReport) => void> = {};
+    for (const l of layers) {
+      if (l.type !== "cluster") continue;
+      map[l.id] = (report) => {
+        setClusterReports((prev) => ({ ...prev, [l.id]: report }));
+        markLoaded(l.id);
+      };
+    }
     return map;
   }, [layers, markLoaded]);
   const logoId = layers.find((l) => l.type === "logo")?.id;
@@ -99,10 +112,15 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
           ? { x: logo.x - pad, y: logo.y - pad, width: logo.width + pad * 2, height: logo.height + pad * 2 }
           : null;
       setClearZone(zone);
-      onLayout({ bounds, logoClearZone: zone, colorCoverage: measureColorCoverage(stage, CANVAS_SIZE, [GUIDES_LAYER_NAME]) });
+      onLayout({
+        bounds,
+        logoClearZone: zone,
+        colorCoverage: measureColorCoverage(stage, CANVAS_SIZE, [GUIDES_LAYER_NAME]),
+        clusters: clusterReports,
+      });
     });
     return () => cancelAnimationFrame(raf);
-  }, [allReady, layers, logoId, logoMeta, onLayout, stageRef]);
+  }, [allReady, clusterReports, layers, logoId, logoMeta, onLayout, stageRef]);
 
   return (
     <Stage width={CANVAS_SIZE} height={CANVAS_SIZE} ref={stageRef}>
@@ -114,7 +132,7 @@ export default function AlertaCanvas({ layers, stageRef, showGuides, onLayout }:
                 <KRect key={layer.id} x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={color(layer.color)} />
               );
             case "cluster":
-              return <ShapeCluster key={layer.id} layer={layer} onReady={readyCallbacks[layer.id]} />;
+              return <ShapeCluster key={layer.id} layer={layer} onReady={clusterCallbacks[layer.id]} />;
             case "text":
               return fontsReady ? <RichText key={layer.id} layer={layer} /> : null;
             case "cta":

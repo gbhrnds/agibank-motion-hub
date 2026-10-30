@@ -71,20 +71,30 @@ export interface ClusterShape {
   file: ShapeFile;
   color: ColorKey;
   mode: ColorMode;
-  /** Centro do shape, em px da peça (pode ficar fora do frame para sangrar). */
-  x: number;
-  y: number;
   /** Maior dimensão desenhada, em px (escala uniforme — nunca distorce proporções). */
   size: number;
   rotation?: number;
   mirror?: boolean;
-  zIndex: number;
+  /**
+   * Centro fixo em px da peça (pode ficar fora do frame para sangrar), ou encaixe no shape
+   * `adjacentTo`: desliza na direção `angle` (graus; 0 = direita, 90 = baixo) até encostar,
+   * a `gapPercent`% do maior shape de distância (shapeClusterPattern.transformRules.gapRule).
+   */
+  placement: Point | { adjacentTo: number; angle: number; gapPercent: number };
+}
+
+export interface Point {
+  x: number;
+  y: number;
 }
 
 /** Zona do cluster — composition-patterns.json → shapeClusterPattern.positioning[].zone. */
 export type ClusterZone = "canto-superior-direito-sangrando" | "ancorando-cta" | "base-do-frame";
 
-/** Padrão "montagem-de-cacos" (shapeClusterPattern): 3 a 6 shapes agrupados. */
+/**
+ * Padrão "mosaico-de-cacos" (shapeClusterPattern): shapes adjacentes, sem sobreposição,
+ * com 1 protagonista grande e coadjuvantes pequenos.
+ */
 export interface ShapeClusterLayer extends BaseLayer {
   type: "cluster";
   zone: ClusterZone;
@@ -114,10 +124,11 @@ export const ALERTA_LAYERS: Layer[] = [
     type: "cluster",
     zone: "canto-superior-direito-sangrando",
     shapes: [
-      { file: "quadrilateral-14.svg", color: "azulMedio", mode: "fill", x: 498, y: 72, size: 104, rotation: -10, zIndex: 1 },
-      { file: "triangle-03.svg", color: "verde", mode: "fill", x: 566, y: 34, size: 140, rotation: 15, zIndex: 2 },
-      { file: "pentagon-02.svg", color: "branco", mode: "stroke", x: 528, y: 118, size: 62, rotation: 8, zIndex: 3 },
-      { file: "triangle-07.svg", color: "verde", mode: "fill", x: 428, y: 40, size: 36, rotation: -20, zIndex: 3 },
+      // Protagonista: sangra pelo canto superior direito.
+      { file: "triangle-03.svg", color: "verde", mode: "fill", size: 140, rotation: 15, placement: { x: 563, y: 37 } },
+      // Coadjuvantes (~40% do protagonista), encaixados em sequência: triângulo → quadrilátero → pentágono.
+      { file: "quadrilateral-14.svg", color: "azulMedio", mode: "fill", size: 56, rotation: -10, placement: { adjacentTo: 0, angle: 140, gapPercent: 3 } },
+      { file: "pentagon-02.svg", color: "branco", mode: "stroke", size: 50, rotation: 20, placement: { adjacentTo: 1, angle: 175, gapPercent: 3 } },
     ],
   },
   {
@@ -139,7 +150,7 @@ export const ALERTA_LAYERS: Layer[] = [
     label: "Corpo de texto",
     type: "text",
     role: "corpo",
-    text: "Organize seus boletos em um só lugar e automatize pagamentos com **Pix**!",
+    text: "Organize seus boletos em um só lugar e automatize pagamentos com o **Pix**!",
     color: "branco",
     weight: "regular",
     highlight: { color: "verde", weight: "bold" },
@@ -147,7 +158,8 @@ export const ALERTA_LAYERS: Layer[] = [
     lineHeight: 1.35,
     x: MARGIN,
     y: 264,
-    width: TEXT_WIDTH,
+    // Abaixo do máximo de 85%: quebra equilibrada "…um só lugar / e automatize…" (o "e" desce por typographyLineBreakRules).
+    width: 400,
   },
   {
     id: "cta",

@@ -20,10 +20,22 @@ export function typographyRange(role: ScaleRole): TypographyRange {
   return { min, max, weights: scale.weight as FontWeightKey[] };
 }
 
-/** "3 a 6 shapes" em shapeClusterPattern.description. */
+const cluster = compositionPatterns.shapeClusterPattern;
+
+/** Mínimo de "3 a N shapes" (description) e máximo de maxShapesPerCluster. */
 export function clusterSizeRange(): { min: number; max: number } {
-  const m = compositionPatterns.shapeClusterPattern.description.match(/(\d+)\s*a\s*(\d+)\s*shapes/);
-  return m ? { min: Number(m[1]), max: Number(m[2]) } : { min: 3, max: 6 };
+  const m = cluster.description.match(/(\d+)\s*a\s*(\d+)\s*shapes/);
+  return { min: m ? Number(m[1]) : 3, max: cluster.maxShapesPerCluster };
+}
+
+/** transformRules.gapRule, em % do maior shape. */
+export const clusterGapRule: { min: number; max: number } = cluster.transformRules.gapRule;
+export const clusterOverlapAllowed: boolean = cluster.transformRules.overlapAllowed;
+
+/** "~40-60% do tamanho do protagonista" em scaleHierarchy.rule → { min: 0.4, max: 0.6 }. */
+export function supportingScaleRange(): { min: number; max: number } {
+  const m = cluster.scaleHierarchy.rule.match(/(\d+)\s*-\s*(\d+)%/);
+  return m ? { min: Number(m[1]) / 100, max: Number(m[2]) / 100 } : { min: 0.4, max: 0.6 };
 }
 
 export const clusterZones: string[] = compositionPatterns.shapeClusterPattern.positioning.map((p) => p.zone);

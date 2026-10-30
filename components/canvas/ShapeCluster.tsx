@@ -1,80 +1,73 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Group, Image as KImage } from "react-konva";
+import { CANVAS_SIZE, type ShapeClusterLayer } from "@/lib/alerta-spec";
 import { color, shapePath } from "@/lib/brand-tokens";
-import type { ClusterShape, ShapeClusterLayer } from "@/lib/alerta-spec";
-import { useSvgAsset } from "@/lib/use-svg-asset";
+import { analyzeCluster, buildMask, solveCluster, type ClusterReport } from "@/lib/cluster-geometry";
+import { useSvgAssets } from "@/lib/use-svg-asset";
 
 /** Espessura do contorno dos shapes em modo "stroke", em px da peça. */
 const OUTLINE_PX = 2;
 
 interface ShapeClusterProps {
   layer: ShapeClusterLayer;
-  onReady?: () => void;
+  onReady?: (report: ClusterReport) => void;
 }
 
 /**
- * Padrão "montagem-de-cacos" (composition-patterns.json → shapeClusterPattern): 3 a 6 shapes
- * recoloridos via recolorSvg(), girados/espelhados/escalados em torno do próprio centro e
- * desenhados por zIndex. Sobreposição entre shapes do mesmo cluster é permitida (transformRules.overlapAllowed).
+ * Padrão "mosaico-de-cacos" (composition-patterns.json → shapeClusterPattern, arrangement
+ * "mosaic-adjacent"): shapes recoloridos via recolorSvg(), girados/espelhados/escalados em torno
+ * do próprio centro e posicionados LADO A LADO — cada coadjuvante é encaixado no vizinho a partir
+ * da silhueta real (máscara de pixels), com gap de 0-6% e sem nenhuma sobreposição de área.
  */
 export default function ShapeCluster({ layer, onReady }: ShapeClusterProps) {
-  const ordered = useMemo(
-    () => layer.shapes.map((shape, index) => ({ shape, index })).sort((a, b) => a.shape.zIndex - b.shape.zIndex),
+  const requests = useMemo(
+    () =>
+      layer.shapes.map((s) => ({
+        src: shapePath(s.file),
+        options: { recolor: { color: color(s.color), mode: s.mode, strokeWidth: OUTLINE_PX, targetSize: s.size } },
+      })),
     [layer.shapes],
   );
-  const [loaded, setLoaded] = useState<Record<number, true>>({});
+  const assets = useSvgAssets(requests);
+
+  const resolved = useMemo(() => {
+    if (!assets) return null;
+    const items = layer.shapes.map((s, i) => {
+      const a = assets[i];
+      const scale = s.size / Math.max(a.width, a.height);
+      return { image: a.image, width: a.width * scale, height: a.height * scale, rotation: s.rotation ?? 0, mirror: !!s.mirror };
+    });
+    const masks = items.map(buildMask);
+    const sizes = layer.shapes.map((s) => s.size);
+    const positions = solveCluster(masks, layer.shapes.map((s) => s.placement), Math.max(...sizes));
+    return { items, positions, report: analyzeCluster(masks, positions, sizes, CANVAS_SIZE) };
+  }, [assets, layer.shapes]);
 
   useEffect(() => {
-    setLoaded({});
-  }, [layer.shapes]);
-  useEffect(() => {
-    if (Object.keys(loaded).length === layer.shapes.length) onReady?.();
-  }, [loaded, layer.shapes.length, onReady]);
+    if (resolved) onReady?.(resolved.report);
+  }, [resolved, onReady]);
 
+  if (!resolved) return null;
   return (
     <Group name="brand-layer" id={layer.id}>
-      {ordered.map(({ shape, index }) => (
-        <ClusterItem
-          key={`${shape.file}-${index}`}
-          id={`${layer.id}:${index}`}
-          shape={shape}
-          onReady={() => setLoaded((prev) => (prev[index] ? prev : { ...prev, [index]: true }))}
+      {resolved.items.map((item, i) => (
+        <KImage
+          key={`${layer.shapes[i].file}-${i}`}
+          name="cluster-item"
+          id={`${layer.id}:${i}`}
+          image={item.image}
+          x={resolved.positions[i].x}
+          y={resolved.positions[i].y}
+          width={item.width}
+          height={item.height}
+          offsetX={item.width / 2}
+          offsetY={item.height / 2}
+          rotation={item.rotation}
+          scaleX={item.mirror ? -1 : 1}
         />
       ))}
     </Group>
-  );
-}
-
-function ClusterItem({ id, shape, onReady }: { id: string; shape: ClusterShape; onReady: () => void }) {
-  const asset = useSvgAsset(shapePath(shape.file), {
-    recolor: { color: color(shape.color), mode: shape.mode, strokeWidth: OUTLINE_PX, targetSize: shape.size },
-  });
-
-  useEffect(() => {
-    if (asset) onReady();
-    // onReady muda a cada render do pai; só interessa a transição para "carregado".
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asset]);
-
-  if (!asset) return null;
-  const scale = shape.size / Math.max(asset.width, asset.height);
-  const width = asset.width * scale;
-  const height = asset.height * scale;
-  return (
-    <KImage
-      name="cluster-item"
-      id={id}
-      image={asset.image}
-      x={shape.x}
-      y={shape.y}
-      width={width}
-      height={height}
-      offsetX={width / 2}
-      offsetY={height / 2}
-      rotation={shape.rotation ?? 0}
-      scaleX={shape.mirror ? -1 : 1}
-    />
   );
 }
