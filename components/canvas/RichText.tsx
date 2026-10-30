@@ -4,21 +4,16 @@ import { useMemo } from "react";
 import { Group, Text as KText } from "react-konva";
 import { color, fontStack, fontWeight } from "@/lib/brand-tokens";
 import type { TextLayer } from "@/lib/alerta-spec";
-import { layoutRichText, parseHighlights } from "@/lib/rich-text";
+import { breakText, layoutBrokenText } from "@/lib/rich-text";
 
-/** Bloco de texto com palavras-chave destacadas (padrão "palavra-chave-destacada"). */
+/** Bloco de texto com palavras-chave destacadas (padrão "palavra-chave-destacada") e quebra sem viúvas. */
 export default function RichText({ layer }: { layer: TextLayer }) {
-  const { pieces } = useMemo(
-    () =>
-      layoutRichText(
-        parseHighlights(layer.text),
-        { color: layer.color, weight: layer.weight },
-        layer.highlight,
-        layer.fontSize,
-        layer.width,
-      ),
-    [layer],
-  );
+  const pieces = useMemo(() => {
+    const base = { color: layer.color, weight: layer.weight };
+    // A quebra (com a regra de viúvas) acontece antes do Konva; ele só desenha linha a linha.
+    const broken = breakText(layer.text, base, layer.highlight, layer.fontSize, layer.width);
+    return layoutBrokenText(broken, base, layer.highlight, layer.fontSize);
+  }, [layer]);
   const lineBox = layer.fontSize * layer.lineHeight;
 
   return (

@@ -85,3 +85,21 @@ export function wrapWords<T>(items: T[], opts: WrapOptions<T>): T[][] {
     ...greedy(lines.slice(from).flat()),
   ]);
 }
+
+/**
+ * Pipeline completo para texto simples: quebra pela largura (medida por `measure`), aplica a regra
+ * de viúvas e devolve a string com "\n" explícitos — pronta para o Konva.Text, sem depender do
+ * wrap automático dele.
+ */
+export function breakIntoLines(
+  text: string,
+  maxWidth: number,
+  measure: (s: string) => number,
+  forbiddenWords: string[],
+): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  const space = measure(" ");
+  return wrapWords(words, { maxWidth, widthOf: measure, spaceBefore: () => space, wordOf: (w) => w, forbiddenWords })
+    .map((line) => line.join(" "))
+    .join("\n");
+}

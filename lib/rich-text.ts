@@ -20,8 +20,6 @@ export interface PlacedPiece {
   line: number;
 }
 
-const sameStyle = (a: TextStyle, b: TextStyle) => a.color === b.color && a.weight === b.weight;
-
 export function parseHighlights(text: string): RichSpan[] {
   return text
     .split(/(\*\*[^*]+\*\*)/)
@@ -46,28 +44,29 @@ export function measureText(text: string, style: TextStyle, fontSize: number): n
 }
 
 interface Unit {
-  pieces: { text: string; style: TextStyle }[];
+  pieces: { text: string; style: TextStyle; highlighted: boolean }[];
   space: { text: string; style: TextStyle } | null;
 }
 
 export const forbiddenTrailingWords: string[] = composition.typographyLineBreakRules.forbiddenTrailingWords;
 
 /**
- * Quebra por palavra sem viúvas (typographyLineBreakRules); uma "palavra" pode atravessar
- * estilos (ex.: "**Pix**!").
+ * Passo 1 — quebra ANTES do Konva: mede cada palavra com a fonte/peso reais, quebra pela largura,
+ * aplica a regra de viúvas (typographyLineBreakRules) e devolve o texto com "\n" explícitos,
+ * preservando os marcadores **destaque** em cada linha.
  */
-export function layoutRichText(
-  spans: RichSpan[],
+export function breakText(
+  text: string,
   base: TextStyle,
   highlight: TextStyle | undefined,
   fontSize: number,
   maxWidth: number,
-): { pieces: PlacedPiece[]; lines: string[] } {
+): string {
   const units: Unit[] = [];
   let pendingSpace: Unit["space"] = null;
   let current: Unit | null = null;
 
-  for (const span of spans) {
+  for (const span of parseHighlights(text)) {
     const style = span.highlighted && highlight ? highlight : base;
     for (const part of span.text.split(/(\s+)/)) {
       if (!part) continue;
@@ -75,46 +74,65 @@ export function layoutRichText(
         pendingSpace = { text: " ", style };
         current = null;
       } else if (current && !pendingSpace) {
-        current.pieces.push({ text: part, style });
+        current.pieces.push({ text: part, style, highlighted: span.highlighted });
       } else {
-        current = { pieces: [{ text: part, style }], space: units.length ? pendingSpace : null };
+        current = { pieces: [{ text: part, style, highlighted: span.highlighted }], space: units.length ? pendingSpace : null };
         units.push(current);
         pendingSpace = null;
       }
     }
   }
 
-  const measured = units.map((u) => ({
-    ...u,
-    widths: u.pieces.map((p) => measureText(p.text, p.style, fontSize)),
-    spaceWidth: u.space ? measureText(u.space.text, u.space.style, fontSize) : 0,
-    word: u.pieces.map((p) => p.text).join(""),
-  }));
-  const lines = wrapWords(measured, {
+  const lines = wrapWords(units, {
     maxWidth,
-    widthOf: (u) => u.widths.reduce((a, b) => a + b, 0),
-    spaceBefore: (u) => u.spaceWidth,
-    wordOf: (u) => u.word,
+    widthOf: (u) => u.pieces.reduce((w, p) => w + measureText(p.text, p.style, fontSize), 0),
+    spaceBefore: (u) => (u.space ? measureText(u.space.text, u.space.style, fontSize) : 0),
+    wordOf: (u) => u.pieces.map((p) => p.text).join(""),
     forbiddenWords: forbiddenTrailingWords,
   });
 
-  const pieces: PlacedPiece[] = [];
-  lines.forEach((lineUnits, line) => {
-    let x = 0;
-    lineUnits.forEach((unit, u) => {
-      const joinWithSpace = u > 0 && unit.space !== null;
-      if (u > 0) x += unit.spaceWidth;
-      unit.pieces.forEach((p, i) => {
-        const prev = pieces[pieces.length - 1];
-        // Junta palavras vizinhas do mesmo estilo num único nó (menos Konva.Text).
-        if (i === 0 && joinWithSpace && prev && prev.line === line && sameStyle(prev.style, p.style) && sameStyle(unit.space!.style, p.style)) {
-          prev.text += ` ${p.text}`;
-        } else {
-          pieces.push({ text: p.text, style: p.style, x, line });
-        }
-        x += unit.widths[i];
+  // Remonta cada linha com os marcadores, juntando trechos destacados vizinhos ("**Canal de Denúncias**").
+  return lines
+    .map((line) => {
+      let out = "";
+      let open = false;
+      line.forEach((unit, u) => {
+        unit.pieces.forEach((p, i) => {
+          const sep = u > 0 && i === 0 ? " " : "";
+          if (p.highlighted && !open) {
+            out += `${sep}**${p.text}`;
+            open = true;
+          } else if (!p.highlighted && open) {
+            out += `**${sep}${p.text}`;
+            open = false;
+          } else {
+            out += `${sep}${p.text}`;
+          }
+        });
       });
-    });
+      return open ? `${out}**` : out;
+    })
+    .join("\n");
+}
+
+/**
+ * Passo 2 — posiciona o texto já quebrado: uma linha por "\n", um trecho por estilo
+ * (sem nenhuma quebra automática).
+ */
+export function layoutBrokenText(
+  broken: string,
+  base: TextStyle,
+  highlight: TextStyle | undefined,
+  fontSize: number,
+): PlacedPiece[] {
+  const pieces: PlacedPiece[] = [];
+  broken.split("\n").forEach((line, lineIndex) => {
+    let x = 0;
+    for (const span of parseHighlights(line)) {
+      const style = span.highlighted && highlight ? highlight : base;
+      pieces.push({ text: span.text, style, x, line: lineIndex });
+      x += measureText(span.text, style, fontSize);
+    }
   });
-  return { pieces, lines: lines.map((l) => l.map((u) => u.word).join(" ")) };
+  return pieces;
 }

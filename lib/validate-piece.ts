@@ -6,7 +6,6 @@ import {
   validateLineBreaks,
   validateShapeClusters,
   validateTextHierarchy,
-  validateTypographyScale,
 } from "./composition-validator";
 import { validateColorUsage, validateContrast, type ValidationResult } from "./contrast-validator";
 import { validateLogoClearSpace } from "./layout-validator";
@@ -60,7 +59,6 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
 
   items.push({ id: "text-hierarchy", label: "Hierarquia de cor no texto", result: validateTextHierarchy(layers) });
   items.push({ id: "cta-style", label: "CTA com destaque visual", result: validateCtaStyle(layers) });
-  items.push({ id: "typography-scale", label: "Escala tipográfica", result: validateTypographyScale(layers) });
   items.push({
     id: "logo-audience",
     label: "Logo — audiência",
@@ -70,7 +68,7 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
   if (layout) {
     items.push({
       id: "shape-cluster",
-      label: "Cluster de shapes",
+      label: "Mosaico de shapes",
       result: validateShapeClusters(layers, layout.bounds, layout.clusters),
     });
     items.push({

@@ -4,7 +4,8 @@ import { useEffect, useMemo } from "react";
 import { Group, Image as KImage } from "react-konva";
 import { CANVAS_SIZE, type ShapeClusterLayer } from "@/lib/alerta-spec";
 import { color, shapePath } from "@/lib/brand-tokens";
-import { analyzeCluster, buildMask, solveCluster, type ClusterReport } from "@/lib/cluster-geometry";
+import { analyzeCluster, buildMask, type ClusterReport } from "@/lib/cluster-geometry";
+import { pieceSize, presetPieces } from "@/lib/shape-presets";
 import { useSvgAssets } from "@/lib/use-svg-asset";
 
 /** Espessura do contorno dos shapes em modo "stroke", em px da peça. */
@@ -16,56 +17,69 @@ interface ShapeClusterProps {
 }
 
 /**
- * Padrão "mosaico-de-cacos" (composition-patterns.json → shapeClusterPattern, arrangement
- * "mosaic-adjacent"): shapes recoloridos via recolorSvg(), girados/espelhados/escalados em torno
- * do próprio centro e posicionados LADO A LADO — cada coadjuvante é encaixado no vizinho a partir
- * da silhueta real (máscara de pixels), com gap de 0-6% e sem nenhuma sobreposição de área.
+ * Padrão "mosaico-de-cacos": um Konva.Group posicionado no canto da peça com as peças do preset
+ * nas posições fixas, cada uma recolorida via recolorSvg() e girada em torno do próprio centro.
  */
 export default function ShapeCluster({ layer, onReady }: ShapeClusterProps) {
+  const pieces = presetPieces(layer.preset);
+  const groupScale = layer.scale ?? 1;
+  const groupRotation = layer.rotation ?? 0;
+
   const requests = useMemo(
     () =>
-      layer.shapes.map((s) => ({
-        src: shapePath(s.file),
-        options: { recolor: { color: color(s.color), mode: s.mode, strokeWidth: OUTLINE_PX, targetSize: s.size } },
+      pieces.map((p) => ({
+        src: shapePath(p.file),
+        options: { recolor: { color: color(p.color), mode: p.mode, strokeWidth: OUTLINE_PX, targetSize: pieceSize(p) } },
       })),
-    [layer.shapes],
+    [pieces],
   );
   const assets = useSvgAssets(requests);
 
-  const resolved = useMemo(() => {
+  const items = useMemo(() => {
     if (!assets) return null;
-    const items = layer.shapes.map((s, i) => {
+    return pieces.map((p, i) => {
       const a = assets[i];
-      const scale = s.size / Math.max(a.width, a.height);
-      return { image: a.image, width: a.width * scale, height: a.height * scale, rotation: s.rotation ?? 0, mirror: !!s.mirror };
+      const s = pieceSize(p) / Math.max(a.width, a.height);
+      return { image: a.image, width: a.width * s, height: a.height * s };
     });
-    const masks = items.map(buildMask);
-    const sizes = layer.shapes.map((s) => s.size);
-    const positions = solveCluster(masks, layer.shapes.map((s) => s.placement), Math.max(...sizes));
-    return { items, positions, report: analyzeCluster(masks, positions, sizes, CANVAS_SIZE) };
-  }, [assets, layer.shapes]);
+  }, [assets, pieces]);
 
+  // Só medição (para o painel): silhuetas nas posições finais, já com a transformação do grupo.
   useEffect(() => {
-    if (resolved) onReady?.(resolved.report);
-  }, [resolved, onReady]);
+    if (!items) return;
+    const rad = (groupRotation * Math.PI) / 180;
+    const masks = items.map((it, i) =>
+      buildMask({
+        image: it.image,
+        width: it.width * groupScale,
+        height: it.height * groupScale,
+        rotation: pieces[i].rotation + groupRotation,
+        mirror: false,
+      }),
+    );
+    const positions = pieces.map((p) => ({
+      x: layer.x + (p.x * Math.cos(rad) - p.y * Math.sin(rad)) * groupScale,
+      y: layer.y + (p.x * Math.sin(rad) + p.y * Math.cos(rad)) * groupScale,
+    }));
+    onReady?.(analyzeCluster(masks, positions, pieces.map((p) => pieceSize(p) * groupScale), CANVAS_SIZE));
+  }, [items, pieces, layer.x, layer.y, groupRotation, groupScale, onReady]);
 
-  if (!resolved) return null;
+  if (!items) return null;
   return (
-    <Group name="brand-layer" id={layer.id}>
-      {resolved.items.map((item, i) => (
+    <Group name="brand-layer" id={layer.id} x={layer.x} y={layer.y} rotation={groupRotation} scaleX={groupScale} scaleY={groupScale}>
+      {items.map((item, i) => (
         <KImage
-          key={`${layer.shapes[i].file}-${i}`}
+          key={`${pieces[i].file}-${i}`}
           name="cluster-item"
           id={`${layer.id}:${i}`}
           image={item.image}
-          x={resolved.positions[i].x}
-          y={resolved.positions[i].y}
+          x={pieces[i].x}
+          y={pieces[i].y}
           width={item.width}
           height={item.height}
           offsetX={item.width / 2}
           offsetY={item.height / 2}
-          rotation={item.rotation}
-          scaleX={item.mirror ? -1 : 1}
+          rotation={pieces[i].rotation}
         />
       ))}
     </Group>

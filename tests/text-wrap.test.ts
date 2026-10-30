@@ -1,20 +1,28 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import compositionPatterns from "../config/composition-patterns.json";
-import { preventWidows, wrapWords } from "../lib/text-wrap";
+import { breakIntoLines, preventWidows, wrapWords } from "../lib/text-wrap";
 
 const forbidden = compositionPatterns.typographyLineBreakRules.forbiddenTrailingWords;
-const { incorrect, correct } = compositionPatterns.typographyLineBreakRules.example;
-
-test("corrige o exemplo do composition-patterns.json", () => {
-  assert.deepEqual(preventWidows(incorrect, forbidden), correct.split("\n"));
-});
+const BODY = "Organize seus boletos em um só lugar e automatize pagamentos com Pix!";
 
 test("corpo da peça: 'e' no fim da 1ª linha desce para a 2ª", () => {
   assert.deepEqual(
-    preventWidows("Organize seus boletos em um só lugar e\nautomatize pagamentos com o Pix!", forbidden),
-    ["Organize seus boletos em um só lugar", "e automatize pagamentos com o Pix!"],
+    preventWidows("Organize seus boletos em um só lugar e\nautomatize pagamentos com Pix!", forbidden),
+    ["Organize seus boletos em um só lugar", "e automatize pagamentos com Pix!"],
   );
+});
+
+test("breakIntoLines: devolve a string com \\n explícito antes do 'e'", () => {
+  // Medida por caracteres: a quebra gulosa terminaria a 1ª linha em "e".
+  assert.equal(
+    breakIntoLines(BODY, 38, (s) => s.length, forbidden),
+    "Organize seus boletos em um só lugar\ne automatize pagamentos com Pix!",
+  );
+});
+
+test("breakIntoLines: texto curto que cabe em uma linha não ganha \\n", () => {
+  assert.equal(breakIntoLines("Chega de complicar.", 38, (s) => s.length, forbidden), "Chega de complicar.");
 });
 
 test("headline curto em uma linha não muda", () => {
@@ -35,7 +43,7 @@ test("não esvazia uma linha formada só pela palavra proibida", () => {
 });
 
 test("wrapWords: quebra por largura e refaz a quebra após descer a palavra", () => {
-  const words = "Organize seus boletos em um só lugar e automatize pagamentos com o Pix!".split(" ");
+  const words = BODY.split(" ");
   const lines = wrapWords(words, {
     maxWidth: 38, // em caracteres: a quebra gulosa termina a 1ª linha em "e"
     widthOf: (w) => w.length,
@@ -45,7 +53,7 @@ test("wrapWords: quebra por largura e refaz a quebra após descer a palavra", ()
   });
   assert.deepEqual(
     lines.map((l) => l.join(" ")),
-    ["Organize seus boletos em um só lugar", "e automatize pagamentos com o Pix!"],
+    ["Organize seus boletos em um só lugar", "e automatize pagamentos com Pix!"],
   );
 });
 

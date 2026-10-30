@@ -1,9 +1,8 @@
 /**
- * Geometria do "mosaico-de-cacos" (shapeClusterPattern, arrangement "mosaic-adjacent").
- * Cada shape vira uma máscara de pixels da sua silhueta (contornos contam com o interior),
- * já girada/espelhada/escalada. Com isso:
- * - `solveCluster` encosta cada coadjuvante no shape de referência, numa direção, com o gap pedido;
- * - `analyzeCluster` mede sobreposição e distância real entre as silhuetas (não só as bboxes).
+ * Medição do "mosaico-de-cacos" (shapeClusterPattern). As posições vêm de um preset fixo;
+ * aqui só se mede o resultado: cada shape vira uma máscara de pixels da sua silhueta (contornos
+ * contam com o interior), já girada/escalada, e `analyzeCluster` compara as silhuetas reais
+ * (não as bboxes) para achar sobreposição e o vão entre peças.
  */
 
 export interface MaskSource {
@@ -102,43 +101,6 @@ export const OVERLAP_TOLERANCE_PX = 2;
 interface Pt {
   x: number;
   y: number;
-}
-
-export type Placement = Pt | { adjacentTo: number; angle: number; gapPercent: number };
-
-/**
- * Resolve as posições: shapes com x/y ficam onde estão; os demais deslizam do centro do shape de
- * referência na direção `angle` (graus; 0 = direita, 90 = baixo) até a menor distância em que não
- * sobrepõem nenhum shape já posicionado e ficam a `gapPercent`% do maior shape de distância.
- */
-export function solveCluster(masks: Mask[], placements: Placement[], largest: number): Pt[] {
-  const pos: Pt[] = [];
-  placements.forEach((pl, i) => {
-    if ("x" in pl) {
-      pos[i] = { x: pl.x, y: pl.y };
-      return;
-    }
-    const anchor = pos[pl.adjacentTo];
-    if (!anchor) throw new Error(`Shape ${i} referencia o shape ${pl.adjacentTo}, que ainda não foi posicionado`);
-    const target = Math.max(1, (pl.gapPercent / 100) * largest);
-    const rad = (pl.angle * Math.PI) / 180;
-    const at = (d: number): Pt => ({ x: anchor.x + Math.cos(rad) * d, y: anchor.y + Math.sin(rad) * d });
-    const fits = (d: number) => {
-      const p = at(d);
-      for (let j = 0; j < i; j++) if (overlapPixels(masks[j], pos[j], masks[i], p) > 0) return false;
-      return minDistance(masks[pl.adjacentTo], anchor, masks[i], p) >= target;
-    };
-    let lo = 0;
-    let hi = 800;
-    for (let k = 0; k < 24; k++) {
-      const mid = (lo + hi) / 2;
-      if (fits(mid)) hi = mid;
-      else lo = mid;
-    }
-    const p = at(hi);
-    pos[i] = { x: Math.round(p.x), y: Math.round(p.y) };
-  });
-  return pos;
 }
 
 export interface ClusterReport {

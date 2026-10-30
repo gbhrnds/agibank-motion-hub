@@ -13,7 +13,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Testes (algoritmo de viúvas): `npm test`.
+Testes (quebra de linha e viúvas): `npm test`.
 
 `npm run dev` / `npm run build` executam antes `scripts/sync-assets.mjs`, que:
 
@@ -32,9 +32,10 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
 | `components/canvas/CtaPill.tsx` | CTA em pílula sólida com sombra (`ctaRules` "pill-solid-accent") |
-| `components/canvas/ShapeCluster.tsx` | Mosaico de shapes recoloridos, encaixados lado a lado sem sobreposição (`shapeClusterPattern`) |
-| `lib/cluster-geometry.ts` | Máscaras de silhueta, encaixe dos shapes com gap 0-6% e medição de sobreposição/gaps |
-| `lib/text-wrap.ts` | `preventWidows()` / `wrapWords()`: quebra de linha sem viúvas (`typographyLineBreakRules`) |
+| `components/canvas/ShapeCluster.tsx` | Mosaico de shapes recoloridos num `Konva.Group`, a partir de um preset com posições fixas |
+| `lib/shape-presets.ts` | Presets do mosaico (`mosaic-preset-01`): arquivo, cor, escala, x, y e rotação de cada peça |
+| `lib/cluster-geometry.ts` | Mede o mosaico pela silhueta real: sobreposição e vão entre peças |
+| `lib/text-wrap.ts` | `preventWidows()` / `wrapWords()` / `breakIntoLines()`: quebra com `\n` explícito e sem viúvas (`typographyLineBreakRules`) |
 | `components/canvas/IconInline.tsx` | Ícones SVG recoloridos com tokens |
 | `lib/svg-utils.ts` | `recolorSvg()`: recolore um SVG (fill ou contorno) e devolve data URL base64 |
 | `lib/color-coverage.ts` | Mede a fração de pixels de cada cor da paleta na peça renderizada |
@@ -44,7 +45,7 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/contrast-validator.ts` | `validateContrast()` e `validateColorUsage()` |
 | `lib/layout-validator.ts` | Nenhum shape/texto dentro da área de proteção do logo |
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
-| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: texto bicolor, CTA de alto contraste, cluster de shapes, escala tipográfica |
+| `lib/composition-validator.ts` | Regras de `config/composition-patterns.json`: texto bicolor, CTA em pílula verde/amarela, mosaico de shapes, quebra sem viúvas |
 | `lib/export-png.ts` | Exporta o Stage como PNG 600×600 |
 
 ## Testando o bloqueio
@@ -54,8 +55,8 @@ Em `lib/alerta-spec.ts`, faça qualquer uma destas alterações e o painel mostr
 
 - headline ou corpo em `"azulMedio"`, ou fundo em `"amarelo"`;
 - corpo inteiro em `"verde"` (verde sobre azul Agibank só em títulos e palavras-chave);
-- remover a `pill` do CTA, ou trocá-la para `"azulEscuro"` (baixo contraste sobre azul Agibank);
+- remover a `pill` do CTA, ou trocá-la para uma cor que não seja verde ou amarelo;
 - texto branco sobre a pílula verde;
 - texto todo numa cor só;
-- cluster com menos de 3 ou mais de 3 shapes, de uma cor só, com tamanhos parecidos, com shapes sobrepostos ou soltos, ou cobrindo um texto;
+- no preset do mosaico (`lib/shape-presets.ts`), peças sobrepostas, de uma cor só, duas do tamanho máximo, ou cobrindo um texto;
 - um shape em cima do logo.

@@ -1,5 +1,4 @@
-import type { Audience, ColorKey, EffectKey, FontWeightKey, IconFile, ShapeFile } from "./brand-tokens";
-import type { ColorMode } from "./svg-utils";
+import type { Audience, ColorKey, EffectKey, FontWeightKey, IconFile } from "./brand-tokens";
 
 /**
  * Peça fixa do MVP: Alerta institucional de Comunicação Interna 600x600
@@ -67,38 +66,24 @@ export interface CtaLayer extends BaseLayer, TextStyle {
   trailingIcon?: { file: IconFile; size: number; gap: number };
 }
 
-export interface ClusterShape {
-  file: ShapeFile;
-  color: ColorKey;
-  mode: ColorMode;
-  /** Maior dimensão desenhada, em px (escala uniforme — nunca distorce proporções). */
-  size: number;
-  rotation?: number;
-  mirror?: boolean;
-  /**
-   * Centro fixo em px da peça (pode ficar fora do frame para sangrar), ou encaixe no shape
-   * `adjacentTo`: desliza na direção `angle` (graus; 0 = direita, 90 = baixo) até encostar,
-   * a `gapPercent`% do maior shape de distância (shapeClusterPattern.transformRules.gapRule).
-   */
-  placement: Point | { adjacentTo: number; angle: number; gapPercent: number };
-}
-
 export interface Point {
   x: number;
   y: number;
 }
 
-/** Zona do cluster — composition-patterns.json → shapeClusterPattern.positioning[].zone. */
-export type ClusterZone = "canto-superior-direito-sangrando" | "ancorando-cta" | "base-do-frame";
-
 /**
- * Padrão "mosaico-de-cacos" (shapeClusterPattern): shapes adjacentes, sem sobreposição,
- * com 1 protagonista grande e coadjuvantes pequenos.
+ * Padrão "mosaico-de-cacos" (shapeClusterPattern): grupo de shapes encaixados como quebra-cabeça,
+ * a partir de um preset com posições fixas (components/canvas/ShapeCluster.tsx → SHAPE_PRESETS).
  */
 export interface ShapeClusterLayer extends BaseLayer {
   type: "cluster";
-  zone: ClusterZone;
-  shapes: ClusterShape[];
+  /** Id em shapeClusterPattern.hardcodedPresets. */
+  preset: string;
+  /** Origem do grupo (centro da peça protagonista), em px da peça. */
+  x: number;
+  y: number;
+  rotation?: number;
+  scale?: number;
 }
 
 export interface LogoLayer extends BaseLayer {
@@ -120,16 +105,11 @@ export const ALERTA_LAYERS: Layer[] = [
   { id: "fundo", label: "Fundo", type: "background", color: "azulAgibank" },
   {
     id: "cluster",
-    label: "Cluster de shapes (sup. direito)",
+    label: "Mosaico de shapes (sup. direito)",
     type: "cluster",
-    zone: "canto-superior-direito-sangrando",
-    shapes: [
-      // Protagonista: sangra pelo canto superior direito.
-      { file: "triangle-03.svg", color: "verde", mode: "fill", size: 140, rotation: 15, placement: { x: 563, y: 37 } },
-      // Coadjuvantes (~40% do protagonista), encaixados em sequência: triângulo → quadrilátero → pentágono.
-      { file: "quadrilateral-14.svg", color: "azulMedio", mode: "fill", size: 56, rotation: -10, placement: { adjacentTo: 0, angle: 140, gapPercent: 3 } },
-      { file: "pentagon-02.svg", color: "branco", mode: "stroke", size: 50, rotation: 20, placement: { adjacentTo: 1, angle: 175, gapPercent: 3 } },
-    ],
+    preset: "mosaic-preset-01",
+    x: 500,
+    y: 50,
   },
   {
     id: "headline",
@@ -150,7 +130,7 @@ export const ALERTA_LAYERS: Layer[] = [
     label: "Corpo de texto",
     type: "text",
     role: "corpo",
-    text: "Organize seus boletos em um só lugar e automatize pagamentos com o **Pix**!",
+    text: "Organize seus boletos em um só lugar e automatize pagamentos com **Pix**!",
     color: "branco",
     weight: "regular",
     highlight: { color: "verde", weight: "bold" },
