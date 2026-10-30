@@ -75,10 +75,17 @@ export const allFontWeights = Object.keys(assetsMap.typography.weights) as FontW
 // scripts/sync-assets.mjs; no build estático, "./").
 export const CDN_BASE: string = assetsMap.meta.cdnBase.replace(/\/+$/, "");
 const LOCAL_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "/";
+/**
+ * "false" só no build publicado como Artifact: o visualizador de Artifacts bloqueia outras origens
+ * (CSP), então lá os assets vêm direto dos arquivos publicados com a página.
+ */
+const USE_CDN = process.env.NEXT_PUBLIC_ASSETS_FROM_CDN !== "false";
 
 /** URL do asset na CDN a partir do caminho relativo do assets-map ("assets/shapes/x.svg"). */
 export function assetUrl(relativePath: string): string {
-  return /^(https?:|data:)/.test(relativePath) ? relativePath : `${CDN_BASE}/${relativePath.replace(/^\.?\/+/, "")}`;
+  if (/^(https?:|data:)/.test(relativePath)) return relativePath;
+  const rel = relativePath.replace(/^\.?\/+/, "");
+  return USE_CDN ? `${CDN_BASE}/${rel}` : `${LOCAL_BASE}${rel}`;
 }
 
 /** Cópia local de uma URL da CDN (fallback); null se a URL não for da CDN. */

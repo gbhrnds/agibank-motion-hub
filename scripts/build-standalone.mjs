@@ -29,18 +29,19 @@ await build({
   define: {
     "process.env.NODE_ENV": '"production"',
     "process.env.NEXT_PUBLIC_ASSET_BASE": '"./"',
+    // O visualizador de Artifacts bloqueia outras origens (CSP): assets vêm dos arquivos publicados.
+    "process.env.NEXT_PUBLIC_ASSETS_FROM_CDN": '"false"',
   },
   logLevel: "warning",
 });
 
-// Fontes e SVGs vêm da CDN (meta.cdnBase). Fallback: fontes embutidas como data URI e SVGs
-// publicados ao lado da página.
+// Fontes embutidas como data URI e SVGs publicados ao lado da página: o visualizador de Artifacts
+// não deixa a página buscar a CDN (meta.cdnBase), que o app Next usa.
 const { fontFamily, basePath, format, weights } = map.typography;
-const cdnBase = map.meta.cdnBase.replace(/\/+$/, "");
 const faces = Object.values(weights)
   .map(({ file, value }) => {
     const b64 = readFileSync(join(root, basePath, file)).toString("base64");
-    return `@font-face{font-family:"${fontFamily}";src:url("${cdnBase}/${basePath}${file}") format("${format}"),url(data:font/${format};base64,${b64}) format("${format}");font-weight:${value};font-style:normal;font-display:block}`;
+    return `@font-face{font-family:"${fontFamily}";src:url(data:font/${format};base64,${b64}) format("${format}");font-weight:${value};font-style:normal;font-display:block}`;
   })
   .join("\n");
 const twInput = join(out, "tw-input.css");
