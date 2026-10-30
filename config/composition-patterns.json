@@ -1,205 +1,106 @@
 {
   "meta": {
-    "version": "1.3.0",
+    "version": "1.4.0",
     "lastUpdated": "2025-01-29",
-    "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração. Fonte complementar ao config/assets-map.json.",
+    "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração.",
     "referenceImagesPath": "references/popups/"
   },
 
   "textHierarchyRules": {
     "neverSingleColor": true,
-    "rule": "Todo bloco de título ou corpo deve combinar pelo menos 2 cores da paleta (ex: verde+branco) para criar hierarquia visual e grifar palavra-chave. Nunca usar uma única cor em todo o bloco de texto.",
+    "rule": "Todo bloco de título ou corpo deve combinar pelo menos 2 cores da paleta (ex: verde+branco) para criar hierarquia visual e grifar palavra-chave.",
     "patterns": [
       {
         "name": "titulo-bicolor",
         "description": "Título em 2 linhas, cada linha ou trecho em cor diferente",
-        "example": "Aqui, você tem voz. (verde) / Aqui, você tem vez. (branco)",
-        "referenceImage": "ref-02-canal-denuncias.jpg"
+        "example": "Aqui, você tem voz. (verde) / Aqui, você tem vez. (branco)"
       },
       {
         "name": "palavra-chave-destacada",
-        "description": "Dentro do corpo de texto, 1-3 palavras-chave em verde bold, resto em branco regular",
-        "example": "Organize seus boletos e automatize pagamentos com Pix! (Pix em destaque)",
-        "referenceImage": "ref-08-indice-uso-produtos.jpg"
+        "description": "Dentro do corpo de texto, 1-3 palavras-chave em verde bold, resto em branco regular"
       },
       {
         "name": "peso-diferenciado-mesma-palavra",
-        "description": "Mesma palavra/frase com pesos tipográficos diferentes para dar ritmo",
-        "example": "Janeiro (regular) / branco (extrabold, maior)",
-        "referenceImage": "ref-03-janeiro-branco.jpg"
+        "description": "Mesma palavra/frase com pesos tipográficos diferentes para dar ritmo"
       }
     ]
   },
 
   "typographyLineBreakRules": {
-    "rule": "Nunca deixar artigos, preposições ou conjunções curtas isoladas no final de uma linha (viúvas/órfãs tipográficas). Quando a quebra de linha natural resultar nisso, mover a palavra para o início da linha seguinte.",
+    "rule": "Nunca deixar artigos, preposições ou conjunções curtas isoladas no final de uma linha (viúvas/órfãs).",
     "forbiddenTrailingWords": [
-      "a", "à", "ao", "aos", "as", "às", "o", "os",
-      "e", "é",
-      "de", "da", "do", "das", "dos",
-      "em", "no", "na", "nos", "nas",
-      "um", "uma", "uns", "umas",
-      "por", "pra", "pro", "pros", "para",
-      "com", "sem",
-      "que", "se",
-      "ou"
+      "a", "à", "ao", "aos", "as", "às", "o", "os", "e", "é", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "uns", "umas", "por", "pra", "pro", "pros", "para", "com", "sem", "que", "se", "ou"
     ],
     "algorithm": [
-      "1. Realizar a quebra de linha normal respeitando a largura máxima do bloco de texto.",
-      "2. Verificar se a última palavra de cada linha (exceto a última linha do texto) pertence à lista forbiddenTrailingWords.",
-      "3. Se pertencer, mover essa palavra para o início da linha seguinte.",
-      "4. Repetir a verificação após o ajuste, pois mover uma palavra pode gerar uma nova viúva na linha de origem."
-    ],
-    "example": {
-      "incorrect": "Organize seus boletos em um só lugar e\nautomatize pagamentos com o Pix.",
-      "correct": "Organize seus boletos em um só lugar\ne automatize pagamentos com o Pix."
-    },
-    "appliesTo": ["titulo", "corpo", "cta"]
+      "1. Realizar a quebra de linha normal.",
+      "2. Verificar se a última palavra da linha pertence à lista forbiddenTrailingWords.",
+      "3. Se sim, forçar a quebra (\n) ANTES dessa palavra, movendo-a para a linha seguinte.",
+      "4. Repetir recursivamente."
+    ]
   },
 
   "ctaRules": {
     "neverPlainText": true,
-    "rule": "CTA nunca é apenas texto solto — deve ter um elemento visual de contraste real (pílula, botão, caixa sólida) em cor que se destaque claramente do fundo, nunca tons próximos (ex: azul escuro sobre azul Agibank é proibido por baixo contraste).",
+    "rule": "CTA deve ter contraste real (pílula, botão, caixa sólida) ou destaque tipográfico forte inline.",
     "variants": [
       {
         "name": "pill-solid-accent",
-        "description": "Pílula/caixa sólida em verde ou amarelo, texto em azul escuro (conforme contrastMap), cantos totalmente arredondados",
-        "cornerRadius": "full-rounded",
-        "shadowRecommended": true,
-        "referenceImage": "ref-13-premio-reclameaqui.jpg"
-      },
-      {
-        "name": "pill-solid-dark",
-        "description": "Pílula arredondada em azul escuro/médio, usada apenas sobre fundos claros ou quando já há forte contraste de cor em outro elemento da peça",
-        "cornerRadius": "full-rounded",
-        "restriction": "nao-usar-sobre-fundo-azul-agibank-baixo-contraste"
+        "description": "Pílula verde ou amarela, texto azul escuro, cantos totalmente arredondados, sombra sutil."
       },
       {
         "name": "cta-bold-inline",
-        "description": "Sem caixa, mas com parte do texto em peso bold + cor de destaque, usado quando o espaço já tem elementos visuais fortes (foto, mockup)",
-        "referenceImage": "ref-01-chega-de-complicar.jpg"
+        "description": "Sem caixa, parte do texto em peso bold + cor de destaque. Usado com fotos/mockups."
       }
-    ],
-    "iconSupport": "opcional: chevron-right.svg ao final do texto do CTA, recolorido para a mesma cor do texto do CTA"
+    ]
   },
 
   "shapeUsageRules": {
     "neverDecorativeOnly": true,
-    "rule": "Shapes isolados sem função (linhas soltas, formas únicas flutuantes) são proibidos. Priorizar o padrão shapeClusterPattern definido abaixo.",
+    "rule": "Shapes devem estruturar o layout. Proibido shapes pequenos flutuando sem intenção.",
     "patterns": [
       {
-        "name": "formas-espalhadas-ao-redor-de-titulo",
-        "description": "Formas pequenas distribuídas soltas (sem tocar) ao redor de um bloco de texto, como confete — nunca sobrepostas entre si nem sobre o texto",
-        "referenceImage": "brandbook-pagina-48-grafismos"
+        "name": "moldura-gigante-outline",
+        "description": "Um shape outline (stroke) muito grande que quase emoldura o texto principal, cruzando o canvas de um lado a outro.",
+        "color": "verde ou azulClaro"
       },
       {
-        "name": "moldura-organica-ao-redor-de-pessoa",
-        "description": "Outline (contorno fino, não preenchido) de forma irregular contornando uma pessoa/foco da foto",
-        "color": "verde",
-        "referenceImage": "ref-01-chega-de-complicar.jpg"
+        "name": "fundo-faiscas-nas-bordas",
+        "description": "Shapes grandes (preenchidos ou outline) posicionados nas extremidades do canvas, cortados pela borda, criando uma textura de fundo sem invadir o texto central."
       },
       {
-        "name": "mockup-sangrando-da-base",
-        "description": "Imagem de produto/tela posicionada na base do frame, cortada propositalmente pela borda inferior",
-        "usage": "quando a peça divulga um produto/funcionalidade digital",
-        "referenceImage": "ref-11-pdi.jpg"
+        "name": "mascara-de-foto-irregular",
+        "description": "Uma foto aplicada DENTRO de um shape irregular (como clipPath), em vez de um quadrado perfeito."
       }
-    ],
-    "forbidden": [
-      "linha-decorativa-sem-conexao-logica",
-      "icone-solto-sem-contexto-apos-titulo",
-      "shape-unico-isolado-sem-cluster",
-      "shapes-sobrepostos-com-fill-cobrindo-outro-shape",
-      "shapes-todos-do-mesmo-tamanho-sem-hierarquia-de-escala"
     ]
   },
 
   "shapeClusterPattern": {
     "name": "mosaico-de-cacos",
-    "description": "Agrupamento de 3 a 4 shapes irregulares (triangle/quadrilateral/pentagon) com HIERARQUIA DE ESCALA clara (1 forma protagonista grande + 1-2 formas coadjuvantes pequenas), posicionados ADJACENTES uns aos outros formando um mosaico — como cacos quebrados que se encaixam, SEM sobrepor preenchimento entre si e SEM ficarem todos do mesmo tamanho.",
+    "description": "Agrupamento de 3 a 5 shapes que se encaixam perfeitamente como um quebra-cabeça, SEM sobreposição de preenchimento.",
     "scaleHierarchy": {
-      "rule": "Definir sempre 1 shape protagonista (maior, mais visível) e 1-2 shapes coadjuvantes (consideravelmente menores, ~40-60% do tamanho do protagonista), nunca formas de tamanho homogêneo entre si.",
-      "referenceExamples": [
-        {
-          "image": "ref-04-pergunt-ai.jpg",
-          "composition": "1 triângulo grande azul médio (protagonista) + 1 triângulo pequeno verde (coadjuvante) + 1 triângulo pequeno amarelo no canto oposto"
-        },
-        {
-          "image": "ref-13-premio-reclameaqui.jpg",
-          "composition": "1 forma verde grande (protagonista) + 1 forma branca outline pequena sobreposta na borda + formas amarelas pequenas no canto oposto"
-        }
-      ]
+      "rule": "Sempre 1 shape protagonista grande + shapes coadjuvantes médios/pequenos."
     },
     "colorMix": {
-      "rule": "Combinar no mínimo 2 cores dentro do mesmo cluster",
-      "allowedCombos": [
-        ["azulMedio", "branco-outline"],
-        ["verde", "azulMedio"],
-        ["verde", "amarelo-accent-pequeno", "branco-outline"],
-        ["azulEscuro", "verde"]
-      ],
-      "amareloRule": "amarelo só pode aparecer em 1 shape pequeno do cluster, nunca dominante"
+      "rule": "Combinar no mínimo 2 cores. Amarelo apenas em shapes pequenos."
     },
-    "maxShapesPerCluster": 3,
-    "positioning": [
+    "hardcodedPresets": [
       {
-        "zone": "canto-superior-direito-sangrando",
-        "usage": "shape protagonista parcialmente cortado pela borda do frame, coadjuvantes próximos mas não sobrepostos",
-        "referenceImage": "ref-04-pergunt-ai.jpg"
-      },
-      {
-        "zone": "ancorando-cta",
-        "usage": "cluster ao redor ou atrás do botão CTA para dar destaque extra",
-        "referenceImage": "ref-06-reconhecimento.jpg"
-      },
-      {
-        "zone": "base-do-frame",
-        "usage": "cluster como rodapé gráfico",
-        "referenceImage": "ref-12-plano-carreira.jpg"
+        "id": "mosaic-preset-01",
+        "description": "Baseado na referência visual fornecida: Pentágono verde em cima, triângulo azul em baixo na esquerda, quadrilátero branco em baixo na direita, triângulo amarelo pequeno na lateral.",
+        "arrangement": "As coordenadas (x,y) e rotações devem ser fixadas manualmente no código para garantir o encaixe perfeito, pois o cálculo automático de bounding box em SVGs irregulares falha."
       }
-    ],
-    "transformRules": {
-      "allowed": ["rotate", "mirror", "scale"],
-      "forbidden": ["distort-proportions"],
-      "overlapAllowed": false,
-      "arrangement": "mosaic-adjacent",
-      "gapRule": {
-        "min": 0,
-        "max": 6,
-        "note": "shapes devem ficar encostados ou com espaçamento mínimo entre si (0-6% do tamanho do shape maior), simulando peças de um mosaico quebrado que se encaixam. NUNCA um shape deve desenhar por cima da área preenchida de outro shape."
-      },
-      "note": "Cada shape deve ter sua silhueta completamente legível e distinta das demais. Se ao final da composição não for possível contar visualmente quantas formas existem, a composição está incorreta."
-    }
-  },
-
-  "backgroundVariants": {
-    "rule": "Fundo não é sempre azul Agibank sólido — variar conforme o tom da mensagem",
-    "options": [
-      { "cor": "azulAgibank", "uso": "comunicados gerais, tom padrão" },
-      { "cor": "azulEscuro", "uso": "reconhecimento, conquistas, tom mais sério/premium" },
-      { "cor": "branco", "uso": "conteúdo editorial, eventos, tom mais leve" },
-      { "cor": "cinzaClaro", "uso": "bloco secundário abaixo de foto, contraste suave" }
     ]
   },
 
-  "typographyScale": {
-    "titulo": { "sizeRange": "32-48px", "weight": ["bold", "extraBold"], "maxLines": 3 },
-    "corpo": { "sizeRange": "18-24px", "weight": ["regular", "medium"] },
-    "cta": { "sizeRange": "16-20px", "weight": ["semiBold", "bold"] }
-  },
-
   "layoutComposition": {
-    "withPhoto": {
-      "description": "Foto ocupa 40-55% superior do frame, bloco de texto sólido ocupa o restante",
-      "referenceImage": "ref-01-chega-de-complicar.jpg"
-    },
     "textOnly": {
-      "description": "Fundo sólido, título grande no terço superior, corpo no meio, CTA destacado na base, shape cluster/mosaico nos cantos",
-      "referenceImage": "ref-02-canal-denuncias.jpg"
+      "description": "Fundo sólido, título bicolor grande, CTA pílula, cluster mosaico no canto superior direito."
     },
-    "withMockup": {
-      "description": "Título e corpo no terço superior, mockup de produto sangrando na base, cluster de shapes próximo ao texto",
-      "referenceImage": "ref-11-pdi.jpg"
+    "splitDiagonalPhoto": {
+      "description": "Uso de 'modulos'. Metade da tela com foto, divisão diagonal, outra metade fundo sólido com texto e CTA inline."
+    },
+    "maskedPhoto": {
+      "description": "Fundo sólido, foto dentro de shape irregular no centro/topo, texto abaixo."
     }
   }
 }
