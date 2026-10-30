@@ -1,17 +1,29 @@
-import type { Layer, Rect } from "./alerta-spec";
-import { CANVAS_SIZE } from "./alerta-spec";
-import { composition, shapePatternNames, typographyRange, type ScaleRole } from "./composition-tokens";
+import type { ClusterShape, Layer, Rect, ShapeClusterLayer } from "./alerta-spec";
+import { CANVAS_SIZE, getBackground } from "./alerta-spec";
+import type { ColorKey } from "./brand-tokens";
+import {
+  clusterColorCombos,
+  clusterSizeRange,
+  clusterZones,
+  composition,
+  ctaVariant,
+  typographyRange,
+  type ScaleRole,
+} from "./composition-tokens";
 import type { ValidationResult } from "./contrast-validator";
 import { hasHighlight } from "./rich-text";
 
 /**
- * Regras de config/composition-patterns.json. As regras marcadas "never*: true" bloqueiam;
- * a escala tipográfica é recomendação (warning).
+ * Regras de config/composition-patterns.json. As regras "never*", "forbidden" e "restriction"
+ * bloqueiam; a escala tipográfica é recomendação (warning).
  */
 
 const block = (message: string): ValidationResult => ({ valid: false, severity: "blocking", message });
 const warn = (message: string): ValidationResult => ({ valid: true, severity: "warning", message });
 const ok = (message: string): ValidationResult => ({ valid: true, severity: "ok", message });
+
+const intersects = (a: Rect, b: Rect) =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 /** textHierarchyRules.neverSingleColor: o bloco de texto combina pelo menos 2 cores. */
 export function validateTextHierarchy(layers: Layer[]): ValidationResult {
@@ -27,41 +39,90 @@ export function validateTextHierarchy(layers: Layer[]): ValidationResult {
   return ok(`Texto em ${colors.size} cores: ${[...colors].join(" + ")}.`);
 }
 
-/** ctaRules.neverPlainText: CTA precisa de pílula/caixa sólida. */
+/** Variante de ctaRules.variants pela cor da pílula. */
+function ctaVariantName(pillColor: ColorKey): string {
+  return pillColor === "azulEscuro" || pillColor === "azulMedio" ? "pill-solid-dark" : "pill-solid-accent";
+}
+
+/** ctaRules: nunca texto solto; "pill-solid-dark" proibida sobre fundo azul Agibank. */
 export function validateCtaStyle(layers: Layer[]): ValidationResult {
+  const background = getBackground(layers);
   const ctas = layers.filter((l) => l.type === "cta");
   if (ctas.length === 0) return warn("A peça não tem CTA.");
-  const soltos = ctas.filter((l) => l.type === "cta" && !l.pill);
-  if (composition.ctaRules.neverPlainText && soltos.length > 0) {
-    return block(`CTA como texto solto: ${soltos.map((l) => l.label).join(", ")}. Use pílula ou caixa sólida.`);
-  }
-  return ok("CTA em pílula sólida com cantos arredondados.");
-}
-
-function outsideCanvas(r: Rect): boolean {
-  return r.x < 0 || r.y < 0 || r.x + r.width > CANVAS_SIZE || r.y + r.height > CANVAS_SIZE;
-}
-
-/** shapeUsageRules.neverDecorativeOnly: todo shape tem função; "sangrando" precisa sair do frame. */
-export function validateShapeFunction(layers: Layer[], bounds: Record<string, Rect>): ValidationResult {
-  const problemas: string[] = [];
-  const funcoes: string[] = [];
-  for (const l of layers) {
-    if (l.type !== "shape" && l.type !== "connector") continue;
-    if (!l.funcao || !shapePatternNames.includes(l.funcao)) {
-      problemas.push(`${l.label} sem função definida`);
+  for (const cta of ctas) {
+    if (cta.type !== "cta") continue;
+    if (!cta.pill) {
+      if (composition.ctaRules.neverPlainText) return block(`${cta.label} como texto solto. Use pílula ou caixa sólida.`);
       continue;
     }
-    if (l.funcao === "shape-sangrando-do-frame" && bounds[l.id] && !outsideCanvas(bounds[l.id])) {
-      problemas.push(`${l.label} deveria sangrar para fora do frame, mas está contido`);
-      continue;
+    const variant = ctaVariant(ctaVariantName(cta.pill.color));
+    const restriction = variant && "restriction" in variant ? variant.restriction : undefined;
+    if (restriction === "nao-usar-sobre-fundo-azul-agibank-baixo-contraste" && background?.color === "azulAgibank") {
+      return block(
+        `Pílula ${cta.pill.color} sobre azulAgibank tem baixo contraste (ctaRules "${variant!.name}"). Use "pill-solid-accent" (verde ou amarelo).`,
+      );
     }
-    funcoes.push(l.funcao);
+    if (variant && "shadowRecommended" in variant && variant.shadowRecommended && !cta.pill.shadow) {
+      return warn(`"${variant.name}" recomenda sombra sutil na pílula.`);
+    }
+    return ok(`Pílula "${variant?.name}" em ${cta.pill.color}${cta.pill.shadow ? " com sombra sutil" : ""}.`);
   }
-  if (composition.shapeUsageRules.neverDecorativeOnly && problemas.length > 0) {
-    return block(`${problemas.join("; ")}.`);
+  return ok("CTA com destaque visual.");
+}
+
+/** Nome da cor do shape no vocabulário de shapeClusterPattern.colorMix.allowedCombos. */
+function clusterColorName(shape: ClusterShape, largest: number): string {
+  if (shape.mode === "stroke") return `${shape.color}-outline`;
+  if (shape.color === "amarelo") return shape.size <= largest / 2 ? "amarelo-accent-pequeno" : "amarelo";
+  return shape.color;
+}
+
+function bleeds(zone: string, r: Rect): boolean {
+  if (zone === "canto-superior-direito-sangrando") return r.y < 0 || r.x + r.width > CANVAS_SIZE;
+  if (zone === "base-do-frame") return r.y + r.height > CANVAS_SIZE;
+  return true;
+}
+
+/**
+ * shapeUsageRules + shapeClusterPattern ("montagem-de-cacos"):
+ * 3-6 shapes, ≥2 cores numa combinação permitida, amarelo só em 1 shape pequeno,
+ * zona válida (e sangrando, quando a zona pede), sem cobrir textos/CTA.
+ */
+export function validateShapeClusters(layers: Layer[], bounds: Record<string, Rect>): ValidationResult {
+  const clusters = layers.filter((l): l is ShapeClusterLayer => l.type === "cluster");
+  if (clusters.length === 0) return warn("A peça não tem cluster de shapes (shapeClusterPattern).");
+  const { min, max } = clusterSizeRange();
+  const texts = layers.filter((l) => l.type === "text" || l.type === "cta");
+  const resumo: string[] = [];
+
+  for (const c of clusters) {
+    const n = c.shapes.length;
+    if (n < min) return block(`${c.label}: ${n} shape(s) — "shape-unico-isolado-sem-cluster" é proibido; use de ${min} a ${max}.`);
+    if (n > max) return block(`${c.label}: ${n} shapes — o cluster aceita no máximo ${max}.`);
+
+    const largest = Math.max(...c.shapes.map((s) => s.size));
+    const names = new Set(c.shapes.map((s) => clusterColorName(s, largest)));
+    if (names.size < 2) return block(`${c.label}: cluster de uma cor só (${[...names].join("")}); combine ao menos 2.`);
+    if (!clusterColorCombos.some((combo) => combo.every((name) => names.has(name)))) {
+      return block(`${c.label}: combinação ${[...names].join(" + ")} não está em colorMix.allowedCombos.`);
+    }
+    const amarelos = c.shapes.filter((s) => s.color === "amarelo");
+    if (amarelos.length > 1 || names.has("amarelo")) {
+      return block(`${c.label}: amarelo só pode aparecer em 1 shape pequeno do cluster (colorMix.amareloRule).`);
+    }
+
+    if (!clusterZones.includes(c.zone)) return block(`${c.label}: zona "${c.zone}" não existe em shapeClusterPattern.positioning.`);
+    const box = bounds[c.id];
+    if (box && !bleeds(c.zone, box)) return block(`${c.label}: a zona "${c.zone}" pede que o cluster sangre pela borda.`);
+
+    for (let i = 0; i < n; i++) {
+      const item = bounds[`${c.id}:${i}`];
+      const hit = item && texts.find((t) => bounds[t.id] && intersects(item, bounds[t.id]));
+      if (hit) return block(`${c.label}: ${c.shapes[i].file} cobre "${hit.label}".`);
+    }
+    resumo.push(`${n} shapes (${[...names].join(" + ")}) em ${c.zone}`);
   }
-  return ok(funcoes.length ? `Elementos gráficos com função: ${[...new Set(funcoes)].join(", ")}.` : "Sem shapes.");
+  return ok(`Cluster "${composition.shapeClusterPattern.name}": ${resumo.join("; ")}.`);
 }
 
 /** typographyScale: tamanho e peso por papel (titulo, corpo, cta). */

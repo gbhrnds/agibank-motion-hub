@@ -226,6 +226,9 @@
       ]
     }
   },
+  "effects": {
+    "shadowSubtle": { "color": "#000000", "blur": 10, "opacity": 0.2, "offsetY": 4, "uso": "cta-pill-solid-accent (composition-patterns ctaRules shadowRecommended)" }
+  },
   "brandRules": {
     "contrastMap": {
       "branco":      { "preferido": ["azulEscuro", "azulMedio"] },

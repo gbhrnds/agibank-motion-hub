@@ -1,10 +1,11 @@
-import type { Audience, ColorKey, FontWeightKey, IconFile, ShapeFile } from "./brand-tokens";
+import type { Audience, ColorKey, EffectKey, FontWeightKey, IconFile, ShapeFile } from "./brand-tokens";
+import type { ColorMode } from "./svg-utils";
 
 /**
  * Peça fixa do MVP: Alerta institucional de Comunicação Interna 600x600
  * (canais "Alerta Sempre Juntos" e "Alerta Teams").
  *
- * Só referencia CHAVES de config/assets-map.json (cores, pesos, arquivos) e nomes de
+ * Só referencia CHAVES de config/assets-map.json (cores, pesos, arquivos, efeitos) e nomes de
  * padrões de config/composition-patterns.json; os valores concretos são resolvidos
  * por lib/brand-tokens.ts e lib/composition-tokens.ts.
  */
@@ -19,11 +20,6 @@ export interface Rect {
   y: number;
   width: number;
   height: number;
-}
-
-export interface Point {
-  x: number;
-  y: number;
 }
 
 interface BaseLayer {
@@ -58,16 +54,6 @@ export interface TextLayer extends BaseLayer, TextStyle {
   width: number;
 }
 
-export interface IconRowLayer extends BaseLayer {
-  type: "icons";
-  icons: IconFile[];
-  color: ColorKey;
-  size: number;
-  gap: number;
-  x: number;
-  y: number;
-}
-
 export interface CtaLayer extends BaseLayer, TextStyle {
   type: "cta";
   text: string;
@@ -76,37 +62,33 @@ export interface CtaLayer extends BaseLayer, TextStyle {
   x: number;
   y: number;
   /** Caixa sólida atrás do texto (composition-patterns.json → ctaRules). Ausente = texto solto. */
-  pill?: { color: ColorKey; paddingX: number; paddingY: number };
+  pill?: { color: ColorKey; paddingX: number; paddingY: number; shadow?: EffectKey };
+  /** Ícone recolorido com a cor do texto (ctaRules.iconSupport). */
   trailingIcon?: { file: IconFile; size: number; gap: number };
 }
 
-/** Função do shape — nomes de composition-patterns.json → shapeUsageRules.patterns. */
-export type ShapeFunction = "shape-sangrando-do-frame" | "linha-conectora-organica" | "moldura-organica-ao-redor-de-pessoa";
-
-export interface ShapeLayer extends BaseLayer {
-  type: "shape";
+export interface ClusterShape {
   file: ShapeFile;
   color: ColorKey;
-  funcao?: ShapeFunction;
+  mode: ColorMode;
+  /** Centro do shape, em px da peça (pode ficar fora do frame para sangrar). */
   x: number;
   y: number;
-  width: number;
+  /** Maior dimensão desenhada, em px (escala uniforme — nunca distorce proporções). */
+  size: number;
   rotation?: number;
+  mirror?: boolean;
+  zIndex: number;
 }
 
-/** Linha orgânica (stroke) ligando a borda direita de uma camada à de outra. */
-export interface ConnectorLayer extends BaseLayer {
-  type: "connector";
-  funcao: "linha-conectora-organica";
-  from: string;
-  to: string;
-  color: ColorKey;
-  strokeWidth: number;
-  /** Distância entre a borda da camada e a ponta da linha. */
-  offset: number;
-  /** Pontos intermediários da curva (suavizados com tension). */
-  via: Point[];
-  tension: number;
+/** Zona do cluster — composition-patterns.json → shapeClusterPattern.positioning[].zone. */
+export type ClusterZone = "canto-superior-direito-sangrando" | "ancorando-cta" | "base-do-frame";
+
+/** Padrão "montagem-de-cacos" (shapeClusterPattern): 3 a 6 shapes agrupados. */
+export interface ShapeClusterLayer extends BaseLayer {
+  type: "cluster";
+  zone: ClusterZone;
+  shapes: ClusterShape[];
 }
 
 export interface LogoLayer extends BaseLayer {
@@ -119,14 +101,7 @@ export interface LogoLayer extends BaseLayer {
   width: number;
 }
 
-export type Layer =
-  | BackgroundLayer
-  | TextLayer
-  | IconRowLayer
-  | CtaLayer
-  | ShapeLayer
-  | ConnectorLayer
-  | LogoLayer;
+export type Layer = BackgroundLayer | TextLayer | CtaLayer | ShapeClusterLayer | LogoLayer;
 
 const MARGIN = 32;
 const TEXT_WIDTH = CANVAS_SIZE * 0.85;
@@ -134,15 +109,16 @@ const TEXT_WIDTH = CANVAS_SIZE * 0.85;
 export const ALERTA_LAYERS: Layer[] = [
   { id: "fundo", label: "Fundo", type: "background", color: "azulAgibank" },
   {
-    id: "shape-quadrilatero",
-    label: "Shape quadrilátero (inf. esquerdo)",
-    type: "shape",
-    file: "quadrilateral-14.svg",
-    color: "azulMedio",
-    funcao: "shape-sangrando-do-frame",
-    x: 176,
-    y: 486,
-    width: 200,
+    id: "cluster",
+    label: "Cluster de shapes (sup. direito)",
+    type: "cluster",
+    zone: "canto-superior-direito-sangrando",
+    shapes: [
+      { file: "quadrilateral-14.svg", color: "azulMedio", mode: "fill", x: 498, y: 72, size: 104, rotation: -10, zIndex: 1 },
+      { file: "triangle-03.svg", color: "verde", mode: "fill", x: 566, y: 34, size: 140, rotation: 15, zIndex: 2 },
+      { file: "pentagon-02.svg", color: "branco", mode: "stroke", x: 528, y: 118, size: 62, rotation: 8, zIndex: 3 },
+      { file: "triangle-07.svg", color: "verde", mode: "fill", x: 428, y: 40, size: 36, rotation: -20, zIndex: 3 },
+    ],
   },
   {
     id: "headline",
@@ -155,19 +131,8 @@ export const ALERTA_LAYERS: Layer[] = [
     fontSize: 48,
     lineHeight: 1.15,
     x: MARGIN,
-    y: 116,
+    y: 196,
     width: TEXT_WIDTH,
-  },
-  {
-    id: "icones",
-    label: "Ícones de apoio",
-    type: "icons",
-    icons: ["barcode.svg", "pix-transfer.svg"],
-    color: "branco",
-    size: 32,
-    gap: 16,
-    x: MARGIN,
-    y: 194,
   },
   {
     id: "corpo",
@@ -181,7 +146,7 @@ export const ALERTA_LAYERS: Layer[] = [
     fontSize: 22,
     lineHeight: 1.35,
     x: MARGIN,
-    y: 254,
+    y: 264,
     width: TEXT_WIDTH,
   },
   {
@@ -189,32 +154,15 @@ export const ALERTA_LAYERS: Layer[] = [
     label: "CTA",
     type: "cta",
     text: "Acesse o app do Agi e confira as funções",
-    color: "branco",
+    color: "azulEscuro",
     weight: "semiBold",
     fontSize: 18,
     lineHeight: 1.2,
     x: MARGIN,
-    y: 388,
-    pill: { color: "azulEscuro", paddingX: 24, paddingY: 16 },
+    y: 364,
+    // Variante "pill-solid-accent": verde com texto azulEscuro (contrastMap.verde).
+    pill: { color: "verde", paddingX: 28, paddingY: 18, shadow: "shadowSubtle" },
     trailingIcon: { file: "chevron-right.svg", size: 18, gap: 10 },
-  },
-  {
-    id: "conector",
-    label: "Linha conectora (ícones → CTA)",
-    type: "connector",
-    funcao: "linha-conectora-organica",
-    from: "icones",
-    to: "cta",
-    color: "verde",
-    strokeWidth: 2.5,
-    offset: 14,
-    via: [
-      { x: 340, y: 212 },
-      { x: 556, y: 230 },
-      { x: 566, y: 350 },
-      { x: 524, y: 414 },
-    ],
-    tension: 0.5,
   },
   {
     id: "logo",

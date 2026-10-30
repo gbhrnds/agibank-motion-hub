@@ -38,6 +38,17 @@ export const colors: Record<ColorKey, string> = assetsMap.colors;
 export const brandRules = assetsMap.brandRules as BrandRules;
 export const logoClearSpace: ClearSpaceRule = assetsMap.logos.clearSpace;
 
+export type EffectKey = keyof typeof assetsMap.effects;
+export interface ShadowEffect {
+  color: string;
+  blur: number;
+  opacity: number;
+  offsetY: number;
+}
+export function effect(key: EffectKey): ShadowEffect {
+  return assetsMap.effects[key];
+}
+
 export const fontFamily = assetsMap.typography.fontFamily;
 export const fontFallback = assetsMap.typography.fallback;
 /** font-family pronto para CSS/Konva, com fallback. */

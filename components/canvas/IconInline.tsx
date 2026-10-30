@@ -16,7 +16,7 @@ interface IconInlineProps {
 }
 
 export default function IconInline({ file, color: colorKey, x, y, size, onReady }: IconInlineProps) {
-  const asset = useSvgAsset(iconPath(file), { fill: color(colorKey) });
+  const asset = useSvgAsset(iconPath(file), { recolor: { color: color(colorKey), mode: "fill" } });
 
   useEffect(() => {
     if (asset) onReady?.();

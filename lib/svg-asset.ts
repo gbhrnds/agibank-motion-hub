@@ -1,15 +1,16 @@
 import type { Rect } from "./alerta-spec";
+import { parseSvg, recolorSvg, svgToDataUrl, type ColorMode, type RecolorOptions } from "./svg-utils";
 
 /**
  * Carrega um SVG de /public/assets como HTMLImageElement pronto para o Konva:
- * - opcionalmente recolore todos os preenchimentos para uma cor de marca;
- * - recorta o viewBox para a bbox real do desenho (os SVGs exportados têm margens);
+ * - opcionalmente recolore via recolorSvg() (fill sólido ou contorno);
+ * - recorta o viewBox para a bbox real do desenho, contorno incluído (os SVGs exportados têm margens);
  * - opcionalmente localiza um elemento de referência pela cor (ex.: pingo verde do "i").
  */
 
 export interface SvgAsset {
   image: HTMLImageElement;
-  /** Dimensões da bbox do desenho, em unidades do SVG original. */
+  /** Dimensões da bbox do desenho, em unidades do SVG. */
   width: number;
   height: number;
   /** Bbox do elemento de referência, relativa à bbox do desenho. */
@@ -17,7 +18,7 @@ export interface SvgAsset {
 }
 
 export interface SvgAssetOptions {
-  fill?: string;
+  recolor?: { color: string; mode: ColorMode } & RecolorOptions;
   referenceFill?: string;
 }
 
@@ -25,7 +26,7 @@ const RASTER_MAX = 1024;
 const cache = new Map<string, Promise<SvgAsset>>();
 
 export function loadSvgAsset(src: string, options: SvgAssetOptions = {}): Promise<SvgAsset> {
-  const key = JSON.stringify([src, options.fill ?? null, options.referenceFill ?? null]);
+  const key = JSON.stringify([src, options.recolor ?? null, options.referenceFill ?? null]);
   let pending = cache.get(key);
   if (!pending) {
     pending = build(src, options);
@@ -35,14 +36,11 @@ export function loadSvgAsset(src: string, options: SvgAssetOptions = {}): Promis
   return pending;
 }
 
-async function build(src: string, { fill, referenceFill }: SvgAssetOptions): Promise<SvgAsset> {
-  const res = await fetch(src);
+async function build(src: string, { recolor, referenceFill }: SvgAssetOptions): Promise<SvgAsset> {
+  const url = recolor ? await recolorSvg(src, recolor.color, recolor.mode, recolor) : src;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Falha ao carregar ${src}: HTTP ${res.status}`);
-  const doc = new DOMParser().parseFromString(await res.text(), "image/svg+xml");
-  const svg = doc.documentElement as unknown as SVGSVGElement;
-  if (svg.nodeName !== "svg") throw new Error(`${src} não é um SVG válido`);
-
-  if (fill) recolor(svg, fill);
+  const svg = parseSvg(await res.text(), src);
 
   // getBBox exige o elemento no documento renderizado.
   const host = document.createElement("div");
@@ -51,10 +49,12 @@ async function build(src: string, { fill, referenceFill }: SvgAssetOptions): Pro
   host.appendChild(live);
   document.body.appendChild(host);
 
-  let box: DOMRect;
+  let box: { x: number; y: number; width: number; height: number };
   let reference: Rect | null = null;
   try {
-    box = live.getBBox();
+    const b = live.getBBox();
+    const pad = maxStrokeWidth(live) / 2;
+    box = { x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2 };
     if (referenceFill) {
       const el = findByFill(live, referenceFill);
       if (el) {
@@ -72,27 +72,23 @@ async function build(src: string, { fill, referenceFill }: SvgAssetOptions): Pro
   svg.setAttribute("height", String(box.height * scale));
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
-  const image = await loadImage(url);
+  const image = await loadImage(svgToDataUrl(svg));
   return { image, width: box.width, height: box.height, reference };
 }
 
-function recolor(svg: SVGSVGElement, fill: string) {
-  svg.setAttribute("fill", fill);
-  svg.querySelectorAll("*").forEach((el) => {
-    const attr = el.getAttribute("fill");
-    if (attr && attr !== "none") el.setAttribute("fill", fill);
-    const style = el.getAttribute("style");
-    if (style) el.setAttribute("style", style.replace(/fill\s*:\s*(?!none)[^;]+/g, `fill: ${fill}`));
-  });
-  svg.querySelectorAll("style").forEach((s) => {
-    s.textContent = (s.textContent ?? "").replace(/fill\s*:\s*(?!none)[^;}]+/g, `fill: ${fill}`);
-  });
-}
-
 const DRAWABLE = "path, circle, ellipse, rect, polygon, polyline";
-/** Distância RGB máxima para considerar "a mesma cor" (o logo usa #76df40, o token verde é #77DF40). */
+/** Distância RGB máxima para considerar "a mesma cor" (o logo agibank usa #76df40, o token verde é #77DF40). */
 const FILL_TOLERANCE = 24;
+
+/** getBBox ignora contorno; somamos metade do maior stroke para não cortá-lo. */
+function maxStrokeWidth(svg: SVGSVGElement): number {
+  let max = 0;
+  svg.querySelectorAll<SVGGraphicsElement>(DRAWABLE).forEach((el) => {
+    const style = getComputedStyle(el);
+    if (style.stroke && style.stroke !== "none") max = Math.max(max, parseFloat(style.strokeWidth) || 0);
+  });
+  return max;
+}
 
 function findByFill(svg: SVGSVGElement, hex: string): SVGGraphicsElement | null {
   const target = hexToRgb(hex);

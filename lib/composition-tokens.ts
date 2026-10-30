@@ -20,4 +20,15 @@ export function typographyRange(role: ScaleRole): TypographyRange {
   return { min, max, weights: scale.weight as FontWeightKey[] };
 }
 
-export const shapePatternNames: string[] = compositionPatterns.shapeUsageRules.patterns.map((p) => p.name);
+/** "3 a 6 shapes" em shapeClusterPattern.description. */
+export function clusterSizeRange(): { min: number; max: number } {
+  const m = compositionPatterns.shapeClusterPattern.description.match(/(\d+)\s*a\s*(\d+)\s*shapes/);
+  return m ? { min: Number(m[1]), max: Number(m[2]) } : { min: 3, max: 6 };
+}
+
+export const clusterZones: string[] = compositionPatterns.shapeClusterPattern.positioning.map((p) => p.zone);
+export const clusterColorCombos: string[][] = compositionPatterns.shapeClusterPattern.colorMix.allowedCombos;
+
+export function ctaVariant(name: string) {
+  return compositionPatterns.ctaRules.variants.find((v) => v.name === name);
+}

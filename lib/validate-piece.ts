@@ -3,7 +3,7 @@ import { brandRules } from "./brand-tokens";
 import type { CanvasLayout } from "./canvas-layout";
 import {
   validateCtaStyle,
-  validateShapeFunction,
+  validateShapeClusters,
   validateTextHierarchy,
   validateTypographyScale,
 } from "./composition-validator";
@@ -26,7 +26,7 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
   items.push({
     id: "color-usage",
     label: "Uso de cor — fundo",
-    result: validateColorUsage(layers, brandRules),
+    result: validateColorUsage(layers, brandRules, layout?.colorCoverage),
   });
 
   if (background) {
@@ -68,9 +68,9 @@ export function validatePiece(layers: Layer[], channels: string[], layout: Canva
 
   if (layout) {
     items.push({
-      id: "shape-function",
-      label: "Shapes com função",
-      result: validateShapeFunction(layers, layout.bounds),
+      id: "shape-cluster",
+      label: "Cluster de shapes",
+      result: validateShapeClusters(layers, layout.bounds),
     });
     items.push({
       id: "logo-clear-space",
