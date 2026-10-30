@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.1.0",
+    "version": "1.2.0",
     "lastUpdated": "2025-01-29",
     "purpose": "Biblioteca de padrões de composição extraídos de peças aprovadas, usada como referência de qualidade para o motor de geração. Fonte complementar ao config/assets-map.json.",
     "referenceImagesPath": "references/popups/"
@@ -29,6 +29,32 @@
         "referenceImage": "ref-03-janeiro-branco.jpg"
       }
     ]
+  },
+
+  "typographyLineBreakRules": {
+    "rule": "Nunca deixar artigos, preposições ou conjunções curtas isoladas no final de uma linha (viúvas/órfãs tipográficas). Quando a quebra de linha natural resultar nisso, mover a palavra para o início da linha seguinte.",
+    "forbiddenTrailingWords": [
+      "a", "à", "ao", "aos", "as", "às", "o", "os",
+      "e", "é",
+      "de", "da", "do", "das", "dos",
+      "em", "no", "na", "nos", "nas",
+      "um", "uma", "uns", "umas",
+      "por", "pra", "pro", "pros", "para",
+      "com", "sem",
+      "que", "se",
+      "ou"
+    ],
+    "algorithm": [
+      "1. Realizar a quebra de linha normal respeitando a largura máxima do bloco de texto.",
+      "2. Verificar se a última palavra de cada linha (exceto a última linha do texto) pertence à lista forbiddenTrailingWords.",
+      "3. Se pertencer, mover essa palavra para o início da linha seguinte.",
+      "4. Repetir a verificação após o ajuste, pois mover uma palavra pode gerar uma nova viúva na linha de origem."
+    ],
+    "example": {
+      "incorrect": "Organize seus boletos em um só lugar e\nautomatize pagamentos com o Pix.",
+      "correct": "Organize seus boletos em um só lugar\ne automatize pagamentos com o Pix."
+    },
+    "appliesTo": ["titulo", "corpo", "cta"]
   },
 
   "ctaRules": {
@@ -62,6 +88,11 @@
     "rule": "Shapes isolados sem função (linhas soltas, formas únicas flutuantes) são proibidos. Priorizar o padrão shapeClusterPattern definido abaixo.",
     "patterns": [
       {
+        "name": "formas-espalhadas-ao-redor-de-titulo",
+        "description": "Formas pequenas distribuídas soltas (sem tocar) ao redor de um bloco de texto, como confete — nunca sobrepostas entre si nem sobre o texto",
+        "referenceImage": "brandbook-pagina-48-grafismos"
+      },
+      {
         "name": "moldura-organica-ao-redor-de-pessoa",
         "description": "Outline (contorno fino, não preenchido) de forma irregular contornando uma pessoa/foco da foto",
         "color": "verde",
@@ -77,13 +108,14 @@
     "forbidden": [
       "linha-decorativa-sem-conexao-logica",
       "icone-solto-sem-contexto-apos-titulo",
-      "shape-unico-isolado-sem-cluster"
+      "shape-unico-isolado-sem-cluster",
+      "shapes-sobrepostos-com-fill-cobrindo-outro-shape"
     ]
   },
 
   "shapeClusterPattern": {
-    "name": "montagem-de-cacos",
-    "description": "Agrupamento de 3 a 6 shapes irregulares (triangle/quadrilateral/pentagon) em tamanhos e rotações variadas, cores mistas, parcialmente sobrepostos, formando um bloco gráfico coeso com personalidade — recurso mais recorrente nas peças de maior impacto visual.",
+    "name": "mosaico-de-cacos",
+    "description": "Agrupamento de 3 a 6 shapes irregulares (triangle/quadrilateral/pentagon) em tamanhos e rotações variadas, cores mistas, posicionados ADJACENTES uns aos outros formando um mosaico — como cacos quebrados que se encaixam, SEM sobrepor preenchimento entre si.",
     "colorMix": {
       "rule": "Combinar no mínimo 2 cores dentro do mesmo cluster",
       "allowedCombos": [
@@ -114,9 +146,16 @@
     "transformRules": {
       "allowed": ["rotate", "mirror", "scale"],
       "forbidden": ["distort-proportions"],
-      "overlapAllowed": true,
-      "note": "shapes do mesmo cluster PODEM se sobrepor levemente entre si — regra exclusiva deste padrão, diferente da regra de módulos (modules.geometryRules) que exige 5-8% de gap e proíbe sobreposição"
-    }
+      "overlapAllowed": false,
+      "arrangement": "mosaic-adjacent",
+      "gapRule": {
+        "reuseFrom": "modules.geometryRules.gapPercent",
+        "min": 0,
+        "max": 6,
+        "note": "shapes devem ficar encostados ou com espaçamento mínimo entre si (0-6%), simulando peças de um mosaico quebrado que se encaixam. NUNCA um shape deve desenhar por cima da área preenchida de outro shape."
+      },
+      "note": "Diferente de uma versão anterior deste documento, este padrão NÃO permite sobreposição de preenchimento entre shapes. Arranjo correto: posicionar cada shape lado a lado, ajustando rotação e escala para que as bordas se aproximem sem invadir a área uma da outra, formando um conjunto visualmente coeso (mosaico), e não uma pilha sobreposta."
+      }
   },
 
   "backgroundVariants": {
@@ -141,7 +180,7 @@
       "referenceImage": "ref-01-chega-de-complicar.jpg"
     },
     "textOnly": {
-      "description": "Fundo sólido, título grande no terço superior, corpo no meio, CTA destacado na base, shape cluster nos cantos",
+      "description": "Fundo sólido, título grande no terço superior, corpo no meio, CTA destacado na base, shape cluster/mosaico nos cantos",
       "referenceImage": "ref-02-canal-denuncias.jpg"
     },
     "withMockup": {
