@@ -4,7 +4,7 @@
  * e girado cobriria quase o canvas inteiro. Contornos contam com o interior.
  */
 
-import type { Rect } from "./alerta-spec";
+import type { Rect } from "./piece-spec";
 
 export interface Silhouette {
   file: string;
@@ -127,12 +127,13 @@ export function boundaryPoints(sil: Silhouette, s: PlacedShape, max: number): nu
   return out;
 }
 
-/** Fração do canvas (size×size) coberta pela silhueta. */
-export function canvasCoverage(sil: Silhouette, s: PlacedShape, canvasSize: number, step = 8): number {
+/** Fração do canvas (width×height) coberta pela silhueta; amostragem ~75 pontos no lado maior. */
+export function canvasCoverage(sil: Silhouette, s: PlacedShape, width: number, height = width): number {
+  const step = Math.max(8, Math.max(width, height) / 75);
   let hit = 0;
   let total = 0;
-  for (let y = step / 2; y < canvasSize; y += step) {
-    for (let x = step / 2; x < canvasSize; x += step) {
+  for (let y = step / 2; y < height; y += step) {
+    for (let x = step / 2; x < width; x += step) {
       total++;
       if (contains(sil, s, x, y)) hit++;
     }

@@ -7,7 +7,7 @@
  * área de proteção do logo (que mudam de lugar com o alinhamento), e shapes não se sobrepõem.
  */
 
-import type { Rect } from "./alerta-spec";
+import type { Rect, Size } from "./piece-spec";
 import { brandTokens, type ColorKey } from "./brand-tokens";
 import {
   alignments,
@@ -25,10 +25,10 @@ import {
 import { boundaryPoints, canvasCoverage, gapBetween, hitsRect, type PlacedShape, type Silhouette } from "./shape-silhouette";
 import type { ColorMode } from "./svg-utils";
 
-/** Maior dimensão de um shape com scale 1.0, em px. */
+/** Maior dimensão de um shape com scale 1.0, em px, na peça de referência 600×600. */
 export const SHAPE_UNIT = 130;
-const CANVAS = 600;
-/** Folga mínima entre um shape e textos/CTA/área do logo. */
+const REFERENCE = { width: 600, height: 600 };
+/** Folga mínima entre um shape e textos/CTA/área do logo (px na referência). */
 const KEEP_OUT_MARGIN = 10;
 /** Amarelo é "apenas detalhe" (assets-map.json → brandRules.colorUsage): só em shapes pequenos. */
 export const AMARELO_MAX_SCALE = 0.4;
@@ -73,6 +73,8 @@ export interface PieceLayout {
   ctaColor: ColorKey;
   shapeArchetype: ArchetypeId;
   shapePalette: ShapePalette;
+  /** Maior dimensão, em px da peça, de um shape com scale 1.0 (SHAPE_UNIT escalado para o formato). */
+  unit: number;
   shapes: GeneratedShape[];
 }
 
@@ -89,10 +91,17 @@ export interface GenerateOptions {
   /** Áreas que nenhum shape pode tocar para um alinhamento/CTA (textos, CTA, área de proteção do logo). */
   keepOutFor: (piece: Pick<PieceLayout, "alignment" | "ctaStyle" | "ctaColor">) => KeepOutZone[];
   seed?: number;
-  /** Força escolhas (útil em testes). */
+  /** Dimensões da peça (padrão: 600×600) e fator de escala das medidas em px (padrão: 1). */
+  size?: Size;
+  scale?: number;
+  /** Força escolhas (desdobramento com o mesmo estado global; testes). */
   archetype?: ArchetypeId;
+  /** Arquétipo tentado primeiro; se não couber no formato, os demais são tentados. */
+  preferArchetype?: ArchetypeId;
   alignment?: Alignment;
   ctaStyle?: CtaStyle;
+  ctaColor?: ColorKey;
+  palette?: ShapePalette;
 }
 
 /** Cores possíveis para texto/borda do CTA sem fundo sólido (ctaRules "pill-outline": "branca ou verde"). */
@@ -134,16 +143,25 @@ export function generateRandomLayout(options: GenerateOptions): PieceLayout {
 
   const alignment = options.alignment ?? pick(rng, alignments);
   const ctaStyle = options.ctaStyle ?? pick(rng, ctaStyles);
-  const ctaColor = ctaStyle === "pill-solid-accent" ? "azulEscuro" : pick(rng, CTA_LINE_COLORS);
-  const shapePalette = pick(rng, palettes);
+  const ctaColor = ctaStyle === "pill-solid-accent" ? "azulEscuro" : options.ctaColor ?? pick(rng, CTA_LINE_COLORS);
+  const shapePalette = options.palette ?? pick(rng, palettes);
   const keepOut = options.keepOutFor({ alignment, ctaStyle, ctaColor });
+  const size = options.size ?? REFERENCE;
+  const k = options.scale ?? 1;
+  const unit = SHAPE_UNIT * k;
 
-  const order = options.archetype ? [options.archetype] : shuffle(rng, archetypeIds);
+  const shuffled = shuffle(rng, archetypeIds);
+  const order = options.archetype
+    ? [options.archetype]
+    : options.preferArchetype
+      ? [options.preferArchetype, ...shuffled.filter((id) => id !== options.preferArchetype)]
+      : shuffled;
+  const c: Ctx = { silhouettes: options.silhouettes, keepOut, W: size.width, H: size.height, k, unit };
   for (const id of order) {
     for (let attempt = 0; attempt < 40; attempt++) {
-      const drafts = arrange(rng, id, options.silhouettes, keepOut);
+      const drafts = arrange(rng, id, c);
       if (!drafts) continue;
-      return { seed, alignment, ctaStyle, ctaColor, shapeArchetype: id, shapePalette, shapes: paint(rng, drafts, shapePalette) };
+      return { seed, alignment, ctaStyle, ctaColor, shapeArchetype: id, shapePalette, unit, shapes: paint(rng, drafts, shapePalette) };
     }
   }
   throw new Error("Não foi possível gerar shapes que respeitem textos, CTA e logo.");
@@ -158,23 +176,28 @@ interface Draft {
   role: ShapeRole;
 }
 
-const placed = (d: Draft): PlacedShape => ({ file: d.file, x: d.x, y: d.y, size: d.scale * SHAPE_UNIT, rotation: d.rotation });
-
 interface Ctx {
   silhouettes: Record<string, Silhouette>;
   keepOut: KeepOutZone[];
+  /** Dimensões da peça. */
+  W: number;
+  H: number;
+  /** Escala das medidas em px (1 = referência 600×600). */
+  k: number;
+  unit: number;
 }
+
+const placedIn = (c: Ctx, d: Draft): PlacedShape => ({ file: d.file, x: d.x, y: d.y, size: d.scale * c.unit, rotation: d.rotation });
 
 /** Respeita textos/CTA/logo e fica a pelo menos `spacing` px dos shapes já aceitos? */
 function fits(c: Ctx, d: Draft, accepted: Draft[], spacing: number): boolean {
   const sil = c.silhouettes[d.file];
-  const p = placed(d);
-  if (c.keepOut.some((z) => hitsRect(sil, p, z.rect, KEEP_OUT_MARGIN))) return false;
-  return accepted.every((o) => gapBetween(c.silhouettes[o.file], placed(o), sil, p) >= spacing);
+  const p = placedIn(c, d);
+  if (c.keepOut.some((z) => hitsRect(sil, p, z.rect, KEEP_OUT_MARGIN * c.k))) return false;
+  return accepted.every((o) => gapBetween(c.silhouettes[o.file], placedIn(c, o), sil, p) >= spacing * c.k);
 }
 
-function arrange(rng: Rng, id: ArchetypeId, silhouettes: Record<string, Silhouette>, keepOut: KeepOutZone[]): Draft[] | null {
-  const c: Ctx = { silhouettes, keepOut };
+function arrange(rng: Rng, id: ArchetypeId, c: Ctx): Draft[] | null {
   if (id === "estouro-solitario") {
     const hero = bleeding(rng, c, SCALE_BY_ROLE.estouro, BLEED_COVERAGE.estouro, "estouro");
     return hero ? [hero] : null;
@@ -183,18 +206,18 @@ function arrange(rng: Rng, id: ArchetypeId, silhouettes: Record<string, Silhouet
   return texturaEspalhada(rng, c);
 }
 
-const CORNERS = [
+const corners = (c: Ctx) => [
   { x: 0, y: 0 },
-  { x: CANVAS, y: 0 },
-  { x: CANVAS, y: CANVAS },
-  { x: 0, y: CANVAS },
+  { x: c.W, y: 0 },
+  { x: c.W, y: c.H },
+  { x: 0, y: c.H },
 ];
 
 /** Shape grande com o centro fora do canvas, além de um canto: só uma borda invade a arte. */
 function bleeding(rng: Rng, c: Ctx, scaleRange: Range, coverage: Range, role: ShapeRole): Draft | null {
-  const corner = pick(rng, CORNERS);
+  const corner = pick(rng, corners(c));
   const scale = round(between(rng, scaleRange));
-  const size = scale * SHAPE_UNIT;
+  const size = scale * c.unit;
   const file = pick(rng, allShapeFiles);
   for (let i = 0; i < 30; i++) {
     const out = between(rng, [0.12, 0.45]) * size;
@@ -207,7 +230,7 @@ function bleeding(rng: Rng, c: Ctx, scaleRange: Range, coverage: Range, role: Sh
       rotation: Math.round(between(rng, [0, 360])),
       role,
     };
-    const cov = canvasCoverage(c.silhouettes[file], placed(d), CANVAS);
+    const cov = canvasCoverage(c.silhouettes[file], placedIn(c, d), c.W, c.H);
     if (cov >= coverage[0] && cov <= coverage[1] && fits(c, d, [], 0)) return d;
   }
   return null;
@@ -223,7 +246,7 @@ function mosaicoHierarquico(rng: Rng, c: Ctx): Draft[] | null {
   for (let t = 0; t < 3 && !medio; t++) {
     const medioScale = round(between(rng, SCALE_BY_ROLE.medio));
     // Gap de ~5% do shape médio: medido na silhueta real, não só pela distância entre centros.
-    const gap = Math.max(3, mosaicGap() * medioScale * SHAPE_UNIT);
+    const gap = Math.max(3 * c.k, mosaicGap() * medioScale * c.unit);
     medio = interlock(rng, c, hero, pick(rng, allShapeFiles), medioScale, gap);
   }
   if (!medio) return null;
@@ -247,9 +270,9 @@ function mosaicoHierarquico(rng: Rng, c: Ctx): Draft[] | null {
 function interlock(rng: Rng, c: Ctx, hero: Draft, file: string, scale: number, gap: number): Draft | null {
   const silA = c.silhouettes[hero.file];
   const silB = c.silhouettes[file];
-  const pa = placed(hero);
+  const pa = placedIn(c, hero);
   const edgeA = boundaryPoints(silA, pa, 160);
-  const toCenter = Math.atan2(CANVAS / 2 - hero.y, CANVAS / 2 - hero.x);
+  const toCenter = Math.atan2(c.H / 2 - hero.y, c.W / 2 - hero.x);
   let best: { d: Draft; contact: number } | null = null;
   // Rotações relativas à do protagonista: assim os múltiplos de 15° incluem as arestas paralelas.
   const rotBase = hero.rotation + between(rng, [-4, 4]);
@@ -265,19 +288,19 @@ function interlock(rng: Rng, c: Ctx, hero: Draft, file: string, scale: number, g
         role: "medio",
       });
       let lo = 0;
-      let hi = (hero.scale + scale) * SHAPE_UNIT;
+      let hi = (hero.scale + scale) * c.unit;
       for (let it = 0; it < 12; it++) {
         const mid = (lo + hi) / 2;
-        if (gapBetween(silA, pa, silB, placed(at(mid))) >= gap) hi = mid;
+        if (gapBetween(silA, pa, silB, placedIn(c, at(mid))) >= gap) hi = mid;
         else lo = mid;
       }
       const cand = at(hi);
-      if (!inside(cand.x, cand.y, 30) || !fits(c, cand, [], 0)) continue;
-      const edgeB = boundaryPoints(silB, placed(cand), 120);
+      if (!inside(c, cand.x, cand.y, 30 * c.k) || !fits(c, cand, [], 0)) continue;
+      const edgeB = boundaryPoints(silB, placedIn(c, cand), 120);
       let contact = 0;
       for (let j = 0; j < edgeB.length; j += 2) {
         for (let i = 0; i < edgeA.length; i += 2) {
-          if ((edgeA[i] - edgeB[j]) ** 2 + (edgeA[i + 1] - edgeB[j + 1]) ** 2 <= (gap + 4) ** 2) {
+          if ((edgeA[i] - edgeB[j]) ** 2 + (edgeA[i + 1] - edgeB[j + 1]) ** 2 <= (gap + 4 * c.k) ** 2) {
             contact++;
             break;
           }
@@ -289,11 +312,12 @@ function interlock(rng: Rng, c: Ctx, hero: Draft, file: string, scale: number, g
   return best && best.contact >= 6 ? best.d : null;
 }
 
-const inside = (x: number, y: number, margin = 0) => x >= margin && y >= margin && x <= CANVAS - margin && y <= CANVAS - margin;
+const inside = (c: Ctx, x: number, y: number, margin = 0) => x >= margin && y >= margin && x <= c.W - margin && y <= c.H - margin;
 
 /**
- * Shape pequeno numa faixa junto às bordas laterais (x < 100 ou x > 500), a pelo menos
- * `spacing` px dos shapes aceitos.
+ * Shape pequeno numa faixa junto às bordas laterais (no 600×600: x < 100 ou x > 500), a pelo menos
+ * `spacing` px (escalados) dos shapes aceitos. Em formatos deitados, a faixa direita é bem mais
+ * larga (a coluna de texto fica à esquerda).
  */
 function nearEdge(
   rng: Rng,
@@ -309,8 +333,8 @@ function nearEdge(
     const d: Draft = {
       file: pick(rng, allShapeFiles),
       scale: round(between(rng, scaleRange)),
-      x: Math.round(left ? between(rng, depth) : CANVAS - between(rng, depth)),
-      y: Math.round(between(rng, [24, CANVAS - 24])),
+      x: Math.round(left ? between(rng, depth) * c.k : c.W - between(rng, depth) * c.k * sideStretch(c)),
+      y: Math.round(between(rng, [24 * c.k, c.H - 24 * c.k])),
       rotation: Math.round(between(rng, [0, 360])),
       role,
     };
@@ -318,6 +342,9 @@ function nearEdge(
   }
   return null;
 }
+
+/** Quanto a faixa lateral direita se alarga em formatos deitados (sobra de largura além do quadrado). */
+const sideStretch = (c: Ctx) => Math.max(1, c.W / c.H / 1.2);
 
 // ---- Textura/faíscas: 4-6 shapes minúsculos nas laterais ----
 
@@ -349,4 +376,29 @@ function paint(rng: Rng, drafts: Draft[], palette: ShapePalette): GeneratedShape
     out[i] = { ...d, color: col, mode: "fill" };
   });
   return out;
+}
+
+// ---- Desdobramento: um estado global sorteado uma vez e aplicado a todos os formatos ----
+
+/** Escolhas globais compartilhadas pelas peças de um desdobramento. */
+export interface PieceRun {
+  seed: number;
+  alignment: Alignment;
+  ctaStyle: CtaStyle;
+  ctaColor: ColorKey;
+  palette: ShapePalette;
+  archetype: ArchetypeId;
+}
+
+export function pickPieceRun(background: ColorKey, seed = Math.floor(Math.random() * 2 ** 31)): PieceRun {
+  const rng = seededRandom(seed);
+  const ctaStyle = pick(rng, ctaStyles);
+  return {
+    seed,
+    alignment: pick(rng, alignments),
+    ctaStyle,
+    ctaColor: ctaStyle === "pill-solid-accent" ? "azulEscuro" : pick(rng, CTA_LINE_COLORS),
+    palette: pick(rng, shapePalettes(background)),
+    archetype: pick(rng, archetypeIds),
+  };
 }

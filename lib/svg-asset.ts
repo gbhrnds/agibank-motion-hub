@@ -1,8 +1,8 @@
-import type { Rect } from "./alerta-spec";
-import { parseSvg, recolorSvg, svgToDataUrl, type ColorMode, type RecolorOptions } from "./svg-utils";
+import type { Rect } from "./piece-spec";
+import { applyColorToSvg, fetchSvg, svgToDataUrl, type ColorMode, type RecolorOptions } from "./svg-utils";
 
 /**
- * Carrega um SVG de /public/assets como HTMLImageElement pronto para o Konva:
+ * Carrega um SVG da CDN (meta.cdnBase) como HTMLImageElement pronto para o Konva:
  * - opcionalmente recolore via recolorSvg() (fill sólido ou contorno);
  * - recorta o viewBox para a bbox real do desenho, contorno incluído (os SVGs exportados têm margens);
  * - opcionalmente localiza um elemento de referência pela cor (ex.: pingo verde do "i").
@@ -37,10 +37,9 @@ export function loadSvgAsset(src: string, options: SvgAssetOptions = {}): Promis
 }
 
 async function build(src: string, { recolor, referenceFill }: SvgAssetOptions): Promise<SvgAsset> {
-  const url = recolor ? await recolorSvg(src, recolor.color, recolor.mode, recolor) : src;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Falha ao carregar ${src}: HTTP ${res.status}`);
-  const svg = parseSvg(await res.text(), src);
+  // Recolore o próprio <svg> baixado (sem buscar de novo um data URL).
+  const svg = await fetchSvg(src);
+  if (recolor) applyColorToSvg(svg, recolor.color, recolor.mode, recolor);
 
   // getBBox exige o elemento no documento renderizado.
   const host = document.createElement("div");
@@ -77,8 +76,12 @@ async function build(src: string, { recolor, referenceFill }: SvgAssetOptions): 
 }
 
 const DRAWABLE = "path, circle, ellipse, rect, polygon, polyline";
-/** Distância RGB máxima para considerar "a mesma cor" (o logo agibank usa #76df40, o token verde é #77DF40). */
-const FILL_TOLERANCE = 24;
+/**
+ * Distância RGB máxima para considerar "a mesma cor": o logo agibank RGB usa #76df40 (token verde
+ * #77DF40) e os logos CMYK (impresso) trazem o verde convertido, #b2d33e (distância ~60).
+ * Branco e azul ficam a mais de 150.
+ */
+const FILL_TOLERANCE = 72;
 
 /** getBBox ignora contorno; somamos metade do maior stroke para não cortá-lo. */
 function maxStrokeWidth(svg: SVGSVGElement): number {

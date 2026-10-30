@@ -33,12 +33,14 @@ await build({
   logLevel: "warning",
 });
 
-// Fontes embutidas como data URI; SVGs publicados ao lado da página (carregados via fetch).
+// Fontes e SVGs vêm da CDN (meta.cdnBase). Fallback: fontes embutidas como data URI e SVGs
+// publicados ao lado da página.
 const { fontFamily, basePath, format, weights } = map.typography;
+const cdnBase = map.meta.cdnBase.replace(/\/+$/, "");
 const faces = Object.values(weights)
   .map(({ file, value }) => {
     const b64 = readFileSync(join(root, basePath, file)).toString("base64");
-    return `@font-face{font-family:"${fontFamily}";src:url(data:font/${format};base64,${b64}) format("${format}");font-weight:${value};font-style:normal;font-display:block}`;
+    return `@font-face{font-family:"${fontFamily}";src:url("${cdnBase}/${basePath}${file}") format("${format}"),url(data:font/${format};base64,${b64}) format("${format}");font-weight:${value};font-style:normal;font-display:block}`;
   })
   .join("\n");
 const twInput = join(out, "tw-input.css");

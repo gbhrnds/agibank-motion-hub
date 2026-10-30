@@ -10,12 +10,11 @@
   }
 }
 
-/* Prancheta: 600×600 no desktop, encolhe para caber em telas estreitas (o export não muda). */
+/* Prancheta: largura/proporção do formato (inline); encolhe em telas estreitas (o export não muda). */
 @layer components {
   .artboard {
-    width: min(600px, 100%) !important;
-    height: auto !important;
-    aspect-ratio: 1 / 1;
+    max-width: 100%;
+    height: auto;
   }
   .artboard > div,
   .artboard .konvajs-content,

@@ -12,11 +12,14 @@ rmSync(publicAssets, { recursive: true, force: true });
 cpSync(join(root, "assets"), publicAssets, { recursive: true });
 
 const { fontFamily, basePath, format, weights } = map.typography;
+// Fonte servida pela CDN pública (meta.cdnBase); a cópia local é o fallback.
+const cdnBase = map.meta.cdnBase.replace(/\/+$/, "");
 const faces = Object.values(weights)
   .map(
     ({ file, value }) => `@font-face {
   font-family: "${fontFamily}";
-  src: url("/${basePath}${file}") format("${format}");
+  src: url("${cdnBase}/${basePath}${file}") format("${format}"),
+    url("/${basePath}${file}") format("${format}");
   font-weight: ${value};
   font-style: normal;
   font-display: block;

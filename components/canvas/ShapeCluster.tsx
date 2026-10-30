@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { Group, Image as KImage } from "react-konva";
 import { color, shapePath } from "@/lib/brand-tokens";
-import { SHAPE_UNIT, type PieceLayout } from "@/lib/layout-engine";
+import type { PieceLayout } from "@/lib/layout-engine";
 import { useSvgAssets } from "@/lib/use-svg-asset";
 
 /** Espessura do contorno dos shapes em modo "stroke", em px da peça. */
@@ -25,7 +25,7 @@ export default function ShapeCluster({ id, layout, onReady }: ShapeClusterProps)
       layout.shapes.map((s) => ({
         src: shapePath(s.file),
         options: {
-          recolor: { color: color(s.color), mode: s.mode, strokeWidth: OUTLINE_PX, targetSize: s.scale * SHAPE_UNIT },
+          recolor: { color: color(s.color), mode: s.mode, strokeWidth: OUTLINE_PX, targetSize: s.scale * layout.unit },
         },
       })),
     [layout],
@@ -41,7 +41,7 @@ export default function ShapeCluster({ id, layout, onReady }: ShapeClusterProps)
     <Group name="brand-layer" id={id}>
       {layout.shapes.map((s, i) => {
         const a = assets[i];
-        const k = (s.scale * SHAPE_UNIT) / Math.max(a.width, a.height);
+        const k = (s.scale * layout.unit) / Math.max(a.width, a.height);
         const width = a.width * k;
         const height = a.height * k;
         return (

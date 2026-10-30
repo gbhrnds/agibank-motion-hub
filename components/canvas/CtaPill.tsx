@@ -2,7 +2,7 @@
 
 import { Group, Rect as KRect, Text as KText } from "react-konva";
 import { color, effect, fontStack, fontWeight } from "@/lib/brand-tokens";
-import type { CtaLayer } from "@/lib/alerta-spec";
+import type { CtaLayer } from "@/lib/piece-spec";
 import type { CtaGeometry } from "@/lib/cta-geometry";
 import IconInline from "./IconInline";
 

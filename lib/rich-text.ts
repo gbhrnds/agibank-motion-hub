@@ -1,4 +1,4 @@
-import type { TextStyle } from "./alerta-spec";
+import type { TextStyle } from "./piece-spec";
 import { brandTokens, fontShorthand } from "./brand-tokens";
 import { wrapWords } from "./text-wrap";
 

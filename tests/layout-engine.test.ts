@@ -37,7 +37,7 @@ const keepOutFor = (p: Pick<PieceLayout, "alignment">): KeepOutZone[] =>
       ];
 const opts = { background: "azulAgibank" as const, silhouettes, keepOutFor };
 const placed = (s: { file: string; x: number; y: number; scale: number; rotation: number }) => ({
-  file: s.file, x: s.x, y: s.y, size: s.scale * SHAPE_UNIT, rotation: s.rotation,
+  file: s.file, x: s.x, y: s.y, size: s.scale * SHAPE_UNIT, rotation: s.rotation, // 600×600: unit = SHAPE_UNIT
 });
 
 test("mesmo seed gera a mesma composição", () => {

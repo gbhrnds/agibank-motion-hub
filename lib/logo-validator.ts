@@ -1,4 +1,4 @@
-import type { LogoLayer } from "./alerta-spec";
+import type { LogoLayer } from "./piece-spec";
 import { audienceForChannel, brandTokens } from "./brand-tokens";
 import type { ValidationResult } from "./contrast-validator";
 

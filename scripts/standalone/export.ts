@@ -3,13 +3,14 @@
 // PDF: só baixa no app local.
 import type Konva from "konva";
 import { renderStage, type ExportFormat } from "../../lib/export";
+import type { Size } from "../../lib/piece-spec";
 
 export type { ExportFormat };
 
 interface ExportOptions {
   format: ExportFormat;
   baseName: string;
-  size: number;
+  size: Size;
   hideNames?: string[];
 }
 

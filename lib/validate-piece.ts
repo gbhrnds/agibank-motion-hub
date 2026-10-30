@@ -1,4 +1,4 @@
-import { getBackground, getLogo, type Layer } from "./alerta-spec";
+import { getBackground, getLogo, type Layer } from "./piece-spec";
 import { brandRules } from "./brand-tokens";
 import type { CanvasLayout } from "./canvas-layout";
 import {

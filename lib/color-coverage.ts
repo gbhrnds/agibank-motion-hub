@@ -7,15 +7,16 @@ import { colors, type ColorKey } from "./brand-tokens";
  */
 export function measureColorCoverage(
   stage: Konva.Stage,
-  size: number,
+  /** Área a amostrar, em px do Stage como está desenhado. */
+  size: { width: number; height: number },
   hideNames: string[] = [],
 ): Partial<Record<ColorKey, number>> {
   const hidden = hideNames.flatMap((n) => stage.find(`.${n}`)).filter((n) => n.visible());
   hidden.forEach((n) => n.hide());
   let data: Uint8ClampedArray;
   try {
-    const canvas = stage.toCanvas({ x: 0, y: 0, width: size, height: size, pixelRatio: 1 });
-    data = canvas.getContext("2d")!.getImageData(0, 0, size, size).data;
+    const canvas = stage.toCanvas({ x: 0, y: 0, width: size.width, height: size.height, pixelRatio: 1 });
+    data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
   } finally {
     hidden.forEach((n) => n.show());
   }

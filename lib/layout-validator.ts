@@ -1,4 +1,4 @@
-import type { Layer, Rect } from "./alerta-spec";
+import type { Layer, Rect } from "./piece-spec";
 import type { ValidationResult } from "./contrast-validator";
 
 function intersects(a: Rect, b: Rect): boolean {

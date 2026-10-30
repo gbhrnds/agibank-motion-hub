@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Group, Text as KText } from "react-konva";
 import { color, fontStack, fontWeight } from "@/lib/brand-tokens";
-import type { TextLayer } from "@/lib/alerta-spec";
+import type { TextLayer } from "@/lib/piece-spec";
 import { breakText, layoutBrokenText } from "@/lib/rich-text";
 
 /** Bloco de texto com palavras-chave destacadas (padrão "palavra-chave-destacada") e quebra sem viúvas. */

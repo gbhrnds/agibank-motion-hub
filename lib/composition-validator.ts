@@ -1,8 +1,8 @@
-import type { Layer } from "./alerta-spec";
+import type { Layer } from "./piece-spec";
 import { brandRules, type ColorKey } from "./brand-tokens";
 import { archetype, ctaStyles, ctaVariant, shapePalettes, type Range } from "./composition-tokens";
 import type { ValidationResult } from "./contrast-validator";
-import { AMARELO_MAX_SCALE, SCALE_BY_ROLE, SHAPE_UNIT, type KeepOutZone, type PieceLayout } from "./layout-engine";
+import { AMARELO_MAX_SCALE, SCALE_BY_ROLE, type KeepOutZone, type PieceLayout } from "./layout-engine";
 import { breakText, forbiddenTrailingWords, hasHighlight } from "./rich-text";
 import { gapBetween, getSilhouette, hitsRect, type PlacedShape } from "./shape-silhouette";
 import { normalizeWord } from "./text-wrap";
@@ -79,7 +79,7 @@ export function validateShapeArrangement(
   const amareloGrande = shapes.find((s) => s.color === "amarelo" && s.scale >= AMARELO_MAX_SCALE);
   if (amareloGrande) return block(`Amarelo em ${amareloGrande.file} com scale ${amareloGrande.scale}: amarelo é só detalhe (scale < ${AMARELO_MAX_SCALE}).`);
 
-  const placed: PlacedShape[] = shapes.map((s) => ({ file: s.file, x: s.x, y: s.y, size: s.scale * SHAPE_UNIT, rotation: s.rotation }));
+  const placed: PlacedShape[] = shapes.map((s) => ({ file: s.file, x: s.x, y: s.y, size: s.scale * piece.unit, rotation: s.rotation }));
   const sils = shapes.map((s) => getSilhouette(s.file));
   if (sils.some((s) => !s)) return block("Silhuetas dos shapes ainda não carregadas.");
   for (let i = 0; i < n; i++) {
@@ -106,7 +106,7 @@ export function shapesHittingZone(layout: PieceLayout | null, zone: KeepOutZone[
   return layout.shapes
     .filter((s) => {
       const sil = getSilhouette(s.file);
-      return sil && hitsRect(sil, { file: s.file, x: s.x, y: s.y, size: s.scale * SHAPE_UNIT, rotation: s.rotation }, zone);
+      return sil && hitsRect(sil, { file: s.file, x: s.x, y: s.y, size: s.scale * layout.unit, rotation: s.rotation }, zone);
     })
     .map((s) => s.file);
 }

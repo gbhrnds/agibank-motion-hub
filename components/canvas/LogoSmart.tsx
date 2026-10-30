@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { Group, Image as KImage } from "react-konva";
 import { color, logoClearSpace, logoPath, pickLogoKey, type Audience, type ColorKey } from "@/lib/brand-tokens";
-import { CANVAS_SIZE, type LogoLayer } from "@/lib/alerta-spec";
+import { logoPosition, type LogoLayer, type Size } from "@/lib/piece-spec";
 import { useSvgAsset } from "@/lib/use-svg-asset";
 
 /** Elemento do logo usado como unidade da área de proteção (logos.clearSpace.reference). */
@@ -22,10 +22,12 @@ interface LogoSmartProps {
    * - "interno": Comunicação Interna, Marca Empregadora institucional, ferramentas internos
    *   (Alerta SJ, Alerta Teams, Portal Sempre Juntos, crachás…) → logo REDUZIDO "Agi".
    * - "externo": clientes, mídia, lojas, feiras, material impresso externo → logo COMPLETO "Agibank".
-   * Vem de fora (hoje fixo na spec da peça; no futuro, de um seletor na interface).
+   * Vem da cascata da barra lateral (lib/format-config.ts → pieceContext).
    */
   audience: Audience;
-  layer: Omit<LogoLayer, "audience">;
+  layer: LogoLayer;
+  /** Dimensões da peça (posição no canto/centro inferior). */
+  size: Size;
   backgroundColor: ColorKey;
   onReady?: (meta: LogoMeta) => void;
 }
@@ -36,7 +38,7 @@ interface LogoSmartProps {
  * posiciona no canto inferior esquerdo e mede a área de proteção a partir do pingo verde do "i"
  * do próprio logo renderizado — logo menor, área de proteção proporcionalmente menor.
  */
-export default function LogoSmart({ audience, layer, backgroundColor, onReady }: LogoSmartProps) {
+export default function LogoSmart({ audience, layer, size, backgroundColor, onReady }: LogoSmartProps) {
   const fundo = backgroundColor.startsWith("azul") ? "fundoAzul" : "fundoBranco";
   const src = logoPath(pickLogoKey(audience, fundo, layer.midia));
   const referenceKey = CLEAR_SPACE_REFERENCE_COLOR[logoClearSpace.reference];
@@ -56,12 +58,13 @@ export default function LogoSmart({ audience, layer, backgroundColor, onReady }:
 
   if (!asset) return null;
   const height = asset.height * scale;
+  const { x, y } = logoPosition(layer, size, height);
   return (
     <Group name="brand-layer" id={layer.id}>
       <KImage
         image={asset.image}
-        x={layer.align === "center" ? (CANVAS_SIZE - layer.width) / 2 : layer.margin}
-        y={CANVAS_SIZE - layer.margin - height}
+        x={x}
+        y={y}
         width={layer.width}
         height={height}
       />

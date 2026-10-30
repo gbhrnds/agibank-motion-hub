@@ -1,8 +1,8 @@
-import { CANVAS_SIZE, type Layer, type Rect } from "./alerta-spec";
+import { logoPosition, type Layer, type Rect, type Size } from "./piece-spec";
 import type { CanvasLayout } from "./canvas-layout";
 import { ctaGeometry } from "./cta-geometry";
-import type { KeepOutZone, PieceLayout } from "./layout-engine";
-import { applyPieceStyle } from "./piece-style";
+import type { KeepOutZone } from "./layout-engine";
+import { composeLayers, type PieceStyle } from "./piece-style";
 import { breakText } from "./rich-text";
 
 /** Áreas medidas no canvas que os grafismos não podem tocar: textos, CTA e área de proteção do logo. */
@@ -30,23 +30,18 @@ export function logoMetricsFrom(layers: Layer[], layout: CanvasLayout): LogoMetr
 
 /**
  * Prevê as mesmas áreas para um alinhamento/CTA ainda não renderizado (o motor escolhe o
- * alinhamento e os shapes juntos). Usa a mesma quebra de linha e a mesma geometria de CTA do canvas.
+ * alinhamento e os shapes juntos). Usa a mesma composição, quebra de linha e geometria de CTA do canvas.
  */
-export function predictKeepOut(
-  layers: Layer[],
-  logo: LogoMetrics,
-  piece: Pick<PieceLayout, "alignment" | "ctaStyle" | "ctaColor">,
-): KeepOutZone[] {
+export function predictKeepOut(layers: Layer[], size: Size, logo: LogoMetrics, piece: PieceStyle): KeepOutZone[] {
   const zones: KeepOutZone[] = [];
-  for (const l of applyPieceStyle(layers, piece)) {
+  for (const l of composeLayers(layers, size, piece, logo)) {
     if (l.type === "text") {
       const lines = breakText(l.text, l, l.highlight, l.fontSize, l.width).split("\n").length;
       zones.push({ label: l.label, rect: { x: l.x, y: l.y, width: l.width, height: lines * l.fontSize * l.lineHeight } });
     } else if (l.type === "cta") {
-      zones.push({ label: l.label, rect: ctaGeometry(l).box });
+      zones.push({ label: l.label, rect: ctaGeometry(l, size.width).box });
     } else if (l.type === "logo") {
-      const x = l.align === "center" ? (CANVAS_SIZE - l.width) / 2 : l.margin;
-      const y = CANVAS_SIZE - l.margin - logo.height;
+      const { x, y } = logoPosition(l, size, logo.height);
       const r: Rect = { x: x - logo.clearSpace, y: y - logo.clearSpace, width: logo.width + logo.clearSpace * 2, height: logo.height + logo.clearSpace * 2 };
       zones.push({ label: "Área de proteção do logo", rect: r });
     }

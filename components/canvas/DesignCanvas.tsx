@@ -3,24 +3,29 @@
 import type Konva from "konva";
 import { useCallback, useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { Group, Layer as KLayer, Rect as KRect, Stage } from "react-konva";
-import { color, type FontWeightKey } from "@/lib/brand-tokens";
-import { CANVAS_SIZE, getBackground, type Layer, type Rect } from "@/lib/alerta-spec";
+import { color } from "@/lib/brand-tokens";
+import { getBackground, type Layer, type Rect } from "@/lib/piece-spec";
 import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
 import { measureColorCoverage } from "@/lib/color-coverage";
 import { ctaGeometry, type CtaGeometry } from "@/lib/cta-geometry";
 import type { PieceLayout } from "@/lib/layout-engine";
-import { useBrandFonts } from "@/lib/use-brand-fonts";
 import CtaPill from "./CtaPill";
 import LogoSmart, { type LogoMeta } from "./LogoSmart";
 import RichText from "./RichText";
 import ShapeCluster from "./ShapeCluster";
 
-interface AlertaCanvasProps {
+interface DesignCanvasProps {
+  /** Dimensões reais da peça (px do arquivo exportado). */
+  width: number;
+  height: number;
+  /** Escala do preview na tela (o export volta ao tamanho real). */
+  previewScale?: number;
+  /** Camadas já compostas para o formato (lib/piece-style.ts → composeLayers); exige fontes carregadas. */
   layers: Layer[];
   /** Grafismos gerados pelo motor (null = ainda não gerados). */
   shapes: PieceLayout | null;
   stageRef: MutableRefObject<Konva.Stage | null>;
-  showGuides: boolean;
+  showGuides?: boolean;
   onLayout: (layout: CanvasLayout | null) => void;
 }
 
@@ -44,18 +49,22 @@ function assetIds(layers: Layer[], shapes: PieceLayout | null): string[] {
   });
 }
 
-function fontWeightsUsed(layers: Layer[]): FontWeightKey[] {
-  return layers.flatMap((l) => {
-    if (l.type === "text") return l.highlight ? [l.weight, l.highlight.weight] : [l.weight];
-    if (l.type === "cta") return [l.weight];
-    return [];
-  });
-}
-
-export default function AlertaCanvas({ layers, shapes, stageRef, showGuides, onLayout }: AlertaCanvasProps) {
+/**
+ * Canvas de uma peça em qualquer formato: fundo, grafismos, textos, CTA e logo nas posições
+ * compostas para width×height. O Stage é desenhado reduzido por `previewScale`.
+ */
+export default function DesignCanvas({
+  width,
+  height,
+  previewScale = 1,
+  layers,
+  shapes,
+  stageRef,
+  showGuides = false,
+  onLayout,
+}: DesignCanvasProps) {
   const background = getBackground(layers);
-  const weights = useMemo(() => fontWeightsUsed(layers), [layers]);
-  const fontsReady = useBrandFonts(weights);
+  const size = useMemo(() => ({ width, height }), [width, height]);
 
   const [loaded, setLoaded] = useState<Record<string, true>>({});
   const [logoMeta, setLogoMeta] = useState<LogoMeta | null>(null);
@@ -78,14 +87,14 @@ export default function AlertaCanvas({ layers, shapes, stageRef, showGuides, onL
     [logoId, markLoaded],
   );
 
-  // Geometria que depende da fonte carregada (largura do texto do CTA).
+  // Geometria do CTA (largura do texto medida com a fonte de marca, já carregada por quem compõe as camadas).
   const ctas = useMemo(() => {
     const map: Record<string, CtaGeometry> = {};
-    if (fontsReady) for (const l of layers) if (l.type === "cta") map[l.id] = ctaGeometry(l);
+    for (const l of layers) if (l.type === "cta") map[l.id] = ctaGeometry(l, width);
     return map;
-  }, [fontsReady, layers]);
+  }, [layers, width]);
 
-  const allReady = fontsReady && assetIds(layers, shapes).every((id) => loaded[id]);
+  const allReady = assetIds(layers, shapes).every((id) => loaded[id]);
 
   // Mede o layout real renderizado pelo Konva (usado pela validação de área de proteção).
   useEffect(() => {
@@ -110,20 +119,27 @@ export default function AlertaCanvas({ layers, shapes, stageRef, showGuides, onL
       onLayout({
         bounds,
         logoClearZone: zone,
-        colorCoverage: measureColorCoverage(stage, CANVAS_SIZE, [GUIDES_LAYER_NAME]),
+        colorCoverage: measureColorCoverage(stage, { width: stage.width(), height: stage.height() }, [GUIDES_LAYER_NAME]),
+        shapesSeed: shapes?.seed ?? null,
       });
     });
     return () => cancelAnimationFrame(raf);
-  }, [allReady, shapes, layers, logoId, logoMeta, onLayout, stageRef]);
+  }, [allReady, shapes, layers, logoId, logoMeta, onLayout, stageRef, previewScale]);
 
   return (
-    <Stage width={CANVAS_SIZE} height={CANVAS_SIZE} ref={stageRef}>
+    <Stage
+      width={Math.round(width * previewScale)}
+      height={Math.round(height * previewScale)}
+      scaleX={previewScale}
+      scaleY={previewScale}
+      ref={stageRef}
+    >
       <KLayer listening={false}>
         {layers.map((layer) => {
           switch (layer.type) {
             case "background":
               return (
-                <KRect key={layer.id} x={0} y={0} width={CANVAS_SIZE} height={CANVAS_SIZE} fill={color(layer.color)} />
+                <KRect key={layer.id} x={0} y={0} width={width} height={height} fill={color(layer.color)} />
               );
             case "shapes":
               return shapes ? (
@@ -135,7 +151,7 @@ export default function AlertaCanvas({ layers, shapes, stageRef, showGuides, onL
                 />
               ) : null;
             case "text":
-              return fontsReady ? <RichText key={layer.id} layer={layer} /> : null;
+              return <RichText key={layer.id} layer={layer} />;
             case "cta":
               return ctas[layer.id] ? (
                 <CtaPill
@@ -151,6 +167,7 @@ export default function AlertaCanvas({ layers, shapes, stageRef, showGuides, onL
                   key={layer.id}
                   audience={layer.audience}
                   layer={layer}
+                  size={size}
                   backgroundColor={background.color}
                   onReady={onLogoReady}
                 />

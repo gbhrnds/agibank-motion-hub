@@ -1,182 +1,210 @@
 "use client";
 
-import type Konva from "konva";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ValidationPanel from "@/components/validation/ValidationPanel";
-import { ALERTA_CHANNELS, ALERTA_LAYERS, CANVAS_SIZE, EXPORT_BASE_NAME, getBackground } from "@/lib/alerta-spec";
-import { logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
-import { GUIDES_LAYER_NAME, type CanvasLayout } from "@/lib/canvas-layout";
-import { archetype, ctaVariant } from "@/lib/composition-tokens";
-import { exportStage, type ExportFormat } from "@/lib/export";
-import { logoMetricsFrom, predictKeepOut, type LogoMetrics } from "@/lib/keep-out";
-import { allShapeFiles, generateRandomLayout, type PieceLayout } from "@/lib/layout-engine";
-import { applyPieceStyle } from "@/lib/piece-style";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { localMirror, logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
+import { MENU_CONFIG, pieceContext, type FormatSpec, type FrenteId } from "@/lib/format-config";
+import { allShapeFiles, pickPieceRun, type PieceRun } from "@/lib/layout-engine";
 import { loadSilhouette, type Silhouette } from "@/lib/shape-silhouette";
-import { validatePiece } from "@/lib/validate-piece";
 
-const AlertaCanvas = dynamic(() => import("@/components/canvas/AlertaCanvas"), { ssr: false });
+const FormatArtboard = dynamic(() => import("@/components/canvas/FormatArtboard"), { ssr: false });
 
-const BACKGROUND = getBackground(ALERTA_LAYERS)!.color;
+/** Fundo da peça base (lib/piece-spec.ts → buildLayers). */
+const BACKGROUND = "azulAgibank" as const;
 /** Logo da interface: Agi reduzido (uso interno), versão positiva sobre o branco da barra lateral. */
 const UI_LOGO = logoPath(pickLogoKey("interno", "fundoBranco", "digital"));
-const EXPORT_FORMATS: { format: ExportFormat; label: string }[] = [
-  { format: "png", label: "PNG" },
-  { format: "jpg", label: "JPG" },
-  { format: "pdf", label: "PDF" },
-];
+
+function StepTitle({ step, children }: { step: number; children: React.ReactNode }) {
+  return (
+    <legend className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-agi-blue text-[10px] text-white">{step}</span>
+      {children}
+    </legend>
+  );
+}
+
+const optionClass = (active: boolean) =>
+  `flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-agi-blue ${
+    active
+      ? "border-agi-blue bg-agi-blue/5 font-semibold text-agi-blue-dark"
+      : "border-agi-gray-border bg-white text-slate-700 hover:border-agi-blue/50"
+  }`;
 
 export default function Page() {
-  const stageRef = useRef<Konva.Stage | null>(null);
-  const [layout, setLayout] = useState<CanvasLayout | null>(null);
-  const [showGuides, setShowGuides] = useState(false);
-  const [piece, setPiece] = useState<PieceLayout | null>(null);
+  const [selectedFrente, setSelectedFrente] = useState<FrenteId | null>(null);
+  const [selectedSubtipo, setSelectedSubtipo] = useState<string | null>(null);
+  const [selectedFormats, setSelectedFormats] = useState<FormatSpec[]>([]);
+  const [run, setRun] = useState<PieceRun | null>(null);
   const [silhouettes, setSilhouettes] = useState<Record<string, Silhouette> | null>(null);
-  const [logoMetrics, setLogoMetrics] = useState<LogoMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState<ExportFormat | null>(null);
-
-  // Camadas da peça com o alinhamento e o estilo de CTA da composição atual.
-  const layers = useMemo(() => (piece ? applyPieceStyle(ALERTA_LAYERS, piece) : ALERTA_LAYERS), [piece]);
 
   // Silhuetas de todos os shapes do assets-map.json (usadas pelo motor para evitar textos e logo).
   useEffect(() => {
     Promise.all(allShapeFiles.map((f) => loadSilhouette(f, shapePath(f))))
       .then((list) => setSilhouettes(Object.fromEntries(list.map((s) => [s.file, s]))))
-      .catch((err) => setError(String(err)));
+      .catch((err) => setError(String(err instanceof Error ? err.message : err)));
   }, []);
 
-  // Tamanho do logo e da área de proteção: medidos uma vez no canvas.
-  useEffect(() => {
-    if (layout && !logoMetrics) setLogoMetrics(logoMetricsFrom(layers, layout));
-  }, [layout, layers, logoMetrics]);
+  // Primeiro estado global já sorteado: as pranchetas aparecem completas assim que o formato é marcado.
+  useEffect(() => setRun(pickPieceRun(BACKGROUND)), []);
 
-  const generate = useCallback(() => {
-    if (!silhouettes || !logoMetrics) return;
-    try {
-      setPiece(
-        generateRandomLayout({
-          background: BACKGROUND,
-          silhouettes,
-          keepOutFor: (p) => predictKeepOut(ALERTA_LAYERS, logoMetrics, p),
-        }),
-      );
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [silhouettes, logoMetrics]);
+  const ctx = useMemo(
+    () => (selectedFrente && selectedSubtipo ? pieceContext(selectedFrente, selectedSubtipo) : null),
+    [selectedFrente, selectedSubtipo],
+  );
 
-  // Primeira composição assim que o canvas foi medido.
-  useEffect(() => {
-    if (!piece && silhouettes && logoMetrics) generate();
-  }, [piece, silhouettes, logoMetrics, generate]);
-
-  const items = useMemo(() => validatePiece(layers, ALERTA_CHANNELS, layout, piece), [layers, layout, piece]);
-  const ready = layout !== null && piece !== null;
-  const blocked = items.some((i) => i.result.severity === "blocking");
-  const exportDisabled = !ready || blocked || exporting !== null;
-
-  const handleExport = useCallback(async (format: ExportFormat) => {
-    if (!stageRef.current) return;
-    setExporting(format);
-    try {
-      await exportStage(stageRef.current, { format, baseName: EXPORT_BASE_NAME, size: CANVAS_SIZE, hideNames: [GUIDES_LAYER_NAME] });
-    } catch (err) {
-      setError(`Falha ao exportar ${format.toUpperCase()}: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setExporting(null);
-    }
+  const chooseFrente = useCallback((id: FrenteId) => {
+    setSelectedFrente(id);
+    setSelectedSubtipo(null);
+    setSelectedFormats([]);
   }, []);
 
-  const canGenerate = !!silhouettes && !!logoMetrics;
+  const toggleFormat = useCallback((format: FormatSpec) => {
+    setSelectedFormats((prev) => {
+      const next = prev.some((f) => f.id === format.id) ? prev.filter((f) => f.id !== format.id) : [...prev, format];
+      // Mantém a ordem do menu.
+      const order = selectedFrente ? MENU_CONFIG.formatos[selectedFrente].map((f) => f.id) : [];
+      return next.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    });
+  }, [selectedFrente]);
+
+  const generate = useCallback(() => setRun(pickPieceRun(BACKGROUND)), []);
 
   return (
-    <div className="flex w-full flex-col overflow-hidden bg-agi-gray-bg font-sans lg:h-screen lg:flex-row">
-      <aside className="z-10 order-2 flex w-full flex-col border-agi-gray-border bg-white shadow-lg lg:order-none lg:w-96 lg:border-r">
+    <div className="flex w-full flex-col bg-agi-gray-bg font-sans lg:h-screen lg:flex-row lg:overflow-hidden">
+      <aside className="z-10 flex w-full flex-col border-agi-gray-border bg-white shadow-lg lg:w-96 lg:shrink-0 lg:border-r">
         <header className="flex items-center gap-3 border-b border-agi-gray-border px-6 py-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={UI_LOGO} alt="agi" className="h-7 w-auto" />
+          <img
+            src={UI_LOGO}
+            alt="agi"
+            className="h-7 w-auto"
+            onError={(e) => {
+              const local = localMirror(e.currentTarget.src);
+              if (local && e.currentTarget.src !== local) e.currentTarget.src = local;
+            }}
+          />
           <div className="leading-tight">
             <h1 className="text-lg font-extrabold text-agi-blue-dark">Brand Studio</h1>
-            <p className="text-xs text-slate-500">Alerta institucional · 600×600</p>
+            <p className="text-xs text-slate-500">Desdobramento de peças</p>
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
-          <button
-            type="button"
-            onClick={generate}
-            disabled={!canGenerate}
-            className="w-full rounded-full bg-agi-green px-6 py-3 text-lg font-bold text-agi-blue-dark shadow-md transition-colors hover:bg-agi-green-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            🎲 Gerar Nova Composição
-          </button>
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
+          <fieldset>
+            <StepTitle step={1}>Frente</StepTitle>
+            <div className="flex flex-wrap gap-2">
+              {MENU_CONFIG.frentes.map((f) => {
+                const active = selectedFrente === f.id;
+                return (
+                  <label
+                    key={f.id}
+                    className={`cursor-pointer rounded-full border px-4 py-2 text-sm transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-agi-blue ${
+                      active
+                        ? "border-agi-blue bg-agi-blue font-semibold text-white"
+                        : "border-agi-gray-border bg-white text-slate-700 hover:border-agi-blue/50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="frente"
+                      value={f.id}
+                      checked={active}
+                      onChange={() => chooseFrente(f.id as FrenteId)}
+                      className="sr-only"
+                    />
+                    {f.label}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
 
-          {piece ? (
-            <dl className="grid grid-cols-2 gap-2 text-sm" data-testid="piece-state">
-              {[
-                ["Alinhamento", piece.alignment === "center" ? "Centralizado" : "Esquerda"],
-                ["CTA", ctaVariant(piece.ctaStyle).name],
-                ["Shapes", archetype(piece.shapeArchetype).name.replace(/\s*\(.*\)/, "")],
-                ["Paleta", piece.shapePalette.name],
-              ].map(([k, v]) => (
-                <div key={k} className="rounded-lg bg-agi-gray-bg px-3 py-2">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{k}</dt>
-                  <dd className="font-semibold text-agi-blue-dark">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <p className="text-sm text-slate-500">{canGenerate ? "Gerando composição…" : "Carregando shapes…"}</p>
+          {selectedFrente && (
+            <fieldset>
+              <StepTitle step={2}>Subtipo</StepTitle>
+              <div className="flex flex-col gap-2">
+                {MENU_CONFIG.subtipos[selectedFrente].map((s) => (
+                  <label key={s.id} className={optionClass(selectedSubtipo === s.id)}>
+                    <input
+                      type="radio"
+                      name="subtipo"
+                      value={s.id}
+                      checked={selectedSubtipo === s.id}
+                      onChange={() => setSelectedSubtipo(s.id)}
+                      className="h-4 w-4 accent-agi-blue"
+                    />
+                    {s.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           )}
+
+          {selectedFrente && selectedSubtipo && (
+            <fieldset>
+              <StepTitle step={3}>Formatos</StepTitle>
+              <div className="flex flex-col gap-2">
+                {MENU_CONFIG.formatos[selectedFrente].map((f) => {
+                  const checked = selectedFormats.some((s) => s.id === f.id);
+                  return (
+                    <label key={f.id} className={optionClass(checked)}>
+                      <input
+                        type="checkbox"
+                        value={f.id}
+                        checked={checked}
+                        onChange={() => toggleFormat(f)}
+                        className="h-4 w-4 accent-agi-blue"
+                      />
+                      <span className="flex-1">{f.label}</span>
+                      <span className="text-xs tabular-nums text-slate-500">
+                        {f.width}×{f.height}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+
           {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-
-          <ValidationPanel items={items} ready={ready} />
-
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              id="show-guides"
-              type="checkbox"
-              className="h-4 w-4 accent-agi-blue"
-              checked={showGuides}
-              onChange={(e) => setShowGuides(e.target.checked)}
-            />
-            Mostrar área de proteção do logo
-          </label>
         </div>
 
         <footer className="border-t border-agi-gray-border px-6 py-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Exportar</p>
-          <div className="flex gap-2">
-            {EXPORT_FORMATS.map(({ format, label }) => (
-              <button
-                key={format}
-                type="button"
-                onClick={() => handleExport(format)}
-                disabled={exportDisabled}
-                aria-label={`Exportar ${label}`}
-                className="flex-1 rounded-full border-2 border-agi-blue px-4 py-2 text-sm font-semibold text-agi-blue transition-colors hover:bg-agi-blue hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:border-agi-gray-border disabled:text-slate-400 disabled:hover:bg-transparent"
-              >
-                {exporting === format ? "…" : label}
-              </button>
-            ))}
-          </div>
-          {blocked && <p className="mt-2 text-xs text-red-700">Corrija os itens que bloqueiam para liberar a exportação.</p>}
+          <button
+            type="button"
+            onClick={generate}
+            disabled={selectedFormats.length === 0}
+            className="w-full rounded-full bg-agi-green px-6 py-3 text-lg font-bold text-agi-blue-dark shadow-md transition-colors hover:bg-agi-green-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Gerar desdobramento
+          </button>
         </footer>
       </aside>
 
-      <main className="relative order-1 flex flex-1 items-center justify-center p-4 sm:p-6 lg:order-none lg:p-10">
-        <div className="flex w-full flex-col items-center gap-3">
-          <div
-            className="artboard overflow-hidden rounded-md bg-white shadow-2xl"
-            style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
-            data-testid="canvas-wrapper"
-          >
-            <AlertaCanvas layers={layers} shapes={piece} stageRef={stageRef} showGuides={showGuides} onLayout={setLayout} />
+      <main className="flex-1 overflow-auto bg-agi-gray-bg p-4 sm:p-6 lg:p-10" data-testid="preview">
+        {ctx && selectedFormats.length > 0 ? (
+          <div className="flex flex-wrap items-start justify-center gap-10">
+            {selectedFormats.map((format) => (
+              <FormatArtboard
+                key={`${format.id}:${ctx.audience}:${ctx.midia}`}
+                format={format}
+                ctx={ctx}
+                run={run}
+                silhouettes={silhouettes}
+              />
+            ))}
           </div>
-          {piece && <p className="text-xs tabular-nums text-slate-400">seed {piece.seed}</p>}
-        </div>
+        ) : (
+          <div className="flex h-full min-h-[50vh] items-center justify-center">
+            <p className="max-w-xs text-center text-sm text-slate-500">
+              Escolha a frente, o subtipo e um ou mais formatos para ver as pranchetas.
+            </p>
+          </div>
+        )}
+        {run && selectedFormats.length > 0 && (
+          <p className="mt-8 text-center text-xs tabular-nums text-slate-400">seed {run.seed}</p>
+        )}
       </main>
     </div>
   );

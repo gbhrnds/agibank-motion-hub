@@ -1,5 +1,8 @@
+import { fetchAssetText } from "./asset-fetch";
+import { assetUrl } from "./brand-tokens";
+
 /**
- * Recolore SVGs de /public/assets em tempo de execução, para não duplicar arquivos por cor.
+ * Recolore SVGs (carregados da CDN, meta.cdnBase) em tempo de execução, para não duplicar arquivos por cor.
  * Os shapes vêm com fill azul fixo no markup; os ícones, com fill escuro em `style`.
  */
 
@@ -55,6 +58,12 @@ export function applyColorToSvg(svg: SVGSVGElement, color: string, mode: ColorMo
   }
 }
 
+/** Baixa o SVG (CDN de assets-map.json → meta.cdnBase, com fallback local) e devolve o <svg> parseado. */
+export async function fetchSvg(svgPath: string): Promise<SVGSVGElement> {
+  const fullUrl = assetUrl(svgPath);
+  return parseSvg(await fetchAssetText(fullUrl), fullUrl);
+}
+
 /**
  * Busca o SVG, recolore (fill: troca todos os preenchimentos; stroke: fill="none" + contorno)
  * e devolve um data URL base64 (data:image/svg+xml;base64,...).
@@ -65,9 +74,7 @@ export async function recolorSvg(
   mode: ColorMode,
   options: RecolorOptions = {},
 ): Promise<string> {
-  const res = await fetch(svgPath);
-  if (!res.ok) throw new Error(`Falha ao carregar ${svgPath}: HTTP ${res.status}`);
-  const svg = parseSvg(await res.text(), svgPath);
+  const svg = await fetchSvg(svgPath);
   applyColorToSvg(svg, newColor, mode, options);
   return svgToDataUrl(svg);
 }

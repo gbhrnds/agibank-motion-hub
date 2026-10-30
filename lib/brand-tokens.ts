@@ -70,10 +70,23 @@ export function fontShorthand(weight: FontWeightKey, sizePx: number): string {
 
 export const allFontWeights = Object.keys(assetsMap.typography.weights) as FontWeightKey[];
 
-// Paths — servidos a partir de /public/assets (ver scripts/sync-assets.mjs).
-// O build estático (scripts/build-standalone.mjs) troca a base por "./".
-const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "/";
-const url = (basePath: string, file: string) => `${ASSET_BASE}${basePath}${file}`;
+// Paths — todos os assets são carregados da CDN pública (assets-map.json → meta.cdnBase).
+// Se a CDN falhar, lib/asset-fetch.ts recorre à cópia local (/public/assets, ver
+// scripts/sync-assets.mjs; no build estático, "./").
+export const CDN_BASE: string = assetsMap.meta.cdnBase.replace(/\/+$/, "");
+const LOCAL_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "/";
+
+/** URL do asset na CDN a partir do caminho relativo do assets-map ("assets/shapes/x.svg"). */
+export function assetUrl(relativePath: string): string {
+  return /^(https?:|data:)/.test(relativePath) ? relativePath : `${CDN_BASE}/${relativePath.replace(/^\.?\/+/, "")}`;
+}
+
+/** Cópia local de uma URL da CDN (fallback); null se a URL não for da CDN. */
+export function localMirror(url: string): string | null {
+  return url.startsWith(`${CDN_BASE}/`) ? `${LOCAL_BASE}${url.slice(CDN_BASE.length + 1)}` : null;
+}
+
+const url = (basePath: string, file: string) => assetUrl(`${basePath}${file}`);
 
 export function logoPath(key: LogoKey): string {
   return url(assetsMap.logos.basePath, assetsMap.logos.files[key]);
