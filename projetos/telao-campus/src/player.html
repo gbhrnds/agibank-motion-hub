@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telão Campus — Preview</title>
+<style>
+  :root { --bg: #0b1020; --panel: #121a33; --text: #eef2ff; --muted: #9aa6c7; --accent: #0064f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; align-items: center; }
+  header { width: min(1280px, 100% - 32px); padding: 20px 0 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header span { color: var(--muted); font-size: 13px; }
+  .stage { width: min(1280px, 100% - 32px); aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+  canvas { width: 100%; height: 100%; display: block; }
+  .controls { width: min(1280px, 100% - 32px); display: flex; align-items: center; gap: 10px; padding: 14px 0; flex-wrap: wrap; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #263257; border-radius: 12px; padding: 10px 16px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: progress; }
+  input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+  .time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 110px; text-align: right; }
+  .status { width: min(1280px, 100% - 32px); color: var(--muted); font-size: 13px; min-height: 20px; }
+  .loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Vídeo Telão Campus — O jeito Agi | Reconhecimentos 2026.2</h1>
+  <span>1920×1080 · 24 fps · <span id="dur"></span></span>
+</header>
+<div class="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+<div class="controls">
+  <button id="play" class="primary">▶ Play</button>
+  <button id="restart">↺ Restart</button>
+  <input id="seek" type="range" min="0" max="1200" step="1" value="0" aria-label="Linha do tempo">
+  <span class="time" id="time">00:00.0</span>
+  <button id="export">⬇ Exportar vídeo</button>
+</div>
+<div class="status" id="status"></div>
+<div class="loading" id="loading">Carregando fontes e imagens…</div>
+
+<script>/*__ASSETS__*/</script>
+<script>/*__ENGINE__*/</script>
+<script>
+(async function () {
+  const { W, H, FPS, DURATION } = TELAO;
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const total = FPS * DURATION;
+  $('seek').max = total;
+  $('dur').textContent = DURATION + 's';
+
+  await TELAO.init(window.TELAO_ASSETS);
+  $('loading').remove();
+
+  let t = 0, playing = false, last = 0;
+  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${(s % 60).toFixed(1).padStart(4, '0')}`;
+  function draw() {
+    TELAO.render(ctx, t);
+    $('seek').value = Math.round(t * FPS);
+    $('time').textContent = fmt(t);
+  }
+  function loop(now) {
+    if (!playing) return;
+    t += (now - last) / 1000; last = now;
+    if (t >= DURATION) { t = DURATION; setPlaying(false); onEnd && onEnd(); }
+    draw();
+    if (playing) requestAnimationFrame(loop);
+  }
+  let onEnd = null;
+  function setPlaying(p) {
+    playing = p;
+    $('play').textContent = p ? '❚❚ Pause' : '▶ Play';
+    if (p) { if (t >= DURATION) t = 0; last = performance.now(); requestAnimationFrame(loop); }
+  }
+  $('play').onclick = () => setPlaying(!playing);
+  $('restart').onclick = () => { t = 0; draw(); setPlaying(true); };
+  $('seek').oninput = e => { t = e.target.value / FPS; draw(); };
+  document.addEventListener('keydown', e => { if (e.code === 'Space' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setPlaying(!playing); } });
+
+  // Exportação em tempo real via MediaRecorder (MP4 quando o navegador suporta, senão WebM)
+  $('export').onclick = () => {
+    const types = ['video/mp4;codecs=avc1.640028', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const mime = types.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+    if (!mime) { $('status').textContent = 'Este navegador não suporta MediaRecorder.'; return; }
+    const stream = canvas.captureStream(FPS);
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 20e6 });
+    const chunks = [];
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: mime.split(';')[0] });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'telao-campus.' + (mime.startsWith('video/mp4') ? 'mp4' : 'webm');
+      a.click();
+      $('status').textContent = 'Exportação concluída (' + (blob.size / 1e6).toFixed(1) + ' MB).';
+      ['play', 'restart', 'export', 'seek'].forEach(id => $(id).disabled = false);
+    };
+    ['play', 'restart', 'export', 'seek'].forEach(id => $(id).disabled = true);
+    $('status').textContent = 'Gravando em tempo real… mantenha esta aba visível (' + DURATION + 's).';
+    t = 0; draw();
+    onEnd = () => { onEnd = null; setTimeout(() => rec.stop(), 200); };
+    rec.start(1000);
+    setPlaying(true);
+  };
+
+  draw();
+})();
+</script>
+</body>
+</html>

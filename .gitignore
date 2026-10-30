@@ -1,0 +1,5 @@
+# Imagens de campanha / fotos de colaboradores: nunca versionar
+projetos/**/private/
+# Saídas de build/render (contêm as imagens privadas embutidas)
+projetos/**/dist/
+node_modules/
