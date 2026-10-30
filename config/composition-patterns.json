@@ -1,90 +1,79 @@
 {
   "meta": {
-    "version": "2.0.0",
-    "purpose": "Motor de Arquétipos Visuais. Define as regras de randomização para a geração dinâmica de layouts, garantindo que as peças sigam o brandbook mas nunca fiquem idênticas."
+    "version": "3.0.0",
+    "purpose": "Motor de Arquétipos Visuais. Define as regras de randomização para a geração dinâmica de layouts, garantindo fluidez, hierarquia e respeito irrestrito ao brandbook."
   },
 
-  "textHierarchyRules": {
-    "rule": "Nunca usar cor única no texto.",
-    "patterns": ["titulo-bicolor", "palavra-chave-destacada", "peso-diferenciado"]
-  },
-
-  "typographyLineBreakRules": {
-    "rule": "Evitar viúvas tipográficas.",
-    "forbiddenTrailingWords": ["a", "à", "ao", "aos", "as", "às", "o", "os", "e", "é", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "uns", "umas", "por", "pra", "pro", "pros", "para", "com", "sem", "que", "se", "ou"]
+  "textAndLayoutRules": {
+    "alignments": ["left", "center"],
+    "rule": "O alinhamento do texto dita o alinhamento do CTA. Se o texto for centralizado, o CTA e o Logo devem buscar equilíbrio central ou simétrico."
   },
 
   "ctaRules": {
-    "rule": "CTA deve ter contraste real.",
     "variants": [
-      { "name": "pill-solid-accent", "description": "Pílula verde ou amarela, texto azul escuro, cantos arredondados." },
-      { "name": "cta-bold-inline", "description": "Texto bold + cor de destaque, sem caixa. Ideal quando há fotos." }
+      {
+        "id": "pill-solid-accent",
+        "name": "Pílula Sólida",
+        "description": "Fundo verde, texto azul escuro. Usado para máximo destaque."
+      },
+      {
+        "id": "pill-outline",
+        "name": "Pílula Outline",
+        "description": "Fundo transparente, borda fina (stroke) branca ou verde, texto acompanhando a cor da borda. Usado para elegância e respiro (ex: Agi por Aí)."
+      },
+      {
+        "id": "text-only-arrow",
+        "name": "Texto com Seta",
+        "description": "Sem caixa. Texto bold + ícone de seta. Usado quando o layout já está muito preenchido graficamente."
+      }
+    ]
+  },
+
+  "shapeColorsByBackground": {
+    "rule": "Baseado na página '1. Formas irregulares - Aplicações de cores e fundos' do Brandbook.",
+    "azulAgibank": [
+      { "name": "Mono Branco", "colors": ["branco"] },
+      { "name": "Mono Verde", "colors": ["verde"] },
+      { "name": "Duas Cores", "colors": ["azulMedio", "verde"] },
+      { "name": "Três Cores", "colors": ["azulMedio", "verde", "amarelo"] }
+    ],
+    "branco": [
+      { "name": "Mono Azul", "colors": ["azulAgibank"] },
+      { "name": "Mono Verde", "colors": ["verde"] },
+      { "name": "Duas Cores", "colors": ["azulAgibank", "verde"] },
+      { "name": "Três Cores", "colors": ["azulAgibank", "verde", "amarelo"] }
     ]
   },
 
   "dynamicShapeArrangements": {
-    "rule": "O motor de geração deve sortear um destes arquétipos a cada renderização para garantir variedade e dinamismo.",
+    "rule": "O motor de geração deve sortear um destes arquétipos. A hierarquia de tamanho é OBRIGATÓRIA: deve haver contraste brutal entre formas (Gigante vs Média vs Micro).",
+    "gapRule": "Em arranjos de mosaico, o espaço de respiro (gap) entre as formas deve ser de aproximadamente 5%.",
     "archetypes": [
       {
-        "id": "estouro-de-canto",
-        "name": "Estouro de Canto (Massive Bleed)",
-        "description": "Um shape gigante estourando a tela, com pequenos pontos de apoio no lado oposto.",
+        "id": "mosaico-hierarquico",
+        "name": "Mosaico com Hierarquia (Encaixe com 5% Gap)",
+        "description": "2 a 4 shapes. 1 Protagonista (estourando a tela, scale 2.0+), 1 Médio (scale 0.8) encaixado ao lado respeitando 5% de gap, e 1-2 Pequenos (scale 0.3) flutuando.",
         "composition": {
-          "protagonista": {
-            "count": 1,
-            "scaleRange": [2.5, 5.0],
-            "position": "sangrando-extremo-canto-inferior-ou-superior"
-          },
-          "coadjuvantes": {
-            "count": [1, 2],
-            "scaleRange": [0.2, 0.4],
-            "position": "canto-oposto-ao-protagonista",
-            "overlap": false
-          }
+          "count": [2, 4],
+          "arrangement": "adjacent-with-5-percent-gap"
         }
       },
       {
-        "id": "mosaico-dupla",
-        "name": "Mosaico em Dupla (Interlocking Pair)",
-        "description": "Apenas dois shapes de tamanhos médios. O código deve rotacioná-los para que uma de suas arestas fique paralela à do outro, com gap de 5%.",
+        "id": "estouro-solitario",
+        "name": "Estouro Solitário",
+        "description": "Apenas 1 shape massivo (scale 4.0+) invadindo um dos cantos. Cria um bloco de cor forte sem poluir.",
         "composition": {
-          "count": 2,
-          "scaleRange": [0.6, 1.2],
-          "position": "ancorando-titulo-ou-cta",
-          "gap": "5%",
-          "alignment": "arestas-paralelas"
+          "count": 1
         }
       },
       {
         "id": "textura-espalhada",
-        "name": "Textura Espalhada (Confetti/Sparks)",
-        "description": "Nenhum shape grande. Vários shapes minúsculos espalhados pelas bordas do canvas.",
+        "name": "Textura/Faíscas (Confetti)",
+        "description": "Nenhum shape grande. 4 a 6 shapes minúsculos (scale 0.1 a 0.25) espalhados pelas bordas, servindo apenas como textura de fundo leve.",
         "composition": {
-          "count": [3, 5],
-          "scaleRange": [0.1, 0.25],
-          "position": "distribuidos-nas-bordas",
-          "overlap": false
-        }
-      },
-      {
-        "id": "mascara-de-foto",
-        "name": "Máscara Irregular para Foto",
-        "description": "Um shape grande centralizado atua como clip-path para uma imagem.",
-        "composition": {
-          "count": 1,
-          "scaleRange": [1.5, 2.0],
-          "position": "centro-topo-ou-centro-direita",
-          "isMask": true
+          "count": [4, 6]
         }
       }
-    ],
-    "colorMix": {
-      "rule": "Misturar cores. Amarelo apenas em shapes com scale < 0.4.",
-      "allowedCombos": [
-        ["verde", "azulMedio"],
-        ["azulEscuro", "verde"],
-        ["branco-outline", "azulMedio", "amarelo-pequeno"]
-      ]
-    }
+    ]
   }
 }
