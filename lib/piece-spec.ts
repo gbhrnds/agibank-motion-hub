@@ -153,6 +153,8 @@ export interface PieceContent {
   /** Trecho do texto de apoio destacado em verde (padrão "palavra-chave-destacada"). */
   highlight: string;
   cta: string;
+  /** O CTA só leva a seta (chevron) quando o usuário pede. */
+  ctaArrow?: boolean;
 }
 
 /** Marca com **…** cada ocorrência do destaque no texto (sem diferenciar maiúsculas). */
@@ -276,7 +278,7 @@ export function buildLayers(size: Size, opts: BuildOptions): Layer[] {
       // Variante padrão "pill-solid-accent"; o motor de layout troca a cada composição (lib/piece-style.ts).
       variant: "pill-solid-accent",
       pill: { fill: "verde", paddingX: px(28), paddingY: px(18), shadow: "shadowSubtle" },
-      trailingIcon: { file: "chevron-right.svg", size: px(18), gap: px(10) },
+      ...(content.ctaArrow ? { trailingIcon: { file: "chevron-right.svg" as const, size: px(18), gap: px(10) } } : {}),
     });
   }
   layers.push({

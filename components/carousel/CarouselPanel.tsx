@@ -1,13 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { novoConvidado, novoEncerramento, SLIDE_LABEL, type Slide } from "@/lib/carousel";
+import { novoConvidado, SLIDE_LABEL, trocarTipo, type Slide } from "@/lib/carousel";
 
 interface CarouselPanelProps {
   slides: Slide[];
   setSlides: React.Dispatch<React.SetStateAction<Slide[]>>;
-  legenda: string;
-  setLegenda: (v: string) => void;
 }
 
 const fieldClass =
@@ -16,6 +14,16 @@ const iconBtn =
   "flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-500 transition-colors hover:bg-agi-gray-bg hover:text-agi-blue-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:opacity-30";
 const addBtn =
   "w-full rounded-full border border-dashed border-agi-blue px-4 py-2 text-sm font-semibold text-agi-blue transition-colors hover:bg-agi-blue hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue";
+
+/** "Incluir ícone de seta" no CTA do slide (padrão: desmarcado). */
+export function SetaCheckbox({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-xs font-semibold text-agi-blue-dark">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-agi-blue" data-testid="cta-seta" />
+      Incluir ícone de seta
+    </label>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -26,49 +34,34 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Copia para a área de transferência; fallback para páginas sem Clipboard API (ex.: sandbox). */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.style.cssText = "position:fixed;left:-9999px;top:0";
-    document.body.appendChild(area);
-    area.select();
-    const ok = document.execCommand("copy");
-    area.remove();
-    return ok;
-  }
-}
-
-/** Painel do carrossel de evento: cards de slide editáveis, reordenáveis e removíveis + legenda do post. */
-export default function CarouselPanel({ slides, setSlides, legenda, setLegenda }: CarouselPanelProps) {
+/**
+ * Painel do carrossel de evento: cards de slide editáveis, reordenáveis e removíveis. A legenda do
+ * post não entra aqui: a ferramenta gera só as artes (a legenda é da redação).
+ */
+export default function CarouselPanel({ slides, setSlides }: CarouselPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [toast, setToast] = useState<string | null>(null);
 
   const update = useCallback(
-    (id: string, patch: Partial<Record<string, string | null>>) =>
+    (id: string, patch: Partial<Record<string, string | boolean | null>>) =>
       setSlides((prev) => prev.map((s) => (s.id === id ? ({ ...s, ...patch } as Slide) : s))),
     [setSlides],
   );
 
-  const addConvidado = useCallback(() => {
+  // "+ Adicionar Tela": entra um Convidado (o caso mais comum) antes do encerramento, já expandido;
+  // o seletor do card troca para Encerramento se preciso.
+  const addTela = useCallback(() => {
     const novo = novoConvidado(slides);
     setOpen((o) => ({ ...o, [novo.id]: true }));
     setSlides((prev) => {
-      // Entra antes do encerramento, se houver.
       const end = prev.findIndex((s) => s.tipo === "encerramento");
       return end === -1 ? [...prev, novo] : [...prev.slice(0, end), novo, ...prev.slice(end)];
     });
   }, [slides, setSlides]);
 
-  const addEncerramento = useCallback(() => {
-    const novo = novoEncerramento();
-    setOpen((o) => ({ ...o, [novo.id]: true }));
-    setSlides((prev) => [...prev, novo]);
-  }, [setSlides]);
+  const changeTipo = useCallback(
+    (id: string, tipo: "convidado" | "encerramento") => setSlides((prev) => trocarTipo(prev, id, tipo)),
+    [setSlides],
+  );
 
   const removeSlide = useCallback((index: number) => setSlides((prev) => prev.filter((_, i) => i !== index)), [setSlides]);
 
@@ -95,12 +88,6 @@ export default function CarouselPanel({ slides, setSlides, legenda, setLegenda }
     },
     [update],
   );
-
-  const copiar = useCallback(async () => {
-    const ok = await copyText(legenda);
-    setToast(ok ? "Copiado!" : "Não foi possível copiar");
-    setTimeout(() => setToast(null), 2000);
-  }, [legenda]);
 
   const convidadoN = (index: number) => slides.slice(0, index + 1).filter((s) => s.tipo === "convidado").length;
 
@@ -141,6 +128,19 @@ export default function CarouselPanel({ slides, setSlides, legenda, setLegenda }
 
               {expanded && (
                 <div className="flex flex-col gap-3 border-t border-agi-gray-border px-3 py-3">
+                  {slide.tipo !== "capa" && (
+                    <Field label="Tipo de tela">
+                      <select
+                        className={fieldClass}
+                        value={slide.tipo}
+                        onChange={(e) => changeTipo(slide.id, e.target.value as "convidado" | "encerramento")}
+                        data-testid="tipo-tela"
+                      >
+                        <option value="convidado">{SLIDE_LABEL.convidado}</option>
+                        <option value="encerramento">{SLIDE_LABEL.encerramento}</option>
+                      </select>
+                    </Field>
+                  )}
                   {slide.tipo === "capa" && (
                     <>
                       <Field label="Nome do Evento">
@@ -155,6 +155,7 @@ export default function CarouselPanel({ slides, setSlides, legenda, setLegenda }
                       <Field label="Texto do CTA">
                         <input className={fieldClass} value={slide.cta} placeholder="Inscreva-se" onChange={(e) => update(slide.id, { cta: e.target.value })} />
                       </Field>
+                      <SetaCheckbox checked={slide.seta} onChange={(seta) => update(slide.id, { seta })} />
                     </>
                   )}
                   {slide.tipo === "convidado" && (
@@ -190,6 +191,7 @@ export default function CarouselPanel({ slides, setSlides, legenda, setLegenda }
                       <Field label="Link">
                         <input className={fieldClass} value={slide.link} placeholder="agibank.com.br/meetup" onChange={(e) => update(slide.id, { link: e.target.value })} />
                       </Field>
+                      <SetaCheckbox checked={slide.seta} onChange={(seta) => update(slide.id, { seta })} />
                     </>
                   )}
                 </div>
@@ -199,38 +201,9 @@ export default function CarouselPanel({ slides, setSlides, legenda, setLegenda }
         })}
       </ol>
 
-      <button type="button" onClick={addConvidado} className={addBtn}>
-        + Adicionar Convidado
+      <button type="button" onClick={addTela} className={addBtn}>
+        + Adicionar Tela
       </button>
-      <button type="button" onClick={addEncerramento} className={addBtn}>
-        + Adicionar Encerramento
-      </button>
-
-      <div className="mt-3 flex flex-col gap-2 border-t border-agi-gray-border pt-4">
-        <Field label="Legenda do Post">
-          <textarea
-            className={fieldClass}
-            rows={6}
-            value={legenda}
-            onChange={(e) => setLegenda(e.target.value)}
-            placeholder="Texto que acompanha o carrossel no LinkedIn…"
-          />
-        </Field>
-        <button
-          type="button"
-          onClick={copiar}
-          disabled={!legenda.trim()}
-          className="w-fit rounded-full border-2 border-agi-blue px-4 py-1.5 text-sm font-semibold text-agi-blue transition-colors hover:bg-agi-blue hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-agi-blue disabled:cursor-not-allowed disabled:border-agi-gray-border disabled:text-slate-400 disabled:hover:bg-transparent"
-        >
-          Copiar Legenda
-        </button>
-      </div>
-
-      {toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-agi-blue-dark px-5 py-2 text-sm font-semibold text-white shadow-lg">
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

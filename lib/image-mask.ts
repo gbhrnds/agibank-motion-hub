@@ -32,10 +32,11 @@ export function maskPolygon(mask: ImageMask, region: Rect, placement: ImagePlace
   );
 }
 
-/** Recorte "cover": a imagem preenche o retângulo sem distorcer. */
-export function coverFit(imgW: number, imgH: number, box: Rect) {
-  const k = Math.max(box.width / imgW, box.height / imgH);
-  const width = imgW * k;
-  const height = imgH * k;
-  return { x: box.x + (box.width - width) / 2, y: box.y + (box.height - height) / 2, width, height };
+/**
+ * Escala e deslocamento para a imagem cobrir TODA a caixa sem distorcer (equivalente a
+ * `object-fit: cover`): o excesso fica fora da caixa e é cortado pela máscara.
+ */
+export function getCoverFit(imgWidth: number, imgHeight: number, boxWidth: number, boxHeight: number) {
+  const scale = Math.max(boxWidth / imgWidth, boxHeight / imgHeight);
+  return { scale, x: (boxWidth - imgWidth * scale) / 2, y: (boxHeight - imgHeight * scale) / 2 };
 }

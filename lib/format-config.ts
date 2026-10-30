@@ -104,6 +104,8 @@ export interface PieceTexts {
   body: string;
   highlight: string;
   cta: string;
+  /** "Incluir ícone de seta" no CTA. Padrão: sem seta. */
+  ctaArrow: boolean;
 }
 
 export const DEFAULT_TEXTS: PieceTexts = {
@@ -111,4 +113,5 @@ export const DEFAULT_TEXTS: PieceTexts = {
   body: "Organize seus boletos em um só lugar e automatize pagamentos com Pix!",
   highlight: "Pix",
   cta: "Acesse o app do Agi e confira as funções",
+  ctaArrow: false,
 };

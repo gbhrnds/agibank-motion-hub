@@ -15,5 +15,5 @@ interface MaskedImageProps {
 export default function MaskedImage({ layer, mask, onReady }: MaskedImageProps) {
   const points = useMemo(() => maskPolygon(mask, layer.region, layer.placement), [mask, layer.region, layer.placement]);
   // Fora de "brand-layer": a caixa do Konva ignora o recorte; a área da imagem é layer.region.
-  return <PolygonImage id={layer.id} src={layer.src} points={points} onReady={onReady} />;
+  return <PolygonImage id={layer.id} src={layer.src} clip={{ points }} onReady={onReady} />;
 }

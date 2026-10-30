@@ -8,7 +8,9 @@ de apoio, palavra em destaque, CTA e uma imagem opcional) e gere o desdobramento
 formatos marcados de uma vez, cada um numa prancheta. Em Material Impresso há a opção "Gerar Frente e
 Verso" (duas pranchetas por formato), o logo é sempre o arquivo CMYK e o PDF sai em CMYK real.
 Em Marca Empregadora, o tema "Meetup / Evento" troca o desdobramento por um carrossel de LinkedIn com
-N slides (capa, convidados com foto mascarada, encerramento), exportado num PDF de N páginas.
+N slides (capa, convidados com foto recortada por um shape real da marca, encerramento), exportado num
+PDF de N páginas. Nos outros temas, "LinkedIn Carrossel" é um formato comum (uma prancheta 1080×1080).
+Nenhum CTA leva seta por padrão: a seta só entra com "Incluir ícone de seta" marcado.
 
 ## Rodando
 
@@ -37,15 +39,16 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `app/page.tsx` | Barra lateral em cascata (Frente → Subtipo → Formatos, botão "Gerar desdobramento") e área de preview com uma prancheta por formato |
 | `lib/format-config.ts` | `MENU_CONFIG` (frentes, subtipos, formatos com largura/altura) e o contexto de marca de cada frente (audiência e mídia do logo) |
 | `components/canvas/FormatArtboard.tsx` | Prancheta de um formato: compõe a peça, gera os shapes, valida (só no console) e exporta PNG/JPG/PDF |
-| `lib/theme-config.ts` | Temas de template (`temaEvento`: cores como chaves do assets-map, logo "agi", máscaras dos convidados) |
+| `lib/theme-config.ts` | Temas de template (`temaEvento`: cores como chaves do assets-map, logo "agi", máscaras = arquivos de `assets/shapes/`) |
+| `lib/shape-mask.ts` | Lê o `<path>` de um shape da marca e o encaixa numa caixa com escala única (recorte da foto via `Path2D`) |
 | `lib/carousel.ts` | Slides do carrossel (capa / convidado / encerramento), máscara em round-robin, nome do evento estilizado |
-| `components/carousel/CarouselPanel.tsx` | Cards de slide editáveis (↑ ↓ ✕), "+ Adicionar Convidado", legenda do post com "Copiar Legenda" |
+| `components/carousel/CarouselPanel.tsx` | Cards de slide editáveis (↑ ↓ ✕, tipo Convidado/Encerramento, "Incluir ícone de seta") e "+ Adicionar Tela" |
 | `components/carousel/EventSlideCanvas.tsx` | Slide 1080×1080 do tema Evento |
 | `components/carousel/CarouselPreview.tsx` | Slides em sequência horizontal; o PDF segue essa ordem |
 | `lib/color-cmyk.ts` | Fonte única de CMYK: tabela das cores da marca, fórmula RGB→CMYK e `convertCanvasToCMYKBuffer()` |
 | `components/canvas/PolygonImage.tsx` | Foto recortada por polígono (`clipFunc`), usada pela imagem do Patch 12 e pelos convidados |
 | `components/canvas/MaskedImage.tsx` | Imagem enviada recortada (`clipFunc`) por um polígono irregular grande, em metade da peça |
-| `lib/image-mask.ts` | Polígonos de máscara, posição da imagem (direita ou topo) e recorte "cover" |
+| `lib/image-mask.ts` | Polígonos de máscara, posição da imagem (direita ou topo) e `getCoverFit` (foto cobre 100% da máscara, sem distorcer) |
 | `components/canvas/DesignCanvas.tsx` | Stage Konva com `width`/`height` do formato (preview reduzido); mede o layout real |
 | `components/canvas/LogoSmart.tsx` | Escolhe o logo por audiência (`logos.audienceRule`: interno → Agi, externo → Agibank), fundo e mídia (`logos.usageMap`) e mede a área de proteção (3× pingo verde do "i") |
 | `components/canvas/RichText.tsx` | Texto com palavras-chave destacadas (`**Pix**`) e quebra por palavra |
@@ -67,6 +70,16 @@ Ambos os arquivos gerados estão no `.gitignore`.
 | `lib/logo-validator.ts` | Família do logo condiz com a audiência dos canais da peça |
 | `lib/composition-validator.ts` | Regras de `config/composition-patterns.json` e quebra sem viúvas |
 | `lib/export.ts` | PNG, JPG e PDF no tamanho real do formato (`exportRules`); PDF de várias páginas (carrossel) e PDF CMYK via pdf-lib (impressos) |
+
+## Publicação (Vercel)
+
+O app é um Next.js comum: o Vercel detecta o framework e roda `npm run build` (o `prebuild` gera
+`public/assets` e as fontes). Não há `vercel.json` nem variáveis de ambiente obrigatórias — os assets
+vêm da CDN pública de `meta.cdnBase`, com a cópia local como reserva. Para publicar:
+
+1. Em vercel.com → **Add New… → Project**, importe o repositório `gbhrnds/agibank-motion-hub` do GitHub.
+2. Mantenha o preset **Next.js** e clique em **Deploy**. Cada push na branch de produção (Settings →
+   Git → Production Branch) gera um deploy novo; as demais branches geram deploys de preview.
 
 ## Validação de marca
 

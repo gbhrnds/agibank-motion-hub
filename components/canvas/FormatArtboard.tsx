@@ -101,7 +101,13 @@ export default function FormatArtboard({ format, ctx, texts, image, side = "fren
     const style =
       side === "verso"
         ? { ctaStyle: "pill-solid-accent" as const, ctaColor: "azulEscuro" as const, archetype: "textura-espalhada" as const }
-        : { ctaStyle: run.ctaStyle, ctaColor: run.ctaColor, palette: run.palette, preferArchetype: run.archetype };
+        : {
+            // "text-only-arrow" é texto + seta: sem a seta pedida pelo usuário, o CTA vira o contorno (mesma cor).
+            ctaStyle: run.ctaStyle === "text-only-arrow" && !texts.ctaArrow ? ("pill-outline" as const) : run.ctaStyle,
+            ctaColor: run.ctaColor,
+            palette: run.palette,
+            preferArchetype: run.archetype,
+          };
     const seed = seedFor(run, sideKey);
     const empty = (): PieceLayout => ({
       seed,
@@ -140,7 +146,7 @@ export default function FormatArtboard({ format, ctx, texts, image, side = "fren
       setGenerated({ piece: empty(), for: generationBase });
       setError(null);
     }
-  }, [run, silhouettes, logoMetrics, generationBase, size, side, sideKey, format.label]);
+  }, [run, silhouettes, logoMetrics, generationBase, size, side, sideKey, format.label, texts.ctaArrow]);
 
   // Validações de marca: só avisam no console (não bloqueiam geração nem exportação).
   useEffect(() => {

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import type Konva from "konva";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import CarouselPanel from "@/components/carousel/CarouselPanel";
+import CarouselPanel, { SetaCheckbox } from "@/components/carousel/CarouselPanel";
 import { localMirror, logoPath, pickLogoKey, shapePath } from "@/lib/brand-tokens";
 import {
   DEFAULT_TEXTS,
@@ -60,7 +60,6 @@ export default function Page() {
   const [isFrenteVerso, setIsFrenteVerso] = useState(false);
   const [tema, setTema] = useState<ThemeId>("institucional");
   const [slides, setSlides] = useState<Slide[]>(() => [novaCapa()]);
-  const [legenda, setLegenda] = useState("");
   const [exportingCarousel, setExportingCarousel] = useState(false);
   const slideStages = useRef(new Map<string, Konva.Stage>());
 
@@ -101,7 +100,7 @@ export default function Page() {
   const generate = useCallback(() => setRun(pickPieceRun(BACKGROUND)), []);
 
   const setText = useCallback(
-    (key: keyof PieceTexts) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    (key: Exclude<keyof PieceTexts, "ctaArrow">) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setTexts((prev) => ({ ...prev, [key]: e.target.value })),
     [],
   );
@@ -273,7 +272,7 @@ export default function Page() {
           {carouselMode && (
             <fieldset>
               <StepTitle step={stepFormatos + 1}>Slides</StepTitle>
-              <CarouselPanel slides={slides} setSlides={setSlides} legenda={legenda} setLegenda={setLegenda} />
+              <CarouselPanel slides={slides} setSlides={setSlides} />
             </fieldset>
           )}
 
@@ -326,6 +325,10 @@ export default function Page() {
               {texts.highlight.trim() && !texts.body.toLowerCase().includes(texts.highlight.trim().toLowerCase()) && (
                 <p className="text-xs text-slate-500">A palavra em destaque não aparece no texto de apoio.</p>
               )}
+              <SetaCheckbox
+                checked={texts.ctaArrow}
+                onChange={(ctaArrow) => setTexts((prev) => ({ ...prev, ctaArrow }))}
+              />
 
               <div className="flex flex-col gap-1 text-sm font-semibold text-agi-blue-dark">
                 <span>Imagem</span>

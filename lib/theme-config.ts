@@ -9,8 +9,8 @@ export type ThemeId = "institucional" | "evento";
 
 export interface Mascara {
   id: string;
-  /** Polígono irregular normalizado (0–1) na caixa da foto; valores fora de 0–1 sangram. */
-  pontos: [number, number][];
+  /** Forma real da marca (config/assets-map.json → shapes.byType) usada como recorte da foto. */
+  arquivo: string;
 }
 
 export const temaInstitucional = {
@@ -34,12 +34,14 @@ export const temaEvento = {
   } satisfies Record<string, ColorKey>,
   // Família do logo institucional (logos.audienceRule.interno → "agi"), desenhado pelo LogoSmart.
   logo: "agi" as const,
-  // Recorte da foto de cada convidado (round-robin): formas geométricas irregulares.
+  // Recorte da foto de cada convidado (round-robin): formas versionadas em assets/shapes/, nunca
+  // polígonos inventados. A foto preenche 100% da forma; a forma não tem cor própria.
   mascaras: [
-    { id: "diamante_capa", pontos: [[0.52, -0.02], [1.04, 0.44], [0.6, 1.0], [0.0, 0.56]] },
-    { id: "trapezio_dir", pontos: [[0.24, -0.04], [1.04, -0.04], [1.04, 1.0], [0.0, 0.88]] },
-    { id: "hexagono_irregular", pontos: [[0.3, -0.04], [0.9, 0.02], [1.04, 0.5], [0.82, 1.0], [0.18, 0.94], [0.0, 0.4]] },
-    { id: "triangulo_topo", pontos: [[-0.04, -0.04], [1.04, -0.04], [1.04, 0.42], [0.42, 1.0]] },
+    { id: "losango", arquivo: "quadrilateral-14.svg" },
+    { id: "trapezio", arquivo: "quadrilateral-06.svg" },
+    // O repositório não tem hexágono: o polígono irregular de mais lados é o pentágono.
+    { id: "poligono_irregular", arquivo: "pentagon-06.svg" },
+    { id: "triangulo", arquivo: "triangle-06.svg" },
   ] satisfies Mascara[],
 };
 

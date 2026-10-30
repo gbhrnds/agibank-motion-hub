@@ -59,6 +59,11 @@ export function color(key: ColorKey): string {
   return colors[key];
 }
 
+/** Neutros da interface (uiColors). Nas peças, só como marcador de foto ainda não enviada. */
+export function uiColor(key: "grayBg" | "grayBorder"): string {
+  return assetsMap.uiColors[key];
+}
+
 export function fontWeight(key: FontWeightKey): number {
   return assetsMap.typography.weights[key].value;
 }

@@ -1,8 +1,11 @@
 import { temaEvento } from "./theme-config";
 
-/** Slides do carrossel de evento (1 capa, N convidados, encerramento opcional). `id` só identifica o card. */
+/**
+ * Slides do carrossel de evento (1 capa, N convidados, encerramento opcional). `id` só identifica o card.
+ * `seta`: o CTA só leva o ícone de seta quando o usuário marca "Incluir ícone de seta" (padrão: sem seta).
+ */
 export type Slide =
-  | { id: string; tipo: "capa"; nomeEvento: string; headline: string; data: string; cta: string }
+  | { id: string; tipo: "capa"; nomeEvento: string; headline: string; data: string; cta: string; seta: boolean }
   | {
       id: string;
       tipo: "convidado";
@@ -12,7 +15,7 @@ export type Slide =
       bio: string;
       mascaraId: string;
     }
-  | { id: string; tipo: "encerramento"; cta: string; link: string };
+  | { id: string; tipo: "encerramento"; cta: string; link: string; seta: boolean };
 
 export const SLIDE_LABEL: Record<Slide["tipo"], string> = {
   capa: "Capa",
@@ -26,8 +29,8 @@ export const CAROUSEL_SIZE = { width: 1080, height: 1080 };
 let counter = 0;
 const newId = () => `slide-${Date.now().toString(36)}-${(counter++).toString(36)}`;
 
-export const novaCapa = (): Slide => ({ id: newId(), tipo: "capa", nomeEvento: "", headline: "", data: "", cta: "" });
-export const novoEncerramento = (): Slide => ({ id: newId(), tipo: "encerramento", cta: "", link: "" });
+export const novaCapa = (): Slide => ({ id: newId(), tipo: "capa", nomeEvento: "", headline: "", data: "", cta: "", seta: false });
+export const novoEncerramento = (): Slide => ({ id: newId(), tipo: "encerramento", cta: "", link: "", seta: false });
 
 /** Próxima máscara em round-robin, a partir da máscara do último convidado da lista. */
 export function proximaMascara(slides: Slide[]): string {
@@ -39,6 +42,15 @@ export function proximaMascara(slides: Slide[]): string {
 
 export function novoConvidado(slides: Slide[]): Slide {
   return { id: newId(), tipo: "convidado", foto: null, nome: "", cargoEmpresa: "", bio: "", mascaraId: proximaMascara(slides) };
+}
+
+/** Troca o tipo de um slide de tela (Convidado ↔ Encerramento), mantendo o card (mesmo `id`). */
+export function trocarTipo(slides: Slide[], id: string, tipo: "convidado" | "encerramento"): Slide[] {
+  const others = slides.filter((s) => s.id !== id);
+  return slides.map((s) => {
+    if (s.id !== id || s.tipo === tipo || s.tipo === "capa") return s;
+    return { ...(tipo === "convidado" ? novoConvidado(others) : novoEncerramento()), id };
+  });
 }
 
 /** Nome do evento: vem da capa e se repete nos demais slides. */

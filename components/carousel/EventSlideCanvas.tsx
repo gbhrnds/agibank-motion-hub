@@ -2,15 +2,16 @@
 
 import type Konva from "konva";
 import { useCallback, useMemo } from "react";
-import { Circle, Group, Layer as KLayer, Line, Rect as KRect, Stage, Text as KText } from "react-konva";
+import { Group, Layer as KLayer, Path, Rect as KRect, Stage, Text as KText } from "react-konva";
 import IconInline from "@/components/canvas/IconInline";
 import LogoSmart from "@/components/canvas/LogoSmart";
 import PolygonImage from "@/components/canvas/PolygonImage";
 import RichText from "@/components/canvas/RichText";
-import { color, fontStack, fontWeight, type FontWeightKey } from "@/lib/brand-tokens";
+import { color, fontStack, fontWeight, uiColor, type ColorKey, type FontWeightKey } from "@/lib/brand-tokens";
 import { CAROUSEL_SIZE, nomeEstilizado, type Slide } from "@/lib/carousel";
 import type { LogoLayer, TextLayer } from "@/lib/piece-spec";
 import { breakText, measureText } from "@/lib/rich-text";
+import { fitShape, useShapeOutline } from "@/lib/shape-mask";
 import { temaEvento } from "@/lib/theme-config";
 import { useBrandFonts } from "@/lib/use-brand-fonts";
 
@@ -71,18 +72,17 @@ function Tarja(props: { id: string; text: string; x: number; y: number; height: 
   );
 }
 
-/** Losango em contorno verde (grafismo decorativo da capa e do encerramento). */
-function Losango({ cx, cy, size, opacity = 1 }: { cx: number; cy: number; size: number; opacity?: number }) {
-  const r = size / 2;
-  return (
-    <Line
-      points={[cx, cy - r, cx + r * 0.82, cy, cx, cy + r, cx - r * 0.82, cy]}
-      closed
-      stroke={color(cores.destaque)}
-      strokeWidth={8}
-      opacity={opacity}
-    />
-  );
+/**
+ * Grafismo da capa e do encerramento: um shape real da marca (assets/shapes/) na cor dos shapes
+ * (assets-map shapes.color = azul Agibank), sangrando pela borda. Sem formas nem cores inventadas.
+ */
+const GRAFISMO = { capa: "quadrilateral-14.svg", encerramento: "triangle-06.svg" };
+
+function BrandShape({ file, box }: { file: string; box: { x: number; y: number; width: number; height: number } }) {
+  const shape = useShapeOutline(file);
+  if (!shape) return null;
+  const { k, tx, ty } = fitShape(shape, box);
+  return <Path id="grafismo" data={shape.d} x={tx} y={ty} scaleX={k} scaleY={k} fill={color("azulAgibank")} />;
 }
 
 const logoLayer = (align: "left" | "center", width: number): LogoLayer => ({
@@ -106,6 +106,9 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
   const fontsReady = useBrandFonts(WEIGHTS);
   const noop = useCallback(() => {}, []);
   const size = useMemo(() => ({ width: W, height: H }), []);
+  const mascaraFile =
+    slide.tipo === "convidado" ? (temaEvento.mascaras.find((m) => m.id === slide.mascaraId) ?? temaEvento.mascaras[0]).arquivo : GRAFISMO.capa;
+  const mascara = useShapeOutline(mascaraFile);
 
   const content = useMemo(() => {
     if (!fontsReady) return null;
@@ -138,7 +141,7 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
         weight: "bold",
         color: cores.destaque,
       });
-      return { kind: "capa" as const, titulo, headline, data, cta: slide.cta || "Inscreva-se" };
+      return { kind: "capa" as const, titulo, headline, data, cta: slide.cta || "Inscreva-se", seta: slide.seta };
     }
 
     if (slide.tipo === "convidado") {
@@ -149,38 +152,24 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
       );
       // Caixa da foto: metade direita, sangrando para cima e para a direita.
       const box = { x: 380, y: -40, width: 740, height: 720 };
-      const mascara = temaEvento.mascaras.find((m) => m.id === slide.mascaraId) ?? temaEvento.mascaras[0];
-      const points = mascara.pontos.flatMap(([u, v]) => [box.x + u * box.width, box.y + v * box.height]);
-      return { kind: "convidado" as const, label, bio, points, mascara: mascara.id };
+      return { kind: "convidado" as const, label, bio, box };
     }
 
     const titulo = fitHeight(
       textLayer("nome-evento", nome, { x: M, y: 300, width: W - M * 2, fontSize: 96, weight: "regular", color: cores.texto, highlight: nomeHighlight, align: "center" }),
       230,
     );
-    const cta = fitHeight(
-      textLayer("cta", slide.cta || "Até o próximo encontro!", {
-        x: M,
-        y: titulo.y + heightOf(titulo) + 56,
-        width: W - M * 2,
-        fontSize: 56,
-        weight: "extraBold",
-        color: cores.destaque,
-        align: "center",
-        role: "titulo",
-      }),
-      150,
-    );
+    const ctaY = titulo.y + heightOf(titulo) + 56;
     const link = textLayer("link", slide.link || "agibank.com.br", {
       x: M,
-      y: cta.y + heightOf(cta) + 28,
+      y: ctaY + CTA_HEIGHT + 40,
       width: W - M * 2,
       fontSize: 36,
       weight: "semiBold",
       color: cores.texto,
       align: "center",
     });
-    return { kind: "encerramento" as const, titulo, cta, link };
+    return { kind: "encerramento" as const, titulo, cta: slide.cta || "Até o próximo encontro!", ctaY, seta: slide.seta, link };
   }, [fontsReady, slide, nomeEvento]);
 
   return (
@@ -189,17 +178,27 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
         <KRect x={0} y={0} width={W} height={H} fill={color(cores.fundo)} />
         {content?.kind === "capa" && (
           <>
-            <Losango cx={960} cy={600} size={600} />
+            <BrandShape file={GRAFISMO.capa} box={{ x: 760, y: 380, width: 420, height: 460 }} />
             <RichText layer={content.titulo} />
             <RichText layer={content.headline} />
             <RichText layer={content.data} />
-            <CtaCircle text={content.cta} y={Math.max(content.data.y + heightOf(content.data) + 64, 700)} />
+            <CtaButton
+              text={content.cta}
+              x={M}
+              y={Math.max(content.data.y + heightOf(content.data) + 64, 700)}
+              fill={cores.tarjaSecundaria}
+              textColor={cores.texto}
+              seta={content.seta}
+            />
             <LogoSmart audience="interno" layer={logoLayer("left", 150)} size={size} backgroundColor={cores.fundo} onReady={noop} />
           </>
         )}
         {content?.kind === "convidado" && slide.tipo === "convidado" && (
           <>
-            <PolygonImage key={content.mascara} id="foto" src={slide.foto} points={content.points} placeholder="azulMedio" />
+            {mascara && (
+              // Sem foto: marcador neutro (nunca uma cor decorativa); com foto, a foto cobre 100% do shape.
+              <PolygonImage key={mascara.file} id="foto" src={slide.foto} clip={{ shape: mascara, box: content.box }} placeholder={uiColor("grayBorder")} />
+            )}
             <RichText layer={content.label} />
             <Tarja
               id="tarja-nome"
@@ -230,9 +229,16 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
         )}
         {content?.kind === "encerramento" && (
           <>
-            <Losango cx={W - 60} cy={H - 40} size={620} />
+            <BrandShape file={GRAFISMO.encerramento} box={{ x: W - 300, y: H - 330, width: 380, height: 420 }} />
             <RichText layer={content.titulo} />
-            <RichText layer={content.cta} />
+            <CtaButton
+              text={content.cta}
+              centerX={W / 2}
+              y={content.ctaY}
+              fill={cores.destaque}
+              textColor={cores.textoSobreDestaque}
+              seta={content.seta}
+            />
             <RichText layer={content.link} />
             <LogoSmart audience="interno" layer={logoLayer("center", 150)} size={size} backgroundColor={cores.fundo} onReady={noop} />
           </>
@@ -255,17 +261,36 @@ export default function EventSlideCanvas({ slide, nomeEvento, index, total, prev
   );
 }
 
-/** CTA da capa: texto + seta dentro de um círculo azul. */
-function CtaCircle({ text, y }: { text: string; y: number }) {
-  const fontSize = 40;
-  const r = 38;
-  const width = measureText(text, { color: cores.texto, weight: "bold" }, fontSize);
-  const cx = M + width + 28 + r;
+const CTA_HEIGHT = 96;
+
+/**
+ * CTA como botão simples: retângulo com texto. O ícone de seta só entra quando o slide pede
+ * (checkbox "Incluir ícone de seta"); nunca automaticamente.
+ */
+function CtaButton(props: { text: string; x?: number; centerX?: number; y: number; fill: ColorKey; textColor: ColorKey; seta: boolean }) {
+  const padX = 44;
+  const icon = 34;
+  const gap = 16;
+  let fontSize = 40;
+  const extra = props.seta ? gap + icon : 0;
+  while (fontSize > 20 && measureText(props.text, { color: props.textColor, weight: "bold" }, fontSize) + padX * 2 + extra > W - M * 2) fontSize -= 2;
+  const textWidth = measureText(props.text, { color: props.textColor, weight: "bold" }, fontSize);
+  const width = textWidth + padX * 2 + extra;
+  const x = props.centerX !== undefined ? props.centerX - width / 2 : (props.x ?? M);
+  const mid = props.y + CTA_HEIGHT / 2;
   return (
     <Group id="cta">
-      <KText x={M} y={y + r - fontSize / 2} text={text} fontSize={fontSize} fontFamily={fontStack} fontStyle={String(fontWeight("bold"))} fill={color(cores.texto)} />
-      <Circle x={cx} y={y + r} radius={r} fill={color(cores.tarjaSecundaria)} />
-      <IconInline file="chevron-right.svg" color={cores.texto} x={cx - 18} y={y + r - 18} size={36} />
+      <KRect x={x} y={props.y} width={width} height={CTA_HEIGHT} fill={color(props.fill)} />
+      <KText
+        x={x + padX}
+        y={mid - fontSize / 2}
+        text={props.text}
+        fontSize={fontSize}
+        fontFamily={fontStack}
+        fontStyle={String(fontWeight("bold"))}
+        fill={color(props.textColor)}
+      />
+      {props.seta && <IconInline file="chevron-right.svg" color={props.textColor} x={x + padX + textWidth + gap} y={mid - icon / 2} size={icon} />}
     </Group>
   );
 }
